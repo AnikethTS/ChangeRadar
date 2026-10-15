@@ -6,6 +6,11 @@ exists.
 
 ## [Unreleased]
 
+### Fixed
+
+- CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
+  Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
+
 ### Added
 
 - Gradle multi-module foundation (`changeradar-core`, `changeradar-git`,
