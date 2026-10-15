@@ -13,6 +13,7 @@ exists.
 
 ### Added
 
+- Project logo (`.github/logo.png`) on the README.
 - Gradle multi-module foundation (`changeradar-core`, `changeradar-git`,
   `changeradar-analyzer-java`, `changeradar-cli`) on Java 21.
 - `changeradar analyze --base <ref> --head <ref>` CLI with terminal,
