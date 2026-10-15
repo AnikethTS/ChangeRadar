@@ -5,8 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.anikethts.changeradar.core.ChangedFile;
+import io.github.anikethts.changeradar.core.ChangedSymbol;
+import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.Report;
+import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -43,6 +46,54 @@ final class ReportWriters {
       }
     }
     out.println();
+    out.println("Changed symbols (" + report.changedSymbols().size() + ")");
+    if (report.changedSymbols().isEmpty()) {
+      out.println("  (none)");
+    } else {
+      for (ChangedSymbol symbol : report.changedSymbols()) {
+        out.println(
+            "  "
+                + symbol.changeType()
+                + "  "
+                + symbol.kind()
+                + "  "
+                + displayName(symbol)
+                + "  "
+                + symbol.location().path()
+                + ":"
+                + symbol.location().startLine());
+      }
+    }
+    out.println();
+    out.println("Potentially affected (" + report.findings().size() + ")");
+    if (report.findings().isEmpty()) {
+      out.println("  (none)");
+    } else {
+      for (ImpactFinding finding : report.findings()) {
+        out.println(
+            "  ["
+                + finding.confidence()
+                + "] "
+                + finding.type()
+                + "  "
+                + finding.summary()
+                + "  "
+                + finding.location().path()
+                + ":"
+                + finding.location().startLine());
+      }
+    }
+    out.println();
+    out.println("Tests to consider (" + report.tests().size() + ")");
+    if (report.tests().isEmpty()) {
+      out.println("  (none)");
+    } else {
+      for (TestRecommendation test : report.tests()) {
+        out.println("  [" + test.confidence() + "] " + test.name() + "  " + test.path());
+        out.println("           " + test.reason());
+      }
+    }
+    out.println();
     out.println("Limitations");
     for (Limitation limitation : report.limitations()) {
       out.println("  [" + limitation.code() + "] " + limitation.message());
@@ -74,10 +125,63 @@ final class ReportWriters {
       }
       md.append('\n');
     }
+    md.append("## Changed symbols\n\n");
+    if (report.changedSymbols().isEmpty()) {
+      md.append("_None._\n\n");
+    } else {
+      md.append("| Change | Kind | Symbol | Location |\n|---|---|---|---|\n");
+      for (ChangedSymbol symbol : report.changedSymbols()) {
+        md.append("| `")
+            .append(symbol.changeType())
+            .append("` | `")
+            .append(symbol.kind())
+            .append("` | `")
+            .append(displayName(symbol))
+            .append("` | `")
+            .append(symbol.location().path())
+            .append(":")
+            .append(symbol.location().startLine())
+            .append("` |\n");
+      }
+      md.append('\n');
+    }
+    md.append("## Potentially affected\n\n");
+    if (report.findings().isEmpty()) {
+      md.append("_None resolved._ This is not proof of no impact.\n\n");
+    } else {
+      md.append("| Confidence | Type | Summary | Location |\n|---|---|---|---|\n");
+      for (ImpactFinding finding : report.findings()) {
+        md.append("| `")
+            .append(finding.confidence())
+            .append("` | `")
+            .append(finding.type())
+            .append("` | ")
+            .append(finding.summary())
+            .append(" | `")
+            .append(finding.location().path())
+            .append(":")
+            .append(finding.location().startLine())
+            .append("` |\n");
+      }
+      md.append('\n');
+    }
     md.append("## Tests to consider\n\n");
+    if (report.tests().isEmpty()) {
+      md.append("_None selected._\n\n");
+    } else {
+      for (TestRecommendation test : report.tests()) {
+        md.append("- **")
+            .append(test.name())
+            .append("** (`")
+            .append(test.path())
+            .append("`) — ")
+            .append(test.reason())
+            .append('\n');
+      }
+      md.append('\n');
+    }
     md.append(
-        "_Not selected yet._ A suggested test is evidence of relevance, not proof that the test"
-            + " passed or failed.\n\n");
+        "A suggested test is evidence of relevance, not proof that the test passed or failed.\n\n");
     md.append("## Limitations\n\n");
     for (Limitation limitation : report.limitations()) {
       md.append("- **")
@@ -103,12 +207,20 @@ final class ReportWriters {
             report.request().base(),
             report.request().head(),
             report.changedFiles(),
-            List.of(),
-            List.of(),
+            report.changedSymbols(),
+            report.findings(),
+            report.tests(),
             report.limitations(),
             report.policy().blocking(),
             report.policy().violations());
     mapper.writeValue(file.toFile(), body);
+  }
+
+  private static String displayName(ChangedSymbol symbol) {
+    if ("type".equals(symbol.kind()) || symbol.owner().isEmpty()) {
+      return symbol.name();
+    }
+    return symbol.owner() + "#" + symbol.name();
   }
 
   record JsonReport(
@@ -119,8 +231,9 @@ final class ReportWriters {
       String base,
       String head,
       List<ChangedFile> changedFiles,
-      List<Object> changedSymbols,
-      List<Object> recommendedTests,
+      List<ChangedSymbol> changedSymbols,
+      List<ImpactFinding> findings,
+      List<TestRecommendation> recommendedTests,
       List<Limitation> limitations,
       boolean policyBlocking,
       List<String> policyViolations) {}

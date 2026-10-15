@@ -13,6 +13,8 @@ exists.
 
 ### Added
 
+- Java impact analysis: changed symbols, name-based callers, related tests,
+  and public API line occupancy in the terminal/Markdown/JSON reports.
 - Project logo (`.github/logo.png`) on the README.
 - Gradle multi-module foundation (`changeradar-core`, `changeradar-git`,
   `changeradar-analyzer-java`, `changeradar-cli`) on Java 21.

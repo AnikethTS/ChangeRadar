@@ -13,6 +13,7 @@
     "head",
     "changedFiles",
     "changedSymbols",
+    "findings",
     "recommendedTests",
     "limitations",
     "policyBlocking",
@@ -38,6 +39,7 @@
       }
     },
     "changedSymbols": { "type": "array" },
+    "findings": { "type": "array" },
     "recommendedTests": { "type": "array" },
     "limitations": {
       "type": "array",

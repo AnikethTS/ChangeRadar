@@ -4,20 +4,27 @@ import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.GitAccessException;
 import io.github.anikethts.changeradar.core.GitRepository;
+import io.github.anikethts.changeradar.core.LineRange;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
+import org.eclipse.jgit.diff.Edit;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.treewalk.TreeWalk;
 
 public final class JGitRepository implements GitRepository {
 
@@ -66,12 +73,50 @@ public final class JGitRepository implements GitRepository {
       formatter.setRepository(repo);
       List<ChangedFile> files = new ArrayList<>();
       for (DiffEntry entry : formatter.scan(baseTree, headTree)) {
-        files.add(toChangedFile(entry));
+        files.add(toChangedFile(formatter, entry));
       }
       files.sort(Comparator.comparing(ChangedFile::path));
       return List.copyOf(files);
     } catch (IOException e) {
       throw new GitAccessException("Cannot diff " + base + ".." + head, e);
+    }
+  }
+
+  @Override
+  public List<String> listPaths(String revision, String suffix) {
+    Repository repo = git.getRepository();
+    try (RevWalk walk = new RevWalk(repo);
+        TreeWalk treeWalk = new TreeWalk(repo)) {
+      RevCommit commit = walk.parseCommit(requireResolved(revision));
+      treeWalk.addTree(commit.getTree());
+      treeWalk.setRecursive(true);
+      List<String> paths = new ArrayList<>();
+      while (treeWalk.next()) {
+        String path = treeWalk.getPathString();
+        if (path.endsWith(suffix)) {
+          paths.add(path);
+        }
+      }
+      paths.sort(String::compareTo);
+      return List.copyOf(paths);
+    } catch (IOException e) {
+      throw new GitAccessException("Cannot list files at " + revision, e);
+    }
+  }
+
+  @Override
+  public Optional<String> readFile(String revision, String path) {
+    Repository repo = git.getRepository();
+    try (RevWalk walk = new RevWalk(repo);
+        TreeWalk treeWalk =
+            TreeWalk.forPath(repo, path, walk.parseCommit(requireResolved(revision)).getTree())) {
+      if (treeWalk == null) {
+        return Optional.empty();
+      }
+      ObjectLoader loader = repo.open(treeWalk.getObjectId(0));
+      return Optional.of(new String(loader.getBytes(), StandardCharsets.UTF_8));
+    } catch (IOException e) {
+      throw new GitAccessException("Cannot read " + path + " at " + revision, e);
     }
   }
 
@@ -90,13 +135,35 @@ public final class JGitRepository implements GitRepository {
     return parser;
   }
 
-  private static ChangedFile toChangedFile(DiffEntry entry) {
+  private static ChangedFile toChangedFile(DiffFormatter formatter, DiffEntry entry)
+      throws IOException {
+    List<LineRange> hunks = headHunks(formatter, entry);
     return switch (entry.getChangeType()) {
-      case ADD, COPY -> new ChangedFile(entry.getNewPath(), ChangeType.ADD, null);
-      case DELETE -> new ChangedFile(entry.getOldPath(), ChangeType.DELETE, null);
-      case RENAME -> new ChangedFile(entry.getNewPath(), ChangeType.RENAME, entry.getOldPath());
-      case MODIFY -> new ChangedFile(entry.getNewPath(), ChangeType.MODIFY, null);
+      case ADD, COPY -> new ChangedFile(entry.getNewPath(), ChangeType.ADD, null, hunks);
+      case DELETE -> new ChangedFile(entry.getOldPath(), ChangeType.DELETE, null, List.of());
+      case RENAME ->
+          new ChangedFile(entry.getNewPath(), ChangeType.RENAME, entry.getOldPath(), hunks);
+      case MODIFY -> new ChangedFile(entry.getNewPath(), ChangeType.MODIFY, null, hunks);
     };
+  }
+
+  private static List<LineRange> headHunks(DiffFormatter formatter, DiffEntry entry)
+      throws IOException {
+    if (entry.getChangeType() == DiffEntry.ChangeType.DELETE) {
+      return List.of();
+    }
+    List<LineRange> ranges = new ArrayList<>();
+    for (Edit edit : formatter.toFileHeader(entry).toEditList()) {
+      if (edit.getType() == Edit.Type.DELETE) {
+        continue;
+      }
+      int start = edit.getBeginB() + 1;
+      int end = edit.getEndB();
+      if (end >= start) {
+        ranges.add(new LineRange(start, end));
+      }
+    }
+    return List.copyOf(ranges);
   }
 
   @Override

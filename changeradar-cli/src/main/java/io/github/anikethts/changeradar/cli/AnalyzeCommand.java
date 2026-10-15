@@ -2,6 +2,7 @@ package io.github.anikethts.changeradar.cli;
 
 import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
+import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ExitCode;
 import io.github.anikethts.changeradar.core.GitAccessException;
@@ -15,8 +16,10 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
@@ -79,9 +82,23 @@ public final class AnalyzeCommand implements Callable<Integer> {
       git.resolve(base);
       git.resolve(head);
       List<ChangedFile> changed = git.diff(base, head);
+      Map<String, String> headJava = new LinkedHashMap<>();
+      for (String path : git.listPaths(head, ".java")) {
+        git.readFile(head, path).ifPresent(source -> headJava.put(path, source));
+      }
+      Map<String, String> baseJava = new LinkedHashMap<>();
+      for (ChangedFile file : changed) {
+        if (file.isJavaSource()) {
+          git.readFile(base, file.path()).ifPresent(source -> baseJava.put(file.path(), source));
+          if (file.previousPath() != null) {
+            git.readFile(base, file.previousPath())
+                .ifPresent(source -> baseJava.put(file.previousPath(), source));
+          }
+        }
+      }
       JavaLanguageAnalyzer javaAnalyzer = new JavaLanguageAnalyzer();
-      List<Limitation> limitations =
-          new ArrayList<>(javaAnalyzer.limitationsFor(repository, changed));
+      AnalysisResult analysis = javaAnalyzer.analyze(changed, headJava, baseJava);
+      List<Limitation> limitations = new ArrayList<>(analysis.limitations());
       limitations.add(
           new Limitation(
               "NO_POLICY_ENGINE",
@@ -99,6 +116,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
               Instant.now(clock),
               new AnalysisRequest(repository, base, head),
               changed,
+              analysis.changedSymbols(),
+              analysis.findings(),
+              analysis.tests(),
               List.copyOf(limitations),
               PolicyResult.none());
     }

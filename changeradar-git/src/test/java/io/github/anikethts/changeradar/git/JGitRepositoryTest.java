@@ -40,6 +40,11 @@ class JGitRepositoryTest {
       assertEquals(ChangeType.MODIFY, changed.get(0).changeType());
       assertEquals("src/Other.java", changed.get(1).path());
       assertEquals(ChangeType.ADD, changed.get(1).changeType());
+      assertTrue(
+          changed.get(0).headLineRanges().stream().anyMatch(range -> range.startLine() >= 1));
+      assertEquals(
+          "class Demo { void n() {} }\n", repo.readFile("HEAD", "src/Demo.java").orElseThrow());
+      assertTrue(repo.listPaths("HEAD", ".java").contains("src/Demo.java"));
       assertTrue(repo.resolve("HEAD").matches("[0-9a-f]{40,64}"));
     }
   }
