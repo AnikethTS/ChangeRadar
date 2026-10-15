@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AnikethTS/ChangeRadar/schemas/report-v1.schema.json",
+  "title": "ChangeRadar report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "toolVersion",
+    "generatedAt",
+    "repository",
+    "base",
+    "head",
+    "changedFiles",
+    "changedSymbols",
+    "recommendedTests",
+    "limitations",
+    "policyBlocking",
+    "policyViolations"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "toolVersion": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "repository": { "type": "string" },
+    "base": { "type": "string" },
+    "head": { "type": "string" },
+    "changedFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "changeType"],
+        "properties": {
+          "path": { "type": "string" },
+          "changeType": { "type": "string", "enum": ["ADD", "MODIFY", "DELETE", "RENAME"] },
+          "previousPath": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "changedSymbols": { "type": "array" },
+    "recommendedTests": { "type": "array" },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "policyBlocking": { "type": "boolean" },
+    "policyViolations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

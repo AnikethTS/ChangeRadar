@@ -1,0 +1,25 @@
+# Build
+/.gradle/
+/build/
+/*/build/
+/bin/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+hs_err_pid*
+
+# Reports generated locally
+/build/changeradar/
+
+# Editor/OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+*.iml
+
+# Tooling caches
+.classpath
+.project
+.settings/
+.jdk/

@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a new feature or enhancement for ChangeRadar.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the gap?
+      description: What's missing or annoying today, and who runs into it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What's needed
+      description: The minimum bar for this to be considered done. Be concrete about the files/behavior involved if you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope (optional)
+      description: Anything explicitly not part of this — helps keep the PR focused.
+
+  - type: textarea
+    id: verify
+    attributes:
+      label: How to verify
+      description: How would a reviewer confirm this actually works?
+
+  - type: markdown
+    attributes:
+      value: |
+        See [CONTRIBUTING.md](../../CONTRIBUTING.md) — in particular
+        [Scope](../../CONTRIBUTING.md#scope) before opening a PR against this,
+        and the AI-contribution disclosure policy if you use one.

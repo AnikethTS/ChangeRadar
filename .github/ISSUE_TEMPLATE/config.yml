@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/AnikethTS/ChangeRadar/security/advisories/new
+    about: Please don't file security issues publicly — use private vulnerability reporting instead. See SECURITY.md.
+  - name: Good first issues
+    url: https://github.com/AnikethTS/ChangeRadar/issues?q=is%3Aissue+is%3Aopen+label%3Aup-for-grabs
+    about: Looking to contribute? Start here.

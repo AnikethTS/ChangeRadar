@@ -1,0 +1,17 @@
+[versions]
+junit = "5.13.4"
+picocli = "4.7.7"
+jgit = "7.2.1.202505142326-r"
+jackson = "2.19.2"
+spotless = "7.2.1"
+
+[libraries]
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.13.4" }
+picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
+jgit = { module = "org.eclipse.jgit:org.eclipse.jgit", version.ref = "jgit" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

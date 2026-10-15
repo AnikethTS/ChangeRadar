@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in ChangeRadar isn't working as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: A clear description of the bug. Include exact error text if there is any.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger it. Exact commands, not a general description.
+      placeholder: |
+        1. ./run.sh analyze --base ... --head ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: e.g. Ubuntu 24.04, macOS 15, Windows 11
+    validations:
+      required: true
+
+  - type: input
+    id: jdk-version
+    attributes:
+      label: JDK version
+      placeholder: java -version
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ChangeRadar version
+      description: See the VERSION file, or `./run.sh --version`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >
+        CLI output or CI logs (redact tokens, credentials, and large source
+        dumps — reports should not need those).
+      render: shell
