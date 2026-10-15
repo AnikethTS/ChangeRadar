@@ -13,6 +13,9 @@ exists.
 
 ### Added
 
+- GitHub Actions CI on Ubuntu, macOS, and Windows for JDK 21 and 25, with
+  Wrapper validation, CLI smoke on every cell, test-report artifacts on
+  failure, and a required `CI` gate job.
 - Java impact analysis: changed symbols, name-based callers, related tests,
   and public API line occupancy in the terminal/Markdown/JSON reports.
 - Project logo (`.github/logo.png`) on the README.

@@ -38,6 +38,11 @@ The CLI itself still returns `2` for tool failure.
 
 ## GitHub Actions (initial provider)
 
+This repository's own [CI workflow](../.github/workflows/ci.yml) runs
+`./gradlew check` and a CLI smoke job on Ubuntu, macOS, and Windows (JDK 21
+and 25). Jobs use `bash` on every OS so `./gradlew` and `./run.sh` behave
+the same. A `CI` gate job fails unless every required job succeeded.
+
 See [`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml).
 
 Requirements:

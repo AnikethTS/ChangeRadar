@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- JDK 21 or newer (CI also runs `./gradlew check` on JDK 25)
+- JDK 21 or newer (CI runs `./gradlew check` on JDK 21 and 25)
 - Git
 - No system Gradle install required (Wrapper is committed)
 
@@ -43,6 +43,8 @@ schemas/                      JSON report schema
 
 ## CI
 
-GitHub Actions runs `./gradlew check` on Ubuntu (JDK 21 and 25) and
-macOS (JDK 21), plus a CLI smoke job. Third-party actions in this repo's
-workflows are pinned to commit SHAs.
+GitHub Actions runs `./gradlew check` and a CLI smoke job on Ubuntu,
+macOS, and Windows, each on JDK 21 and JDK 25. The Gradle Wrapper is
+validated, workflows are linted with actionlint, and a `CI` gate job
+fails unless every required job succeeded. Third-party actions in this
+repo's workflows are pinned to commit SHAs.
