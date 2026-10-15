@@ -45,7 +45,7 @@ subprojects {
   the<com.diffplug.gradle.spotless.SpotlessExtension>().apply {
     java {
       target("src/**/*.java")
-      googleJavaFormat()
+      googleJavaFormat("1.28.0")
       endWithNewline()
     }
     kotlinGradle {
