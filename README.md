@@ -1,3 +1,7 @@
+<div align="center">
+
+<img src=".github/logo.png" alt="ChangeRadar logo" width="560" />
+
 # ChangeRadar
 
 **Explainable code-change impact analysis for CI/CD.**
@@ -8,6 +12,8 @@
 [![Java](https://img.shields.io/badge/Java-21%2B-ED8B00?logo=openjdk&logoColor=white)](build.gradle.kts)
 [![Gradle](https://img.shields.io/badge/Gradle-wrapper-02303A?logo=gradle&logoColor=white)](gradle/wrapper)
 [![GitHub Actions](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](docs/ci-integration.md)
+
+</div>
 
 If we merge this change, what else might it affect — and what should we
 verify before release?
