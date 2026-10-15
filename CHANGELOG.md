@@ -6,6 +6,11 @@ exists.
 
 ## [Unreleased]
 
+### Fixed
+
+- CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, and Gradle
+  Wrapper 9.1.0 so the Java 25 job can boot the daemon.
+
 ### Added
 
 - Gradle multi-module foundation (`changeradar-core`, `changeradar-git`,
