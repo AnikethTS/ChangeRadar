@@ -1,13 +1,13 @@
 package io.github.anikethts.changeradar.analyzer.java;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
-import io.github.anikethts.changeradar.core.Limitation;
-import java.nio.file.Path;
+import io.github.anikethts.changeradar.core.LineRange;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class JavaLanguageAnalyzerTest {
@@ -15,20 +15,94 @@ class JavaLanguageAnalyzerTest {
   private final JavaLanguageAnalyzer analyzer = new JavaLanguageAnalyzer();
 
   @Test
-  void reportsLimitationWhenJavaFilesChanged() {
-    List<Limitation> limitations =
-        analyzer.limitationsFor(
-            Path.of("."), List.of(new ChangedFile("src/Main.java", ChangeType.MODIFY, null)));
-    assertEquals(1, limitations.size());
-    assertEquals("JAVA_SYMBOLS_NOT_IMPLEMENTED", limitations.get(0).code());
+  void mapsChangedMethodAndFindsCallerAndTest() {
+    String demo =
+        """
+        package demo;
+        public class Demo {
+          public void n() {
+            int x = 1;
+          }
+        }
+        """;
+    String caller =
+        """
+        package demo;
+        public class Caller {
+          void run() {
+            Demo d = new Demo();
+            d.n();
+          }
+        }
+        """;
+    String test =
+        """
+        package demo;
+        public class DemoTest {
+          @org.junit.jupiter.api.Test
+          void coversN() {
+            new Demo().n();
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Demo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 5)))),
+            Map.of(
+                "src/main/java/demo/Demo.java", demo,
+                "src/main/java/demo/Caller.java", caller,
+                "src/test/java/demo/DemoTest.java", test),
+            Map.of());
+
+    assertTrue(
+        result.changedSymbols().stream()
+            .anyMatch(symbol -> "n".equals(symbol.name()) && "method".equals(symbol.kind())));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    finding.type().equals("CALLER")
+                        && finding.location().path().contains("Caller.java")));
+    assertTrue(
+        result.tests().stream()
+            .anyMatch(recommendation -> recommendation.name().equals("DemoTest")));
+  }
+
+  @Test
+  void parsesRecordsAndSwitchExpressions() {
+    String source =
+        """
+        package demo;
+        public record Point(int x, int y) {
+          public int magnitudeKind() {
+            return switch (x) {
+              case 0 -> 0;
+              default -> 1;
+            };
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/Point.java", ChangeType.ADD, null, List.of(new LineRange(1, 12)))),
+            Map.of("src/Point.java", source),
+            Map.of());
+    assertTrue(result.limitations().stream().noneMatch(l -> "JAVA_PARSE_FAILED".equals(l.code())));
+    assertTrue(result.changedSymbols().stream().anyMatch(s -> "Point".equals(s.name())));
   }
 
   @Test
   void silentWhenNoJavaFiles() {
-    assertTrue(
-        analyzer
-            .limitationsFor(
-                Path.of("."), List.of(new ChangedFile("README.md", ChangeType.MODIFY, null)))
-            .isEmpty());
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(new ChangedFile("README.md", ChangeType.MODIFY, null)), Map.of(), Map.of());
+    assertTrue(result.changedSymbols().isEmpty());
   }
 }

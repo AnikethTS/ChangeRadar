@@ -78,6 +78,9 @@ the same place you already review the change.
 
 - Compares explicit `--base` and `--head` Git refs (SHAs or branch names).
 - Lists changed files, including additions, edits, deletions, and renames.
+- Maps changed Java lines to types and methods (JavaParser).
+- Finds likely callers and related tests, labeled DIRECT or HEURISTIC.
+- Flags public Java types/methods that occupy changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.
 - Distinguishes a completed analysis (`0`), a configured policy violation
@@ -85,10 +88,9 @@ the same place you already review the change.
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come, in that order: Java symbols and callers, related tests with
-evidence, public API contract checks, then optional blocking policies and a
-documented GitHub Actions job that comments on a pull request. See the
-[roadmap](docs/architecture.md#roadmap).
+Still to come: a full symbol solver, richer contract checks, optional
+blocking policies, and a documented GitHub Actions job that comments on a
+pull request. See the [roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).

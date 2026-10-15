@@ -64,8 +64,9 @@ class ChangeRadarAppTest {
     String json = Files.readString(out.resolve("report.json"));
     assertTrue(markdown.contains("src/Demo.java"));
     assertTrue(json.contains("\"schemaVersion\""));
-    assertTrue(json.contains("JAVA_SYMBOLS_NOT_IMPLEMENTED"));
+    assertTrue(json.contains("changedSymbols"));
     assertTrue(json.contains("src/Demo.java"));
+    assertTrue(markdown.contains("Changed symbols"));
   }
 
   @Test
@@ -90,7 +91,7 @@ class ChangeRadarAppTest {
     try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
       Path src = tmp.resolve("src/Demo.java");
       Files.createDirectories(src.getParent());
-      Files.writeString(src, "class Demo {}\n");
+      Files.writeString(src, "class Demo { void n() {} }\n");
       git.add().addFilepattern(".").call();
       git.commit()
           .setAuthor("ChangeRadar Test", "test@changeradar.example")
@@ -98,7 +99,7 @@ class ChangeRadarAppTest {
           .setSign(false)
           .setMessage("base")
           .call();
-      Files.writeString(src, "class Demo { int n; }\n");
+      Files.writeString(src, "class Demo { void n() { int x = 1; } }\n");
       git.add().addFilepattern(".").call();
       git.commit()
           .setAuthor("ChangeRadar Test", "test@changeradar.example")
