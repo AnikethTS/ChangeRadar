@@ -138,8 +138,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       if (parsed.getResult().isEmpty()) {
         limitations.add(
             new Limitation(
-                "JAVA_PARSE_FAILED",
-                "Could not parse " + path + ": " + parsed.getProblems()));
+                "JAVA_PARSE_FAILED", "Could not parse " + path + ": " + parsed.getProblems()));
         return;
       }
       CompilationUnit cu = parsed.getResult().get();
