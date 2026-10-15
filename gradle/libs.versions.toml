@@ -1,7 +1,7 @@
 [versions]
 junit = "5.13.4"
 picocli = "4.7.7"
-jgit = "7.2.1.202505142326-r"
+jgit = "7.8.0.202609011348-r"
 jackson = "2.19.2"
 javaparser = "3.26.4"
 spotless = "7.2.1"
