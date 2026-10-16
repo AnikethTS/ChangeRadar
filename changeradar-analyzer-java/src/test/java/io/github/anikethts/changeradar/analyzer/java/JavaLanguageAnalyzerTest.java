@@ -99,6 +99,45 @@ class JavaLanguageAnalyzerTest {
   }
 
   @Test
+  void marksRemovedPublicMethodAsDelete() {
+    String base =
+        """
+        package demo;
+        public class Api {
+          public void gone() {}
+          public void stays() {}
+        }
+        """;
+    String head =
+        """
+        package demo;
+        public class Api {
+          public void stays() {}
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/Api.java", ChangeType.MODIFY, null, List.of(new LineRange(2, 4)))),
+            Map.of("src/Api.java", head),
+            Map.of("src/Api.java", base));
+    assertTrue(
+        result.changedSymbols().stream()
+            .anyMatch(
+                symbol ->
+                    "gone".equals(symbol.name())
+                        && symbol.changeType() == ChangeType.DELETE
+                        && symbol.publiclyVisible()));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "PUBLIC_API".equals(finding.type())
+                        && finding.summary().contains("was removed")));
+  }
+
+  @Test
   void silentWhenNoJavaFiles() {
     AnalysisResult result =
         analyzer.analyze(

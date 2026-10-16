@@ -7,6 +7,7 @@ import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ExitCode;
 import io.github.anikethts.changeradar.core.GitAccessException;
 import io.github.anikethts.changeradar.core.Limitation;
+import io.github.anikethts.changeradar.core.PolicyEngine;
 import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
 import io.github.anikethts.changeradar.core.Version;
@@ -58,6 +59,14 @@ public final class AnalyzeCommand implements Callable<Integer> {
       description = "Directory for markdown/json report files. Created if missing.")
   Path output;
 
+  @Option(
+      names = "--policy",
+      split = ",",
+      description =
+          "Named blocking policies to enable (off by default): breaking-public-java-api,"
+              + " analysis-unavailable. Repeatable or comma-separated.")
+  List<String> policies;
+
   private final Clock clock;
   private final ReportWriters writers;
 
@@ -76,6 +85,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
     if (!Files.isDirectory(repository)) {
       throw new GitAccessException("Repository path is not a directory: " + repository);
     }
+    Set<String> enabledPolicies = PolicyEngine.parseEnabled(policies);
 
     Report report;
     try (var git = JGitRepository.open(repository)) {
@@ -98,11 +108,15 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       JavaLanguageAnalyzer javaAnalyzer = new JavaLanguageAnalyzer();
       AnalysisResult analysis = javaAnalyzer.analyze(changed, headJava, baseJava);
+      PolicyResult policy = PolicyEngine.evaluate(enabledPolicies, analysis, changed);
       List<Limitation> limitations = new ArrayList<>(analysis.limitations());
-      limitations.add(
-          new Limitation(
-              "NO_POLICY_ENGINE",
-              "Blocking policies are not evaluated yet. This run cannot fail with exit code 1."));
+      if (enabledPolicies.isEmpty()) {
+        limitations.add(
+            new Limitation(
+                "POLICIES_DISABLED",
+                "No blocking policies were enabled. Exit 0 means analysis completed, not that the"
+                    + " change is safe. Pass --policy to opt in."));
+      }
       limitations.add(
           new Limitation(
               "STATIC_ANALYSIS_LIMITS",
@@ -120,7 +134,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               analysis.findings(),
               analysis.tests(),
               List.copyOf(limitations),
-              PolicyResult.none());
+              policy);
     }
 
     Set<String> selected = selectedFormats();
@@ -137,7 +151,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
         writers.writeJson(report, dest.resolve("report.json"));
       }
     }
-    return ExitCode.SUCCESS.code();
+    return report.policy().blocking() ? ExitCode.POLICY_VIOLATION.code() : ExitCode.SUCCESS.code();
   }
 
   private Set<String> selectedFormats() {

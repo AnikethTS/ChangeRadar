@@ -10,7 +10,7 @@ ChangeRadar is a local CLI with a language-neutral core. Java is the first
 | CLI (`changeradar-cli`) | Parse arguments, validate refs, choose output formats, map exceptions to exit codes. |
 | Git adapter (`changeradar-git`) | Repository state, base/head resolution, changed files. JGit, hidden behind `GitRepository`. |
 | Language analyzer API (`changeradar-core`) | Parsing and relationship extraction behind `LanguageAnalyzer`. |
-| Java analyzer (`changeradar-analyzer-java`) | JavaParser/symbol-solver in a later milestone. Stub today: detect `.java` files and record a limitation. |
+| Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy and removals. |
 | Impact / policy / report (`changeradar-core`) | Typed findings, confidence, evidence, optional policies. Policies stay independent of severity guesses. |
 | Reporters | Terminal, Markdown, JSON. GitHub Actions (and later GitLab/Jenkins) are thin wrappers around the CLI. |
 
@@ -48,14 +48,14 @@ plus tests against the shared model.
 | Phase | Deliverable | Acceptance |
 | --- | --- | --- |
 | 0 Foundation | Gradle, CLI skeleton, docs, CI | Clean checkout builds and tests. **Current.** |
-| 1 Git diff | Base/head, changed files | Additions, edits, deletions, invalid refs. **Current (files only).** |
-| 2 Java symbols | Changed lines → classes/methods | Fixture tests. |
-| 3 Graph | Call edges, callers, evidence paths | Cycle-safe traversal. |
-| 4 Tests | Related tests with reasons | Every suggestion has confidence. |
-| 5 Reports | Richer terminal/Markdown/JSON | Stable ordering, limitations. |
-| 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. |
-| 7 GitHub Actions | Example + artifacts / optional PR comment | Fork PRs handled safely. |
-| 8 Policies | Optional blocking rules | Only explicit rules block; tool failure stays `2`. |
+| 1 Git diff | Base/head, changed files | Additions, edits, deletions, invalid refs. **Current.** |
+| 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
+| 3 Graph | Call edges, callers, evidence paths | Name-based callers; full solver later. **Partial.** |
+| 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
+| 5 Reports | Richer terminal/Markdown/JSON | Stable ordering, limitations. **Current.** |
+| 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
+| 7 GitHub Actions | Example + artifacts / optional PR comment | Example + artifacts. **Partial.** |
+| 8 Policies | Optional blocking rules | Only explicit rules block; tool failure stays `2`. **Current.** |
 | 9 More analyzers | TypeScript, then Python | Shared contract tests. |
 
 ## MVP non-goals

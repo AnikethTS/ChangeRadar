@@ -20,10 +20,11 @@ does not run tests).
 
 ## Current implementation
 
-Today the tool lists changed files and records:
+Today the tool records:
 
-- `JAVA_SYMBOLS_NOT_IMPLEMENTED` when `.java` files changed.
-- `NO_POLICY_ENGINE` on every run until policies exist.
+- `NAME_BASED_DISPATCH` when Java callers are matched by name.
+- `POLICIES_DISABLED` when no `--policy` flags were passed.
+- `JAVA_PARSE_FAILED` when a source file could not be parsed.
 - `STATIC_ANALYSIS_LIMITS` as a standing reminder.
 
 The number of changed files is not a risk score. A one-line public API

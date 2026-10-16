@@ -8,6 +8,7 @@ import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Limitation;
+import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.io.IOException;
@@ -99,8 +100,7 @@ final class ReportWriters {
       out.println("  [" + limitation.code() + "] " + limitation.message());
     }
     out.println();
-    out.println(
-        "No blocking policy ran. Exit 0 means analysis completed, not that the change is safe.");
+    writePolicyTerminal(report.policy(), out);
   }
 
   void writeMarkdown(Report report, Path file) throws IOException {
@@ -191,6 +191,18 @@ final class ReportWriters {
           .append('\n');
     }
     md.append('\n');
+    md.append("## Policy\n\n");
+    if (report.policy().blocking()) {
+      md.append("Blocking policy violated. Exit code **1**.\n\n");
+      for (String violation : report.policy().violations()) {
+        md.append("- ").append(violation).append('\n');
+      }
+      md.append('\n');
+    } else if (report.policy().violations().isEmpty()) {
+      md.append(
+          "No blocking policy failed. Exit 0 means analysis completed, not that the change is"
+              + " safe.\n\n");
+    }
     md.append(
         "Absence of a finding is not a guarantee of no impact. ChangeRadar does not deploy,"
             + " roll back, or skip the full test suite.\n");
@@ -214,6 +226,21 @@ final class ReportWriters {
             report.policy().blocking(),
             report.policy().violations());
     mapper.writeValue(file.toFile(), body);
+  }
+
+  private static void writePolicyTerminal(PolicyResult policy, PrintStream out) {
+    if (policy.blocking()) {
+      out.println("Policy  BLOCKING");
+      for (String violation : policy.violations()) {
+        out.println("  " + violation);
+      }
+      out.println();
+      out.println("Exit 1: an enabled blocking policy was violated.");
+      return;
+    }
+    out.println("Policy  none blocking");
+    out.println();
+    out.println("Exit 0 means analysis completed, not that the change is safe.");
   }
 
   private static String displayName(ChangedSymbol symbol) {

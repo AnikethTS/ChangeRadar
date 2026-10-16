@@ -77,15 +77,10 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         continue;
       }
       if (changed.changeType() == ChangeType.DELETE) {
-        Map<String, ParsedFile> parsedBase = new LinkedHashMap<>();
-        String source = baseJavaFiles.get(changed.path());
-        if (source != null) {
-          parse(changed.path(), source, parsedBase, limitations);
-          ParsedFile file = parsedBase.get(changed.path());
-          if (file != null) {
-            for (Decl decl : file.decls) {
-              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
-            }
+        ParsedFile baseFile = parseBase(changed.path(), baseJavaFiles, limitations);
+        if (baseFile != null) {
+          for (Decl decl : baseFile.decls) {
+            changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
           }
         }
         continue;
@@ -96,11 +91,27 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       }
       List<LineRange> hunks = changed.headLineRanges();
       boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
+      Set<String> headKeys = new LinkedHashSet<>();
       for (Decl decl : file.decls) {
+        headKeys.add(decl.identity());
         if (wholeFile || overlaps(hunks, decl.startLine, decl.endLine)) {
           ChangeType type =
               changed.changeType() == ChangeType.ADD ? ChangeType.ADD : ChangeType.MODIFY;
           changedSymbols.add(decl.toSymbol(type));
+        }
+      }
+      if (changed.changeType() == ChangeType.MODIFY || changed.changeType() == ChangeType.RENAME) {
+        ParsedFile baseFile =
+            parseBase(
+                changed.previousPath() != null ? changed.previousPath() : changed.path(),
+                baseJavaFiles,
+                limitations);
+        if (baseFile != null) {
+          for (Decl decl : baseFile.decls) {
+            if (!headKeys.contains(decl.identity())) {
+              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
+            }
+          }
         }
       }
     }
@@ -135,7 +146,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       String path, String source, Map<String, ParsedFile> into, List<Limitation> limitations) {
     try {
       ParseResult<CompilationUnit> parsed = PARSER.parse(source);
-      if (parsed.getResult().isEmpty()) {
+      if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
         limitations.add(
             new Limitation(
                 "JAVA_PARSE_FAILED", "Could not parse " + path + ": " + parsed.getProblems()));
@@ -152,6 +163,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                             "type",
                             type.getNameAsString(),
                             qualifiedType(type),
+                            "",
                             type.isPublic(),
                             isTestPath(path) || isTestName(type.getNameAsString()),
                             path,
@@ -188,6 +200,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                       kind,
                       name,
                       owner,
+                      parameterSignature(callable),
                       isPublic,
                       isTestPath(path) || isTestName(owner),
                       path,
@@ -318,13 +331,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
           new ImpactFinding(
               "PUBLIC_API",
               Confidence.DIRECT,
-              "Public "
-                  + symbol.kind()
-                  + " "
-                  + ("type".equals(symbol.kind()) || symbol.owner().isEmpty()
-                      ? symbol.name()
-                      : symbol.owner() + "#" + symbol.name())
-                  + " occupies changed lines",
+              publicApiSummary(symbol),
               symbol.id(),
               symbol.location()));
     }
@@ -402,6 +409,37 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     return new ArrayList<>(tests.values());
   }
 
+  private static ParsedFile parseBase(
+      String path, Map<String, String> baseJavaFiles, List<Limitation> limitations) {
+    String source = baseJavaFiles.get(path);
+    if (source == null) {
+      return null;
+    }
+    Map<String, ParsedFile> parsed = new LinkedHashMap<>();
+    parse(path, source, parsed, limitations);
+    return parsed.get(path);
+  }
+
+  private static String parameterSignature(CallableDeclaration<?> callable) {
+    List<String> types = new ArrayList<>();
+    callable.getParameters().forEach(parameter -> types.add(parameter.getType().asString()));
+    return String.join(",", types);
+  }
+
+  private static String publicApiSummary(ChangedSymbol symbol) {
+    String label =
+        "type".equals(symbol.kind()) || symbol.owner().isEmpty()
+            ? symbol.name()
+            : symbol.owner() + "#" + symbol.name();
+    if (symbol.changeType() == ChangeType.DELETE) {
+      return "Public " + symbol.kind() + " " + label + " was removed";
+    }
+    if (symbol.changeType() == ChangeType.ADD) {
+      return "Public " + symbol.kind() + " " + label + " was added";
+    }
+    return "Public " + symbol.kind() + " " + label + " occupies changed lines";
+  }
+
   private static boolean overlaps(List<LineRange> hunks, int start, int end) {
     for (LineRange hunk : hunks) {
       if (hunk.overlaps(start, end)) {
@@ -457,14 +495,22 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       String kind,
       String name,
       String owner,
+      String signature,
       boolean isPublic,
       boolean test,
       String path,
       int startLine,
       int endLine) {
 
+    String identity() {
+      if ("type".equals(kind)) {
+        return "type:" + owner;
+      }
+      return kind + ":" + owner + "#" + name + "(" + signature + ")";
+    }
+
     ChangedSymbol toSymbol(ChangeType changeType) {
-      String id = path + ":" + owner + "#" + name + "@" + startLine;
+      String id = path + ":" + identity() + "@" + startLine;
       return new ChangedSymbol(
           id,
           kind,
