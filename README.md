@@ -90,9 +90,8 @@ the same place you already review the change.
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come: a full symbol solver, richer binary-compatibility checks,
-and a documented GitHub Actions job that comments on a pull request. See
-the [roadmap](docs/architecture.md#roadmap).
+Still to come: a full symbol solver and richer binary-compatibility
+checks. See the [roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).
@@ -130,7 +129,10 @@ enables that policy. A failed analysis is not the same as a detected risk.
 
 A least-privilege GitHub Actions example lives in
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
-Details: [CI integration](docs/ci-integration.md).
+This repository runs the same workflow and posts (or updates) one PR
+comment with `report.md` on same-repo pull requests. Fork PRs skip the
+comment job. Comments come from github-actions[bot]; the ChangeRadar logo
+is in the comment body. Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
 

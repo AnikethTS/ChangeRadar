@@ -13,8 +13,10 @@ exists.
 
 ### Added
 
-- PHP impact analysis (classes, functions, name-based callers, related
-  tests) and `--policy breaking-public-php`.
+- Optional GitHub Actions job that posts or updates one pull-request
+  comment with `report.md` on same-repo PRs (skipped on forks). The
+  author is github-actions[bot]; the ChangeRadar logo is in the comment
+  body.
 - Python impact analysis (classes, functions, name-based callers, related
   tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,

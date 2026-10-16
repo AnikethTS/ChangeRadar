@@ -57,7 +57,7 @@ plus tests against the shared model.
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
 | 5 Reports | Richer terminal/Markdown/JSON | Stable ordering, limitations. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
-| 7 GitHub Actions | Example + artifacts / optional PR comment | Example + artifacts. **Partial.** |
+| 7 GitHub Actions | Example + artifacts / optional PR comment | Example, artifacts, and a fork-safe PR comment job. **Current.** |
 | 8 Policies | Optional blocking rules | Only explicit rules block; tool failure stays `2`. **Current.** |
 | 9 More analyzers | TypeScript, then Python | TS/JS, Python, and PHP current. |
 
