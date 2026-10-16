@@ -80,6 +80,39 @@ does not change analyze exit codes (`0` / `1` / `2`).
 - A failed comment must not be treated as a policy violation. Do not map
   comment-job failure to CLI exit `1`.
 
+### Commenting as ChangeRadar[bot] (with the project logo)
+
+`secrets.GITHUB_TOKEN` always posts as **github-actions[bot]**. GitHub will
+not let you rename that account or give it another avatar. The identity
+people see on a comment is the GitHub App that minted the token.
+
+Create one GitHub App named **ChangeRadar**. Comments then show as
+**ChangeRadar[bot]** with whatever image you set as the app logo (use
+[`.github/logo.png`](../.github/logo.png)).
+
+1. Open [Register a new GitHub App](https://github.com/settings/apps/new)
+   while signed in as the account that owns this repository.
+2. **GitHub App name:** `ChangeRadar` (must be unique on GitHub; if it is
+   taken, use something like `ChangeRadar-impact` — the comment author
+   becomes that name plus `[bot]`).
+3. **Homepage URL:** `https://github.com/AnikethTS/ChangeRadar`. Uncheck
+   **Webhook → Active**.
+4. Repository permissions: **Issues** Read and write (PR conversation
+   comments use the issues API), **Pull requests** Read and write,
+   **Metadata** Read. Nothing else.
+5. Create the app. On the app settings page, click the avatar, upload
+   `.github/logo.png`, then **Generate a private key**.
+6. **Install App** → only this repository (and later any consumer such as
+   RunnerDeck).
+7. On the repository: Actions **variable** `CHANGERADAR_APP_CLIENT_ID`
+   (the app **Client ID**, starts with `Iv1.`) and Actions **secret**
+   `CHANGERADAR_APP_PRIVATE_KEY` (full PEM, including
+   `BEGIN/END RSA PRIVATE KEY` lines). Fork PRs never receive that secret.
+
+Until those two values exist, the job still comments as github-actions[bot].
+A GitHub App cannot edit a comment it did not author, so hide or delete the
+old github-actions comment after you switch.
+
 GitLab CI, Jenkins, and generic shell examples wait until this contract is
 stable and tested.
 

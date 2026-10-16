@@ -14,7 +14,9 @@ exists.
 ### Added
 
 - Optional GitHub Actions job that posts or updates one pull-request
-  comment with `report.md` on same-repo PRs (skipped on forks).
+  comment with `report.md` on same-repo PRs (skipped on forks). Set a
+  GitHub App named ChangeRadar (with the project logo as the app avatar)
+  to comment as `ChangeRadar[bot]` instead of github-actions[bot].
 - Python impact analysis (classes, functions, name-based callers, related
   tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,
