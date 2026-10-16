@@ -11,6 +11,7 @@ Enable them only when you mean to block:
   --head "$HEAD_SHA" \
   --policy breaking-public-java-api \
   --policy breaking-public-export \
+  --policy breaking-public-python \
   --policy analysis-unavailable
 ```
 
@@ -23,8 +24,8 @@ Enable them only when you mean to block:
 - Only an *explicitly enabled* rule can produce exit `1`.
 - Analyzer/tool failure is always exit `2`, never `1` — except when you
   enable `analysis-unavailable`, which treats a failed parse of a *changed*
-  Java or TypeScript/JavaScript file as a policy violation (`1`), not a tool
-  crash.
+  Java, TypeScript/JavaScript, or Python file as a policy violation (`1`),
+  not a tool crash.
 - Default is fail-open for uncertain findings: report them, do not fail.
 - Fail-closed for *tool* failure is a CI-workflow choice (for example
   `set -e` vs `|| true`), not a hidden CLI default.
@@ -39,8 +40,12 @@ Enable them only when you mean to block:
 - `breaking-public-export` — an exported TypeScript/JavaScript function,
   class, or type was **removed**. Body edits do not trip this rule. Test
   sources are ignored. This is not a full semver / `.d.ts` checker.
-- `analysis-unavailable` — a changed `.java`, `.ts`/`.tsx`, or `.js`/`.jsx`
-  file could not be parsed (`JAVA_PARSE_FAILED` or `TS_PARSE_FAILED`).
-  Distinct from “we found risk.”
+- `breaking-public-python` — a public Python class or function was
+  **removed** (name does not start with `_`, except dunders). Body edits
+  do not trip this rule. Test modules are ignored. This is not a full ABI
+  checker.
+- `analysis-unavailable` — a changed `.java`, `.ts`/`.tsx`, `.js`/`.jsx`,
+  or `.py` file could not be parsed (`JAVA_PARSE_FAILED`, `TS_PARSE_FAILED`,
+  or `PY_PARSE_FAILED`). Distinct from “we found risk.”
 
 Repository-specific policy packs come after these rules are tested.

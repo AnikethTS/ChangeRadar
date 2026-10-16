@@ -21,6 +21,11 @@ public record ChangedFile(
     return path.endsWith(".java");
   }
 
+  public boolean isPythonSource() {
+    String lower = path.toLowerCase();
+    return lower.endsWith(".py") || lower.endsWith(".pyi");
+  }
+
   public boolean isEcmaSource() {
     String lower = path.toLowerCase();
     return lower.endsWith(".ts")

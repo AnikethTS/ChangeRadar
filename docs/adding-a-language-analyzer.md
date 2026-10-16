@@ -1,9 +1,9 @@
 # Adding a language analyzer
 
-The core is language-neutral. Java and TypeScript/JavaScript are wired
-today; Python is next. A new language is an adapter that maps that
-language's symbols and relationships into the shared model — not a fork of
-the CLI or report schema.
+The core is language-neutral. Java, TypeScript/JavaScript, and Python are
+wired today. A new language is an adapter that maps that language's
+symbols and relationships into the shared model — not a fork of the CLI or
+report schema.
 
 ## Contract
 

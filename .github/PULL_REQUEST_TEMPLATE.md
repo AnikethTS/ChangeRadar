@@ -17,7 +17,8 @@ Fixes #
 
 - [ ] Added/updated tests in the module I changed (`changeradar-core`,
       `changeradar-git`, `changeradar-analyzer-java`,
-      `changeradar-analyzer-typescript`, or `changeradar-cli`)
+      `changeradar-analyzer-typescript`, `changeradar-analyzer-python`, or
+      `changeradar-cli`)
 - [ ] `./gradlew check` passes locally
 - [ ] Added a bullet under `## [Unreleased]` in `CHANGELOG.md`
 - [ ] Stayed in scope — no unrelated refactors, new dependencies, language

@@ -79,6 +79,7 @@ the same place you already review the change.
 - Maps changed Java lines to types and methods (JavaParser).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
+- Maps changed Python lines to classes and functions (not CPython).
 - Finds likely callers and related tests, labeled DIRECT or HEURISTIC.
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
@@ -88,9 +89,9 @@ the same place you already review the change.
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come: a Python analyzer, a full symbol solver, richer
-binary-compatibility checks, and a documented GitHub Actions job that
-comments on a pull request. See the [roadmap](docs/architecture.md#roadmap).
+Still to come: a full symbol solver, richer binary-compatibility checks,
+and a documented GitHub Actions job that comments on a pull request. See
+the [roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).

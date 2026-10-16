@@ -13,6 +13,8 @@ exists.
 
 ### Added
 
+- Python impact analysis (classes, functions, name-based callers, related
+  tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,
   name-based callers, related tests) and `--policy breaking-public-export`.
 - Optional blocking `--policy` rules (`breaking-public-java-api`,

@@ -34,6 +34,7 @@ changeradar-core/             shared model, exit codes, analyzer API
 changeradar-git/              JGit adapter
 changeradar-analyzer-java/    Java language adapter
 changeradar-analyzer-typescript/ TypeScript/JavaScript adapter
+changeradar-analyzer-python/     Python adapter
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
 examples/github-actions/      copy-paste workflow
