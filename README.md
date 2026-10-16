@@ -80,6 +80,7 @@ the same place you already review the change.
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).
+- Maps changed PHP lines to classes and functions (not php-parser).
 - Finds likely callers and related tests, labeled DIRECT or HEURISTIC.
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable

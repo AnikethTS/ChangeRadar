@@ -48,6 +48,7 @@ jobs:
           #   --policy breaking-public-java-api
           #   --policy breaking-public-export
           #   --policy breaking-public-python
+          #   --policy breaking-public-php
           #   --policy analysis-unavailable
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

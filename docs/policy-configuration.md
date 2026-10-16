@@ -12,6 +12,7 @@ Enable them only when you mean to block:
   --policy breaking-public-java-api \
   --policy breaking-public-export \
   --policy breaking-public-python \
+  --policy breaking-public-php \
   --policy analysis-unavailable
 ```
 
@@ -24,8 +25,8 @@ Enable them only when you mean to block:
 - Only an *explicitly enabled* rule can produce exit `1`.
 - Analyzer/tool failure is always exit `2`, never `1` — except when you
   enable `analysis-unavailable`, which treats a failed parse of a *changed*
-  Java, TypeScript/JavaScript, or Python file as a policy violation (`1`),
-  not a tool crash.
+  Java, TypeScript/JavaScript, Python, or PHP file as a policy violation
+  (`1`), not a tool crash.
 - Default is fail-open for uncertain findings: report them, do not fail.
 - Fail-closed for *tool* failure is a CI-workflow choice (for example
   `set -e` vs `|| true`), not a hidden CLI default.
@@ -44,8 +45,13 @@ Enable them only when you mean to block:
   **removed** (name does not start with `_`, except dunders). Body edits
   do not trip this rule. Test modules are ignored. This is not a full ABI
   checker.
+- `breaking-public-php` — a public PHP class or function was **removed**.
+  `private`/`protected` members and names starting with `_` (except
+  dunders) do not count. Body edits do not trip this rule. This is not a
+  full reflection / Composer ABI checker.
 - `analysis-unavailable` — a changed `.java`, `.ts`/`.tsx`, `.js`/`.jsx`,
-  or `.py` file could not be parsed (`JAVA_PARSE_FAILED`, `TS_PARSE_FAILED`,
-  or `PY_PARSE_FAILED`). Distinct from “we found risk.”
+  `.py`, or `.php` file could not be parsed (`JAVA_PARSE_FAILED`,
+  `TS_PARSE_FAILED`, `PY_PARSE_FAILED`, or `PHP_PARSE_FAILED`). Distinct
+  from “we found risk.”
 
 Repository-specific policy packs come after these rules are tested.

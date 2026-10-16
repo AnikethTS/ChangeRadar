@@ -162,6 +162,52 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void analyzePhpDiffWritesSymbols() throws Exception {
+    seedPhpRepo();
+    Path out = tmp.resolve("php-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("api.php"));
+    assertTrue(json.contains("\"n\""));
+  }
+
+  @Test
+  void removedPhpFunctionBlocksWhenPhpPolicyEnabled() throws Exception {
+    seedPhpRemoval();
+    int withoutPolicy =
+        command()
+            .execute("analyze", "--base", "HEAD~1", "--head", "HEAD", "--repo", tmp.toString());
+    assertEquals(0, withoutPolicy);
+    int withPolicy =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-php");
+    assertEquals(1, withPolicy);
+  }
+
+  @Test
   void unknownPolicyIsFailure() throws Exception {
     seedRepo();
     CommandLine cmd = command();
@@ -339,6 +385,30 @@ class ChangeRadarAppTest {
       git.add().addFilepattern(".").call();
       commit(git, "base");
       Files.writeString(src, "def stays():\n    pass\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPhpRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.php");
+      Files.writeString(src, "<?php\nfunction n() { return 1; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "<?php\nfunction n() { return 2; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPhpRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.php");
+      Files.writeString(src, "<?php\nfunction gone() {}\nfunction stays() {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "<?php\nfunction stays() {}\n");
       git.add().addFilepattern(".").call();
       commit(git, "head");
     }
