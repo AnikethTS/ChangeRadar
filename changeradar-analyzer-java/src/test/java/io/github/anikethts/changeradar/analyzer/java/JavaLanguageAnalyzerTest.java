@@ -188,6 +188,45 @@ class JavaLanguageAnalyzerTest {
   }
 
   @Test
+  void otherTypeUnscopedSameNameIsNotACaller() {
+    String foo =
+        """
+        package demo;
+        public class Foo {
+          static void parseBase() {}
+        }
+        """;
+    String other =
+        """
+        package other;
+        public class PhpAnalyzer {
+          static void parseBase() {}
+          void run() {
+            parseBase();
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Foo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 3)))),
+            Map.of(
+                "src/main/java/demo/Foo.java", foo,
+                "src/main/java/other/PhpAnalyzer.java", other),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("PhpAnalyzer.java")));
+  }
+
+  @Test
   void unresolvedCallWithSameNameIsHeuristic() {
     String foo =
         """

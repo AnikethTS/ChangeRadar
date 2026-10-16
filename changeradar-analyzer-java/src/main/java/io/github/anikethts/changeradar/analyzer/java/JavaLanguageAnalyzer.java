@@ -331,7 +331,15 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             && changedMethods.contains(scopeType.get() + "#" + methodName)) {
           confidence = Confidence.DIRECT;
           matchedOwner = scopeType.get();
-        } else if (changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
+        } else if (scopeType.isEmpty()
+            && enclosing.isPresent()
+            && changedMethods.contains(enclosing.get() + "#" + methodName)) {
+          // Unresolved this/static call: only the enclosing type, not every parseBase() in the
+          // repo.
+          confidence = Confidence.HEURISTIC;
+          matchedOwner = enclosing.get();
+        } else if (scopeType.isPresent()
+            && changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
           confidence = Confidence.HEURISTIC;
           matchedOwner =
               changedMethods.stream()
