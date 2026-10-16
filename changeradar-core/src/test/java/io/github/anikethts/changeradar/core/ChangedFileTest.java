@@ -20,4 +20,11 @@ class ChangedFileTest {
     assertTrue(new ChangedFile("src/util.js", ChangeType.MODIFY, null).isEcmaSource());
     assertFalse(new ChangedFile("src/Main.java", ChangeType.MODIFY, null).isEcmaSource());
   }
+
+  @Test
+  void pythonSourceDetection() {
+    assertTrue(new ChangedFile("api.py", ChangeType.MODIFY, null).isPythonSource());
+    assertTrue(new ChangedFile("api.pyi", ChangeType.MODIFY, null).isPythonSource());
+    assertFalse(new ChangedFile("api.ts", ChangeType.MODIFY, null).isPythonSource());
+  }
 }

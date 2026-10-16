@@ -116,6 +116,52 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void analyzePythonDiffWritesSymbols() throws Exception {
+    seedPythonRepo();
+    Path out = tmp.resolve("py-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("api.py"));
+    assertTrue(json.contains("\"n\""));
+  }
+
+  @Test
+  void removedPythonFunctionBlocksWhenPythonPolicyEnabled() throws Exception {
+    seedPythonRemoval();
+    int withoutPolicy =
+        command()
+            .execute("analyze", "--base", "HEAD~1", "--head", "HEAD", "--repo", tmp.toString());
+    assertEquals(0, withoutPolicy);
+    int withPolicy =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-python");
+    assertEquals(1, withPolicy);
+  }
+
+  @Test
   void unknownPolicyIsFailure() throws Exception {
     seedRepo();
     CommandLine cmd = command();
@@ -269,6 +315,30 @@ class ChangeRadarAppTest {
       git.add().addFilepattern(".").call();
       commit(git, "base");
       Files.writeString(src, "export function stays() {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPythonRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.py");
+      Files.writeString(src, "def n():\n    return 1\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "def n():\n    return 2\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPythonRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.py");
+      Files.writeString(src, "def gone():\n    pass\n\ndef stays():\n    pass\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "def stays():\n    pass\n");
       git.add().addFilepattern(".").call();
       commit(git, "head");
     }
