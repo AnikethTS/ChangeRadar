@@ -22,7 +22,10 @@ does not run tests).
 
 Today the tool records:
 
-- `NAME_BASED_DISPATCH` when Java callers are matched by name.
+- `JAVA_SYMBOL_SOLVER` when Java callers are type-resolved against HEAD
+  sources and the JRE (not compiled dependencies).
+- `NAME_BASED_DISPATCH` when a Java call site could not be resolved and
+  fell back to method-name matching (`HEURISTIC`).
 - `TS_NAME_BASED_DISPATCH` when TypeScript/JavaScript callers are matched
   by name without tsc.
 - `PY_NAME_BASED_DISPATCH` when Python callers are matched by name without

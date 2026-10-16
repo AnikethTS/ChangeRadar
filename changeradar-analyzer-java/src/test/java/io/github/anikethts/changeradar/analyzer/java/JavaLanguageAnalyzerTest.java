@@ -1,10 +1,12 @@
 package io.github.anikethts.changeradar.analyzer.java;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
+import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.LineRange;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +69,9 @@ class JavaLanguageAnalyzerTest {
             .anyMatch(
                 finding ->
                     finding.type().equals("CALLER")
+                        && finding.confidence() == Confidence.DIRECT
                         && finding.location().path().contains("Caller.java")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "JAVA_SYMBOL_SOLVER".equals(l.code())));
     assertTrue(
         result.tests().stream()
             .anyMatch(recommendation -> recommendation.name().equals("DemoTest")));
@@ -135,6 +139,103 @@ class JavaLanguageAnalyzerTest {
                 finding ->
                     "PUBLIC_API".equals(finding.type())
                         && finding.summary().contains("was removed")));
+  }
+
+  @Test
+  void sameMethodNameOnAnotherTypeIsNotACaller() {
+    String foo =
+        """
+        package demo;
+        public class Foo {
+          public void n() {}
+        }
+        """;
+    String bar =
+        """
+        package demo;
+        public class Bar {
+          public void n() {}
+        }
+        """;
+    String caller =
+        """
+        package demo;
+        public class Caller {
+          void run() {
+            new Bar().n();
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Foo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 3)))),
+            Map.of(
+                "src/main/java/demo/Foo.java", foo,
+                "src/main/java/demo/Bar.java", bar,
+                "src/main/java/demo/Caller.java", caller),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("Caller.java")));
+  }
+
+  @Test
+  void unresolvedCallWithSameNameIsHeuristic() {
+    String foo =
+        """
+        package demo;
+        public class Foo {
+          public void n() {}
+        }
+        """;
+    String caller =
+        """
+        package demo;
+        public class Caller {
+          void run(lib.Unknown x) {
+            x.n();
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Foo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 3)))),
+            Map.of(
+                "src/main/java/demo/Foo.java", foo,
+                "src/main/java/demo/Caller.java", caller),
+            Map.of());
+    assertEquals(
+        Confidence.HEURISTIC,
+        result.findings().stream()
+            .filter(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("Caller.java"))
+            .findFirst()
+            .orElseThrow()
+            .confidence());
+    assertTrue(result.limitations().stream().anyMatch(l -> "NAME_BASED_DISPATCH".equals(l.code())));
+  }
+
+  @Test
+  void infersMavenStyleSourceRoot() {
+    assertEquals(
+        "src/main/java",
+        JavaLanguageAnalyzer.inferSourceRoot(
+            "src/main/java/demo/Foo.java", "package demo;\nclass Foo {}"));
   }
 
   @Test

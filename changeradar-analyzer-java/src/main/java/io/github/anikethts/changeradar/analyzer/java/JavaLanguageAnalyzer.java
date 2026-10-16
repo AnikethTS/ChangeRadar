@@ -12,6 +12,12 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
@@ -23,6 +29,8 @@ import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.TestRecommendation;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,10 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Java analyzer: maps changed lines to types and methods, then finds name-resolvable callers and
- * related tests. Calls without a matching type scope are labeled HEURISTIC.
+ * Java analyzer: maps changed lines to types and methods, then finds callers. In-repo types plus
+ * the JRE are resolved with JavaParser's symbol solver (DIRECT). Unresolved calls fall back to name
+ * matching (HEURISTIC). Compiled Maven/Gradle dependencies are not on the type path.
  */
 public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
 
@@ -44,6 +55,8 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
   private static final JavaParser PARSER =
       new JavaParser(
           new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
+
+  private static final Pattern PACKAGE_DECL = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
 
   @Override
   public String languageId() {
@@ -68,85 +81,121 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     List<Limitation> limitations = new ArrayList<>();
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
-
-    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
-      parse(entry.getKey(), entry.getValue(), parsedHead, limitations);
+    Path solverRoot = null;
+    JavaParser headParser = PARSER;
+    if (!headJavaFiles.isEmpty()) {
+      try {
+        solverRoot = materializeSources(headJavaFiles);
+        headParser = parserWithSolver(solverRoot, headJavaFiles);
+        limitations.add(
+            new Limitation(
+                "JAVA_SYMBOL_SOLVER",
+                "Java callers are type-resolved against HEAD sources and the JRE. Types that exist"
+                    + " only in compiled dependencies are not on the path; those call sites fall"
+                    + " back to name matching (HEURISTIC)."));
+      } catch (IOException e) {
+        limitations.add(
+            new Limitation(
+                "JAVA_SYMBOL_SOLVER",
+                "Could not set up the Java symbol solver ("
+                    + e.getMessage()
+                    + "); callers fall back to name matching."));
+      }
     }
 
-    for (ChangedFile changed : changedFiles) {
-      if (!changed.isJavaSource()) {
-        continue;
+    try {
+      for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
+        parse(headParser, entry.getKey(), entry.getValue(), parsedHead, limitations);
       }
-      if (changed.changeType() == ChangeType.DELETE) {
-        ParsedFile baseFile = parseBase(changed.path(), baseJavaFiles, limitations);
-        if (baseFile != null) {
-          for (Decl decl : baseFile.decls) {
-            changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
+
+      for (ChangedFile changed : changedFiles) {
+        if (!changed.isJavaSource()) {
+          continue;
+        }
+        if (changed.changeType() == ChangeType.DELETE) {
+          ParsedFile baseFile = parseBase(changed.path(), baseJavaFiles, limitations);
+          if (baseFile != null) {
+            for (Decl decl : baseFile.decls) {
+              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
+            }
+          }
+          continue;
+        }
+        ParsedFile file = parsedHead.get(changed.path());
+        if (file == null) {
+          continue;
+        }
+        List<LineRange> hunks = changed.headLineRanges();
+        boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
+        Set<String> headKeys = new LinkedHashSet<>();
+        for (Decl decl : file.decls) {
+          headKeys.add(decl.identity());
+          if (wholeFile || overlaps(hunks, decl.startLine, decl.endLine)) {
+            ChangeType type =
+                changed.changeType() == ChangeType.ADD ? ChangeType.ADD : ChangeType.MODIFY;
+            changedSymbols.add(decl.toSymbol(type));
           }
         }
-        continue;
-      }
-      ParsedFile file = parsedHead.get(changed.path());
-      if (file == null) {
-        continue;
-      }
-      List<LineRange> hunks = changed.headLineRanges();
-      boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
-      Set<String> headKeys = new LinkedHashSet<>();
-      for (Decl decl : file.decls) {
-        headKeys.add(decl.identity());
-        if (wholeFile || overlaps(hunks, decl.startLine, decl.endLine)) {
-          ChangeType type =
-              changed.changeType() == ChangeType.ADD ? ChangeType.ADD : ChangeType.MODIFY;
-          changedSymbols.add(decl.toSymbol(type));
-        }
-      }
-      if (changed.changeType() == ChangeType.MODIFY || changed.changeType() == ChangeType.RENAME) {
-        ParsedFile baseFile =
-            parseBase(
-                changed.previousPath() != null ? changed.previousPath() : changed.path(),
-                baseJavaFiles,
-                limitations);
-        if (baseFile != null) {
-          for (Decl decl : baseFile.decls) {
-            if (!headKeys.contains(decl.identity())) {
-              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
+        if (changed.changeType() == ChangeType.MODIFY
+            || changed.changeType() == ChangeType.RENAME) {
+          ParsedFile baseFile =
+              parseBase(
+                  changed.previousPath() != null ? changed.previousPath() : changed.path(),
+                  baseJavaFiles,
+                  limitations);
+          if (baseFile != null) {
+            for (Decl decl : baseFile.decls) {
+              if (!headKeys.contains(decl.identity())) {
+                changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
+              }
             }
           }
         }
       }
+
+      changedSymbols.sort(
+          Comparator.comparing((ChangedSymbol s) -> s.location().path())
+              .thenComparing(s -> s.location().startLine())
+              .thenComparing(ChangedSymbol::id));
+
+      List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+      findings.addAll(publicApiFindings(changedSymbols));
+      findings.sort(
+          Comparator.comparing((ImpactFinding f) -> f.location().path())
+              .thenComparing(f -> f.location().startLine())
+              .thenComparing(ImpactFinding::summary));
+
+      List<TestRecommendation> tests = recommendTests(parsedHead, changedSymbols, findings);
+      tests.sort(
+          Comparator.comparing(TestRecommendation::path).thenComparing(TestRecommendation::name));
+
+      if (findings.stream()
+          .anyMatch(
+              finding ->
+                  "CALLER".equals(finding.type())
+                      && finding.confidence() == Confidence.HEURISTIC)) {
+        limitations.add(
+            new Limitation(
+                "NAME_BASED_DISPATCH",
+                "Some Java call sites could not be type-resolved (missing dependency types,"
+                    + " reflection, or incomplete HEAD sources) and were matched by method name"
+                    + " only. Those matches are labeled HEURISTIC."));
+      }
+
+      return new AnalysisResult(changedSymbols, findings, tests, limitations);
+    } finally {
+      deleteRecursively(solverRoot);
     }
-
-    changedSymbols.sort(
-        Comparator.comparing((ChangedSymbol s) -> s.location().path())
-            .thenComparing(s -> s.location().startLine())
-            .thenComparing(ChangedSymbol::id));
-
-    List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
-    findings.addAll(publicApiFindings(changedSymbols));
-    findings.sort(
-        Comparator.comparing((ImpactFinding f) -> f.location().path())
-            .thenComparing(f -> f.location().startLine())
-            .thenComparing(ImpactFinding::summary));
-
-    List<TestRecommendation> tests = recommendTests(parsedHead, changedSymbols, findings);
-    tests.sort(
-        Comparator.comparing(TestRecommendation::path).thenComparing(TestRecommendation::name));
-
-    limitations.add(
-        new Limitation(
-            "NAME_BASED_DISPATCH",
-            "Callers are matched by method/type name without a full symbol solver. Overloaded"
-                + " methods, inherited members, and dynamic dispatch may be missed or over-reported."
-                + " Those matches are labeled HEURISTIC unless the call site names the type."));
-
-    return new AnalysisResult(changedSymbols, findings, tests, limitations);
   }
 
   private static void parse(
-      String path, String source, Map<String, ParsedFile> into, List<Limitation> limitations) {
+      JavaParser parser,
+      String path,
+      String source,
+      Map<String, ParsedFile> into,
+      List<Limitation> limitations) {
     try {
-      ParseResult<CompilationUnit> parsed = PARSER.parse(source);
+      ParseResult<CompilationUnit> parsed = parser.parse(source);
       if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
         limitations.add(
             new Limitation(
@@ -154,6 +203,8 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         return;
       }
       CompilationUnit cu = parsed.getResult().get();
+      String pkg =
+          cu.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
       List<Decl> decls = new ArrayList<>();
       for (TypeDeclaration<?> type : cu.findAll(TypeDeclaration.class)) {
         type.getRange()
@@ -163,7 +214,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                         new Decl(
                             "type",
                             type.getNameAsString(),
-                            qualifiedType(type),
+                            qualify(pkg, typeName(type)),
                             "",
                             type.isPublic(),
                             isTestPath(path) || isTestName(type.getNameAsString()),
@@ -172,10 +223,11 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                             range.end.line)));
       }
       for (MethodDeclaration method : cu.findAll(MethodDeclaration.class)) {
-        addCallable(decls, path, method, "method", method.getNameAsString(), method.isPublic());
+        addCallable(
+            decls, pkg, path, method, "method", method.getNameAsString(), method.isPublic());
       }
       for (ConstructorDeclaration ctor : cu.findAll(ConstructorDeclaration.class)) {
-        addCallable(decls, path, ctor, "constructor", ctor.getNameAsString(), ctor.isPublic());
+        addCallable(decls, pkg, path, ctor, "constructor", ctor.getNameAsString(), ctor.isPublic());
       }
       into.put(path, new ParsedFile(path, cu, decls, isTestPath(path)));
     } catch (RuntimeException e) {
@@ -186,6 +238,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
 
   private static void addCallable(
       List<Decl> decls,
+      String pkg,
       String path,
       CallableDeclaration<?> callable,
       String kind,
@@ -195,7 +248,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         .getRange()
         .ifPresent(
             range -> {
-              String owner = enclosingType(callable).orElse("");
+              String owner = qualify(pkg, enclosingType(callable).orElse(""));
               decls.add(
                   new Decl(
                       kind,
@@ -217,13 +270,21 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     for (ChangedSymbol symbol : changedSymbols) {
       if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
         changedMethods.add(symbol.owner() + "#" + symbol.name());
+        String simpleOwner = simpleName(symbol.owner());
+        if (!simpleOwner.isEmpty()) {
+          changedMethods.add(simpleOwner + "#" + symbol.name());
+        }
       }
       if ("type".equals(symbol.kind())) {
         changedTypes.add(symbol.name());
+        changedTypes.add(simpleName(symbol.name()));
       } else {
         String simple = simpleName(symbol.owner());
         if (!simple.isEmpty()) {
           changedTypes.add(simple);
+        }
+        if (!symbol.owner().isEmpty()) {
+          changedTypes.add(symbol.owner());
         }
       }
     }
@@ -255,9 +316,19 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             continue;
           }
         }
+        Optional<ResolvedCall> resolved = resolveMethodCall(call);
         final Confidence confidence;
         final String matchedOwner;
-        if (scopeType.isPresent() && changedMethods.contains(scopeType.get() + "#" + methodName)) {
+        if (resolved.isPresent()) {
+          ResolvedCall match = resolved.get();
+          if (!changedMethods.contains(match.owner() + "#" + match.name())
+              && !changedMethods.contains(simpleName(match.owner()) + "#" + match.name())) {
+            continue;
+          }
+          confidence = Confidence.DIRECT;
+          matchedOwner = match.owner();
+        } else if (scopeType.isPresent()
+            && changedMethods.contains(scopeType.get() + "#" + methodName)) {
           confidence = Confidence.DIRECT;
           matchedOwner = scopeType.get();
         } else if (changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
@@ -294,17 +365,22 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                 });
       }
       for (ObjectCreationExpr create : file.cu.findAll(ObjectCreationExpr.class)) {
-        String typeName = create.getType().getNameAsString();
-        if (!changedTypes.contains(typeName)) {
+        Optional<String> resolvedType = resolveCreatedType(create);
+        String typeName = resolvedType.orElseGet(() -> create.getType().getNameAsString());
+        boolean matched =
+            resolvedType.isPresent()
+                ? changedTypes.contains(typeName) || changedTypes.contains(simpleName(typeName))
+                : changedTypes.contains(typeName);
+        if (!matched) {
           continue;
         }
+        Confidence confidence = resolvedType.isPresent() ? Confidence.DIRECT : Confidence.HEURISTIC;
         create
             .getRange()
             .ifPresent(
                 range -> {
                   String key = file.path + ":" + range.begin.line + ":new " + typeName;
                   if (seen.add(key)) {
-                    Confidence confidence = Confidence.DIRECT;
                     findings.add(
                         new ImpactFinding(
                             "CALLER",
@@ -417,9 +493,112 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       return null;
     }
     Map<String, ParsedFile> parsed = new LinkedHashMap<>();
-    parse(path, source, parsed, limitations);
+    parse(PARSER, path, source, parsed, limitations);
     return parsed.get(path);
   }
+
+  private static Optional<ResolvedCall> resolveMethodCall(MethodCallExpr call) {
+    try {
+      ResolvedMethodDeclaration resolved = call.resolve();
+      return Optional.of(
+          new ResolvedCall(resolved.declaringType().getQualifiedName(), resolved.getName()));
+    } catch (RuntimeException e) {
+      return Optional.empty();
+    }
+  }
+
+  private static Optional<String> resolveCreatedType(ObjectCreationExpr create) {
+    try {
+      ResolvedConstructorDeclaration resolved = create.resolve();
+      return Optional.of(resolved.declaringType().getQualifiedName());
+    } catch (RuntimeException e) {
+      return Optional.empty();
+    }
+  }
+
+  private static JavaParser parserWithSolver(Path solverRoot, Map<String, String> headJavaFiles) {
+    ParserConfiguration language =
+        new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
+    CombinedTypeSolver types = new CombinedTypeSolver();
+    types.add(new ReflectionTypeSolver(true));
+    for (String root : sourceRoots(headJavaFiles)) {
+      Path dir = root.isEmpty() ? solverRoot : solverRoot.resolve(root);
+      if (Files.isDirectory(dir)) {
+        types.add(new JavaParserTypeSolver(dir, language));
+      }
+    }
+    ParserConfiguration configured =
+        new ParserConfiguration()
+            .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
+            .setSymbolResolver(new JavaSymbolSolver(types));
+    return new JavaParser(configured);
+  }
+
+  private static Path materializeSources(Map<String, String> headJavaFiles) throws IOException {
+    Path tmp = Files.createTempDirectory("changeradar-java-");
+    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
+      Path dest = tmp.resolve(entry.getKey()).normalize();
+      if (!dest.startsWith(tmp)) {
+        throw new IOException("Refusing to write outside the solver workspace: " + entry.getKey());
+      }
+      Path parent = dest.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
+      Files.writeString(dest, entry.getValue());
+    }
+    tmp.toFile().deleteOnExit();
+    return tmp;
+  }
+
+  private static Set<String> sourceRoots(Map<String, String> headJavaFiles) {
+    Set<String> roots = new LinkedHashSet<>();
+    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
+      roots.add(inferSourceRoot(entry.getKey(), entry.getValue()));
+    }
+    return roots;
+  }
+
+  static String inferSourceRoot(String path, String source) {
+    String unix = path.replace('\\', '/');
+    Matcher matcher = PACKAGE_DECL.matcher(source);
+    String pkg = matcher.find() ? matcher.group(1) : "";
+    String fileName = unix.substring(unix.lastIndexOf('/') + 1);
+    if (pkg.isEmpty()) {
+      int slash = unix.lastIndexOf('/');
+      return slash < 0 ? "" : unix.substring(0, slash);
+    }
+    String relative = pkg.replace('.', '/') + "/" + fileName;
+    if (unix.endsWith("/" + relative) || unix.equals(relative)) {
+      if (unix.length() == relative.length()) {
+        return "";
+      }
+      return unix.substring(0, unix.length() - relative.length() - 1);
+    }
+    int slash = unix.lastIndexOf('/');
+    return slash < 0 ? "" : unix.substring(0, slash);
+  }
+
+  private static void deleteRecursively(Path root) {
+    if (root == null || !Files.exists(root)) {
+      return;
+    }
+    try (var walk = Files.walk(root)) {
+      walk.sorted(Comparator.reverseOrder())
+          .forEach(
+              path -> {
+                try {
+                  Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                  path.toFile().deleteOnExit();
+                }
+              });
+    } catch (IOException ignored) {
+      root.toFile().deleteOnExit();
+    }
+  }
+
+  private record ResolvedCall(String owner, String name) {}
 
   private static String parameterSignature(CallableDeclaration<?> callable) {
     List<String> types = new ArrayList<>();
@@ -450,8 +629,14 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     return false;
   }
 
-  private static String qualifiedType(TypeDeclaration<?> type) {
-    return typeName(type);
+  private static String qualify(String pkg, String nested) {
+    if (nested.isEmpty()) {
+      return pkg;
+    }
+    if (pkg.isEmpty()) {
+      return nested;
+    }
+    return pkg + "." + nested;
   }
 
   private static String typeName(TypeDeclaration<?> type) {

@@ -5,6 +5,13 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Java callers are type-resolved with JavaParser's symbol solver against
+  HEAD sources and the JRE (`DIRECT`). Unresolved sites still fall back to
+  name matching (`HEURISTIC`). Compiled Maven/Gradle dependencies are not
+  on the type path.
+
 ## [0.1.0] - 2026-10-17
 
 First tagged release. The CLI compares two Git refs, maps changed lines
