@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.cli;
 
 import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
@@ -34,7 +35,9 @@ import picocli.CommandLine.Option;
 public final class AnalyzeCommand implements Callable<Integer> {
 
   private static final List<String> SOURCE_SUFFIXES =
-      List.of(".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi");
+      List.of(
+          ".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi",
+          ".php");
 
   @Option(
       names = "--base",
@@ -71,8 +74,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
       split = ",",
       description =
           "Named blocking policies to enable (off by default): breaking-public-java-api,"
-              + " breaking-public-export, breaking-public-python, analysis-unavailable. Repeatable"
-              + " or comma-separated.")
+              + " breaking-public-export, breaking-public-python, breaking-public-php,"
+              + " analysis-unavailable. Repeatable or comma-separated.")
   List<String> policies;
 
   private final Clock clock;
@@ -104,7 +107,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
           List.of(
               new JavaLanguageAnalyzer(),
               new TypeScriptLanguageAnalyzer(),
-              new PythonLanguageAnalyzer());
+              new PythonLanguageAnalyzer(),
+              new PhpLanguageAnalyzer());
       Map<String, String> headSources = new LinkedHashMap<>();
       for (String suffix : SOURCE_SUFFIXES) {
         for (String path : git.listPaths(head, suffix)) {
@@ -113,7 +117,10 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       Map<String, String> baseSources = new LinkedHashMap<>();
       for (ChangedFile file : changed) {
-        if (file.isJavaSource() || file.isEcmaSource() || file.isPythonSource()) {
+        if (file.isJavaSource()
+            || file.isEcmaSource()
+            || file.isPythonSource()
+            || file.isPhpSource()) {
           git.readFile(base, file.path()).ifPresent(source -> baseSources.put(file.path(), source));
           if (file.previousPath() != null) {
             git.readFile(base, file.previousPath())

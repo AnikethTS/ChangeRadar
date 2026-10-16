@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Language-neutral analyzer contract. Java, TypeScript/JavaScript, and Python adapters map into the
- * same report model.
+ * Language-neutral analyzer contract. Java, TypeScript/JavaScript, Python, and PHP adapters map
+ * into the same report model.
  */
 public interface LanguageAnalyzer {
 

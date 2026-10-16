@@ -13,6 +13,8 @@ exists.
 
 ### Added
 
+- PHP impact analysis (classes, functions, name-based callers, related
+  tests) and `--policy breaking-public-php`.
 - Python impact analysis (classes, functions, name-based callers, related
   tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,

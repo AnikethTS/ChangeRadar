@@ -16,6 +16,7 @@ public final class PolicyEngine {
   public static final String BREAKING_PUBLIC_JAVA_API = "breaking-public-java-api";
   public static final String BREAKING_PUBLIC_EXPORT = "breaking-public-export";
   public static final String BREAKING_PUBLIC_PYTHON = "breaking-public-python";
+  public static final String BREAKING_PUBLIC_PHP = "breaking-public-php";
   public static final String ANALYSIS_UNAVAILABLE = "analysis-unavailable";
 
   public static final Set<String> KNOWN =
@@ -23,6 +24,7 @@ public final class PolicyEngine {
           BREAKING_PUBLIC_JAVA_API,
           BREAKING_PUBLIC_EXPORT,
           BREAKING_PUBLIC_PYTHON,
+          BREAKING_PUBLIC_PHP,
           ANALYSIS_UNAVAILABLE);
 
   private PolicyEngine() {}
@@ -69,6 +71,9 @@ public final class PolicyEngine {
     }
     if (rules.contains(BREAKING_PUBLIC_PYTHON)) {
       violations.addAll(breakingPublicPython(analysis));
+    }
+    if (rules.contains(BREAKING_PUBLIC_PHP)) {
+      violations.addAll(breakingPublicPhp(analysis));
     }
     if (rules.contains(ANALYSIS_UNAVAILABLE)) {
       violations.addAll(analysisUnavailable(analysis, changedFiles));
@@ -129,11 +134,40 @@ public final class PolicyEngine {
     return violations;
   }
 
+  private static List<String> breakingPublicPhp(AnalysisResult analysis) {
+    List<String> violations = new ArrayList<>();
+    for (ChangedSymbol symbol : analysis.changedSymbols()) {
+      if (!symbol.publiclyVisible() || symbol.changeType() != ChangeType.DELETE) {
+        continue;
+      }
+      String path = symbol.location().path();
+      if (isTestPath(path) || !new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource()) {
+        continue;
+      }
+      String label =
+          "type".equals(symbol.kind()) || symbol.owner().isEmpty()
+              ? symbol.name()
+              : symbol.owner() + "#" + symbol.name();
+      violations.add(
+          BREAKING_PUBLIC_PHP
+              + ": public "
+              + symbol.kind()
+              + " "
+              + label
+              + " was removed from "
+              + path);
+    }
+    return violations;
+  }
+
   private static List<String> analysisUnavailable(
       AnalysisResult analysis, List<ChangedFile> changedFiles) {
     List<String> violations = new ArrayList<>();
     for (ChangedFile file : changedFiles) {
-      if (!file.isJavaSource() && !file.isEcmaSource() && !file.isPythonSource()) {
+      if (!file.isJavaSource()
+          && !file.isEcmaSource()
+          && !file.isPythonSource()
+          && !file.isPhpSource()) {
         continue;
       }
       boolean parseFailed =
@@ -157,6 +191,7 @@ public final class PolicyEngine {
         || n.contains("/tests/")
         || n.contains("/src/test")
         || file.startsWith("test_")
-        || file.endsWith("_test.py");
+        || file.endsWith("_test.py")
+        || file.endsWith("test.php");
   }
 }
