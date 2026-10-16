@@ -26,12 +26,12 @@ Today the tool records:
   sources and the JRE (not compiled dependencies).
 - `NAME_BASED_DISPATCH` when a Java call site could not be resolved and
   fell back to method-name matching (`HEURISTIC`).
-- `TS_NAME_BASED_DISPATCH` when TypeScript/JavaScript callers are matched
-  by name without tsc.
-- `PY_NAME_BASED_DISPATCH` when Python callers are matched by name without
-  CPython.
-- `PHP_NAME_BASED_DISPATCH` when PHP callers are matched by name without
-  php-parser.
+- `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched
+  using import/require/`use` specifiers against HEAD files (not tsc,
+  CPython, php-parser, or Composer autoload).
+- `TS_NAME_BASED_DISPATCH` / `PY_NAME_BASED_DISPATCH` /
+  `PHP_NAME_BASED_DISPATCH` when a call site could not be tied to an
+  import of the changed symbol (`HEURISTIC`, including many tests).
 - `POLICIES_DISABLED` when no `--policy` flags were passed.
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
 - `STATIC_ANALYSIS_LIMITS` as a standing reminder.

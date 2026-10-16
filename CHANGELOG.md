@@ -7,6 +7,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- TypeScript, Python, and PHP callers use import/require/`use` specifiers
+  against HEAD files (`DIRECT` when the binding maps to the changed
+  symbol). Same-named functions in files that never imported the change
+  are no longer reported.
 - Java callers are type-resolved with JavaParser's symbol solver against
   HEAD sources and the JRE (`DIRECT`). Unresolved sites still fall back to
   name matching (`HEURISTIC`), but unscoped calls (`parseBase()`) only

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
+import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.LineRange;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +55,7 @@ class TypeScriptLanguageAnalyzerTest {
             .anyMatch(
                 finding ->
                     finding.type().equals("CALLER")
+                        && finding.confidence() == Confidence.DIRECT
                         && finding.location().path().contains("caller.ts")));
     assertTrue(
         result.tests().stream()
@@ -85,6 +87,38 @@ class TypeScriptLanguageAnalyzerTest {
                     "gone".equals(symbol.name())
                         && symbol.changeType() == ChangeType.DELETE
                         && symbol.publiclyVisible()));
+  }
+
+  @Test
+  void sameNameWithoutImportIsNotACaller() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String decoy =
+        """
+        export function n(): number {
+          return 2;
+        }
+        export function run() {
+          return n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of("src/api.ts", api, "src/decoy.ts", decoy),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("decoy.ts")));
   }
 
   @Test

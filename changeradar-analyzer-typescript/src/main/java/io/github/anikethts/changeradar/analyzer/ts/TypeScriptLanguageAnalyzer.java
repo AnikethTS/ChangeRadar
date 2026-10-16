@@ -10,6 +10,7 @@ import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
+import io.github.anikethts.changeradar.core.SourcePaths;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,6 +52,18 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       Pattern.compile("(?:([A-Za-z_$][\\w$]*)\\s*\\.)?([A-Za-z_$][\\w$]*)\\s*(?:<[^>]*>)?\\s*\\(");
   private static final Pattern NEW_TYPE =
       Pattern.compile("\\bnew\\s+([A-Za-z_$][\\w$]*)\\s*(?:<[^>]*>)?\\s*\\(");
+  private static final Pattern IMPORT_NAMED =
+      Pattern.compile(
+          "(?:import|export)\\s+(?:type\\s+)?\\{([^}]+)\\}\\s+from\\s+['\"]([^'\"]+)['\"]");
+  private static final Pattern IMPORT_DEFAULT =
+      Pattern.compile("import\\s+(?:type\\s+)?([A-Za-z_$][\\w$]*)\\s+from\\s+['\"]([^'\"]+)['\"]");
+  private static final Pattern IMPORT_STAR =
+      Pattern.compile("import\\s+\\*\\s+as\\s+([A-Za-z_$][\\w$]*)\\s+from\\s+['\"]([^'\"]+)['\"]");
+  private static final Pattern IMPORT_REQUIRE =
+      Pattern.compile(
+          "(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*require\\s*\\(\\s*['\"]([^'\"]+)['\"]");
+  private static final List<String> MODULE_SUFFIXES =
+      List.of(".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs");
   private static final Set<String> NOT_METHODS =
       Set.of(
           "if",
@@ -164,10 +177,20 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     if (anyEcma) {
       limitations.add(
           new Limitation(
+              "TS_IMPORTS",
+              "TypeScript/JavaScript callers are matched using import/require specifiers against"
+                  + " HEAD files, not tsc. Dynamic import(), eval, and path aliases may be missed"
+                  + " or over-reported."));
+    }
+    if (findings.stream()
+        .anyMatch(
+            finding ->
+                "CALLER".equals(finding.type()) && finding.confidence() == Confidence.HEURISTIC)) {
+      limitations.add(
+          new Limitation(
               "TS_NAME_BASED_DISPATCH",
-              "TypeScript/JavaScript callers are matched by name without tsc or a module graph."
-                  + " Dynamic import(), eval, and JSX factories may be missed or over-reported."
-                  + " Those matches are labeled HEURISTIC unless the receiver names the type."));
+              "Some TypeScript/JavaScript call sites could not be tied to an import of the changed"
+                  + " symbol and were labeled HEURISTIC."));
     }
 
     return new AnalysisResult(changedSymbols, findings, tests, limitations);
@@ -196,7 +219,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       return;
     }
     List<Decl> decls = extractDecls(path, codeLines);
-    into.put(path, new ParsedFile(path, codeLines, decls, isTestPath(path)));
+    into.put(
+        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
   }
 
   private static int stripAndMeasure(String source, List<String> codeLines) {
@@ -406,6 +430,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("function".equals(symbol.kind())
           || "method".equals(symbol.kind())
@@ -417,6 +442,9 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       } else if (!symbol.owner().isEmpty()) {
         changedTypes.add(symbol.owner());
       }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
     }
     List<ImpactFinding> findings = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
@@ -430,12 +458,18 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           if (!changedTypes.contains(typeName)) {
             continue;
           }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
           String key = file.path + ":" + lineNo + ":new " + typeName;
           if (seen.add(key)) {
             findings.add(
                 new ImpactFinding(
                     "CALLER",
-                    Confidence.DIRECT,
+                    confidence.get(),
                     file.path + " constructs " + typeName,
                     typeName,
                     new SourceLocation(file.path, lineNo, lineNo)));
@@ -454,18 +488,25 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           if (definition && receiver == null) {
             continue;
           }
-          Confidence confidence =
-              receiver != null && changedTypes.contains(receiver)
-                  ? Confidence.DIRECT
-                  : Confidence.HEURISTIC;
+          String binding = receiver != null ? receiver : name;
+          Optional<Confidence> confidence =
+              importConfidence(file, binding, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
           String symbolId = receiver != null ? receiver + "#" + name : name;
           String key = file.path + ":" + lineNo + ":" + symbolId;
           if (seen.add(key)) {
             findings.add(
                 new ImpactFinding(
                     "CALLER",
-                    confidence,
-                    file.path + " calls " + symbolId + " (" + confidence.name().toLowerCase() + ")",
+                    confidence.get(),
+                    file.path
+                        + " calls "
+                        + symbolId
+                        + " ("
+                        + confidence.get().name().toLowerCase()
+                        + ")",
                     symbolId,
                     new SourceLocation(file.path, lineNo, lineNo)));
           }
@@ -473,6 +514,81 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static Optional<Confidence> importConfidence(
+      ParsedFile file,
+      String binding,
+      String symbolName,
+      Map<String, ParsedFile> parsedHead,
+      Map<String, Set<String>> changedNamesByPath,
+      boolean allowTestHeuristic) {
+    if (changedNamesByPath.getOrDefault(file.path, Set.of()).contains(symbolName)
+        && file.decls.stream()
+            .anyMatch(decl -> decl.name.equals(binding) || decl.name.equals(symbolName))) {
+      return Optional.of(Confidence.DIRECT);
+    }
+    String spec = file.imports.bindings.get(binding);
+    if (spec != null) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, spec, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+      if (resolved.isEmpty()) {
+        return Optional.of(Confidence.HEURISTIC);
+      }
+    }
+    for (String module : file.imports.modules) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, module, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+    }
+    if (allowTestHeuristic) {
+      return Optional.of(Confidence.HEURISTIC);
+    }
+    return Optional.empty();
+  }
+
+  static Imports extractImports(String source) {
+    Map<String, String> bindings = new LinkedHashMap<>();
+    Set<String> modules = new LinkedHashSet<>();
+    Matcher named = IMPORT_NAMED.matcher(source);
+    while (named.find()) {
+      String spec = named.group(2);
+      modules.add(spec);
+      for (String part : named.group(1).split(",")) {
+        String bit = part.trim().replaceFirst("^type\\s+", "");
+        if (bit.isEmpty()) {
+          continue;
+        }
+        String[] alias = bit.split("\\s+as\\s+");
+        String local = alias[alias.length - 1].trim();
+        if (!local.isEmpty()) {
+          bindings.put(local, spec);
+        }
+      }
+    }
+    Matcher def = IMPORT_DEFAULT.matcher(source);
+    while (def.find()) {
+      modules.add(def.group(2));
+      bindings.put(def.group(1), def.group(2));
+    }
+    Matcher star = IMPORT_STAR.matcher(source);
+    while (star.find()) {
+      modules.add(star.group(2));
+      bindings.put(star.group(1), star.group(2));
+    }
+    Matcher req = IMPORT_REQUIRE.matcher(source);
+    while (req.find()) {
+      modules.add(req.group(2));
+      bindings.put(req.group(1), req.group(2));
+    }
+    return new Imports(bindings, modules);
   }
 
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
@@ -587,7 +703,10 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     return name.endsWith("Test") || name.endsWith("Tests") || name.endsWith("Spec");
   }
 
-  private record ParsedFile(String path, List<String> lines, List<Decl> decls, boolean testFile) {}
+  private record ParsedFile(
+      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+
+  record Imports(Map<String, String> bindings, Set<String> modules) {}
 
   private record Decl(
       String kind,

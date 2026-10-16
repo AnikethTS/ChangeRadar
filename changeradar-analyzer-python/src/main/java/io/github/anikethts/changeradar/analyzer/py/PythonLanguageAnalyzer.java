@@ -10,6 +10,7 @@ import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
+import io.github.anikethts.changeradar.core.SourcePaths;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,6 +37,11 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
   private static final Pattern DEF = Pattern.compile("^(?:async\\s+)?def\\s+([A-Za-z_][\\w]*)");
   private static final Pattern CALL =
       Pattern.compile("(?:([A-Za-z_][\\w]*)\\s*\\.)?([A-Za-z_][\\w]*)\\s*\\(");
+  private static final Pattern FROM_IMPORT =
+      Pattern.compile("(?m)^\\s*from\\s+([\\w.]+)\\s+import\\s+(.+)$");
+  private static final Pattern IMPORT_MODULE =
+      Pattern.compile("(?m)^\\s*import\\s+([\\w.]+)(?:\\s+as\\s+(\\w+))?");
+  private static final List<String> MODULE_SUFFIXES = List.of(".py", ".pyi");
   private static final Set<String> NOT_CALLS =
       Set.of(
           "if", "elif", "for", "while", "def", "class", "return", "with", "except", "assert",
@@ -135,10 +142,19 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
     if (anyPython) {
       limitations.add(
           new Limitation(
+              "PY_IMPORTS",
+              "Python callers are matched using import specifiers against HEAD files, not CPython."
+                  + " getattr, importlib, and star imports may be missed or over-reported."));
+    }
+    if (findings.stream()
+        .anyMatch(
+            finding ->
+                "CALLER".equals(finding.type()) && finding.confidence() == Confidence.HEURISTIC)) {
+      limitations.add(
+          new Limitation(
               "PY_NAME_BASED_DISPATCH",
-              "Python callers are matched by name without CPython or import resolution. Decorators,"
-                  + " getattr, and dynamic imports may be missed or over-reported. Those matches"
-                  + " are labeled HEURISTIC unless the receiver names the type."));
+              "Some Python call sites could not be tied to an import of the changed symbol and"
+                  + " were labeled HEURISTIC."));
     }
 
     return new AnalysisResult(changedSymbols, findings, tests, limitations);
@@ -165,7 +181,8 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
       return;
     }
     List<Decl> decls = extractDecls(path, codeLines);
-    into.put(path, new ParsedFile(path, codeLines, decls, isTestPath(path)));
+    into.put(
+        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
   }
 
   private static boolean mask(String source, List<String> codeLines) {
@@ -380,6 +397,7 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("function".equals(symbol.kind())
           || "method".equals(symbol.kind())
@@ -391,6 +409,9 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
       } else if (!symbol.owner().isEmpty()) {
         changedTypes.add(symbol.owner());
       }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
     }
     List<ImpactFinding> findings = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
@@ -412,33 +433,44 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
             continue;
           }
           if (changedTypes.contains(name) && receiver == null) {
-            String key = file.path + ":" + lineNo + ":new " + name;
-            if (seen.add(key)) {
-              findings.add(
-                  new ImpactFinding(
-                      "CALLER",
-                      Confidence.DIRECT,
-                      file.path + " constructs " + name,
-                      name,
-                      new SourceLocation(file.path, lineNo, lineNo)));
+            Optional<Confidence> constructed =
+                importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+            if (constructed.isPresent()) {
+              String key = file.path + ":" + lineNo + ":new " + name;
+              if (seen.add(key)) {
+                findings.add(
+                    new ImpactFinding(
+                        "CALLER",
+                        constructed.get(),
+                        file.path + " constructs " + name,
+                        name,
+                        new SourceLocation(file.path, lineNo, lineNo)));
+              }
             }
             continue;
           }
           if (!changedFns.contains(name)) {
             continue;
           }
-          Confidence confidence =
-              receiver != null && changedTypes.contains(receiver)
-                  ? Confidence.DIRECT
-                  : Confidence.HEURISTIC;
+          String binding = receiver != null ? receiver : name;
+          Optional<Confidence> confidence =
+              importConfidence(file, binding, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
           String symbolId = receiver != null ? receiver + "#" + name : name;
           String key = file.path + ":" + lineNo + ":" + symbolId;
           if (seen.add(key)) {
             findings.add(
                 new ImpactFinding(
                     "CALLER",
-                    confidence,
-                    file.path + " calls " + symbolId + " (" + confidence.name().toLowerCase() + ")",
+                    confidence.get(),
+                    file.path
+                        + " calls "
+                        + symbolId
+                        + " ("
+                        + confidence.get().name().toLowerCase()
+                        + ")",
                     symbolId,
                     new SourceLocation(file.path, lineNo, lineNo)));
           }
@@ -446,6 +478,74 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static Optional<Confidence> importConfidence(
+      ParsedFile file,
+      String binding,
+      String symbolName,
+      Map<String, ParsedFile> parsedHead,
+      Map<String, Set<String>> changedNamesByPath,
+      boolean allowTestHeuristic) {
+    if (changedNamesByPath.getOrDefault(file.path, Set.of()).contains(symbolName)
+        && file.decls.stream()
+            .anyMatch(decl -> decl.name.equals(binding) || decl.name.equals(symbolName))) {
+      return Optional.of(Confidence.DIRECT);
+    }
+    String spec = file.imports.bindings.get(binding);
+    if (spec != null) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, spec, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+      if (resolved.isEmpty()) {
+        return Optional.of(Confidence.HEURISTIC);
+      }
+    }
+    for (String module : file.imports.modules) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, module, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+    }
+    if (allowTestHeuristic) {
+      return Optional.of(Confidence.HEURISTIC);
+    }
+    return Optional.empty();
+  }
+
+  static Imports extractImports(String source) {
+    Map<String, String> bindings = new LinkedHashMap<>();
+    Set<String> modules = new LinkedHashSet<>();
+    Matcher from = FROM_IMPORT.matcher(source);
+    while (from.find()) {
+      String spec = from.group(1);
+      modules.add(spec);
+      for (String part : from.group(2).split(",")) {
+        String bit = part.trim();
+        if (bit.isEmpty() || "*".equals(bit)) {
+          continue;
+        }
+        String[] alias = bit.split("\\s+as\\s+");
+        String local = alias[alias.length - 1].trim();
+        if (!local.isEmpty()) {
+          bindings.put(local, spec);
+        }
+      }
+    }
+    Matcher imp = IMPORT_MODULE.matcher(source);
+    while (imp.find()) {
+      String spec = imp.group(1);
+      modules.add(spec);
+      String local =
+          imp.group(2) != null ? imp.group(2) : spec.substring(spec.lastIndexOf('.') + 1);
+      bindings.put(local, spec);
+    }
+    return new Imports(bindings, modules);
   }
 
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
@@ -562,7 +662,10 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
         || file.endsWith("_test.pyi");
   }
 
-  private record ParsedFile(String path, List<String> lines, List<Decl> decls, boolean testFile) {}
+  private record ParsedFile(
+      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+
+  record Imports(Map<String, String> bindings, Set<String> modules) {}
 
   private record Decl(
       String kind,
