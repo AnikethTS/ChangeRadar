@@ -21,6 +21,10 @@ public record ChangedFile(
     return path.endsWith(".java");
   }
 
+  public boolean isPhpSource() {
+    return path.toLowerCase().endsWith(".php");
+  }
+
   public boolean isPythonSource() {
     String lower = path.toLowerCase();
     return lower.endsWith(".py") || lower.endsWith(".pyi");

@@ -27,6 +27,8 @@ Today the tool records:
   by name without tsc.
 - `PY_NAME_BASED_DISPATCH` when Python callers are matched by name without
   CPython.
+- `PHP_NAME_BASED_DISPATCH` when PHP callers are matched by name without
+  php-parser.
 - `POLICIES_DISABLED` when no `--policy` flags were passed.
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
 - `STATIC_ANALYSIS_LIMITS` as a standing reminder.

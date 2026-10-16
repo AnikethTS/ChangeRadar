@@ -22,6 +22,12 @@ class ChangedFileTest {
   }
 
   @Test
+  void phpSourceDetection() {
+    assertTrue(new ChangedFile("src/Api.php", ChangeType.MODIFY, null).isPhpSource());
+    assertFalse(new ChangedFile("api.py", ChangeType.MODIFY, null).isPhpSource());
+  }
+
+  @Test
   void pythonSourceDetection() {
     assertTrue(new ChangedFile("api.py", ChangeType.MODIFY, null).isPythonSource());
     assertTrue(new ChangedFile("api.pyi", ChangeType.MODIFY, null).isPythonSource());

@@ -113,6 +113,26 @@ class PolicyEngineTest {
   }
 
   @Test
+  void phpRemovalUsesPhpPolicyNotJavaPolicy() {
+    ChangedSymbol gone =
+        new ChangedSymbol(
+            "id",
+            "function",
+            "gone",
+            "",
+            new SourceLocation("api.php", 2, 2),
+            ChangeType.DELETE,
+            true);
+    AnalysisResult analysis = new AnalysisResult(List.of(gone), List.of(), List.of(), List.of());
+    assertFalse(
+        PolicyEngine.evaluate(List.of(PolicyEngine.BREAKING_PUBLIC_JAVA_API), analysis, List.of())
+            .blocking());
+    assertTrue(
+        PolicyEngine.evaluate(List.of(PolicyEngine.BREAKING_PUBLIC_PHP), analysis, List.of())
+            .blocking());
+  }
+
+  @Test
   void parseEnabledAcceptsCommaSeparatedNames() {
     assertEquals(
         2,

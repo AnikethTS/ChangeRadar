@@ -1,7 +1,7 @@
 # Architecture
 
 ChangeRadar is a local CLI with a language-neutral core. Java,
-TypeScript/JavaScript, and Python are the deep analyzers. CI systems
+TypeScript/JavaScript, Python, and PHP are the deep analyzers. CI systems
 invoke the same CLI.
 
 ## Layers
@@ -14,6 +14,7 @@ invoke the same CLI.
 | Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy and removals. |
 | TypeScript analyzer (`changeradar-analyzer-typescript`) | TS/JS classes, functions, exports, name-based callers, related tests. Not tsc. |
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |
+| PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests. Not php-parser. |
 | Impact / policy / report (`changeradar-core`) | Typed findings, confidence, evidence, optional policies. Policies stay independent of severity guesses. |
 | Reporters | Terminal, Markdown, JSON. GitHub Actions (and later GitLab/Jenkins) are thin wrappers around the CLI. |
 
@@ -35,7 +36,7 @@ plus tests against the shared model.
   Cost: we reimplement a small amount of Git behavior; merge-base nuances get
   tests, not folklore.
 - **Gradle modules now, few classes inside them.** Boundaries are core /
-  git / java / typescript / python / CLI. No extra modules for policy
+  git / java / typescript / python / php / CLI. No extra modules for policy
   packs or a web UI until those are real adapters.
 - **Java 21 toolchain, not “whatever the developer has.”** Matches the LTS
   the brief asked for. Foojay resolver can provision 21 if the outer JDK is
@@ -58,7 +59,7 @@ plus tests against the shared model.
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
 | 7 GitHub Actions | Example + artifacts / optional PR comment | Example + artifacts. **Partial.** |
 | 8 Policies | Optional blocking rules | Only explicit rules block; tool failure stays `2`. **Current.** |
-| 9 More analyzers | TypeScript, then Python | TS/JS and Python current. |
+| 9 More analyzers | TypeScript, then Python | TS/JS, Python, and PHP current. |
 
 ## MVP non-goals
 

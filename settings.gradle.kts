@@ -17,5 +17,6 @@ include(
   "changeradar-analyzer-java",
   "changeradar-analyzer-typescript",
   "changeradar-analyzer-python",
+  "changeradar-analyzer-php",
   "changeradar-cli",
 )
