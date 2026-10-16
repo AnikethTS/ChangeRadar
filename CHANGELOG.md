@@ -13,6 +13,9 @@ exists.
 
 ### Added
 
+- Optional blocking `--policy` rules (`breaking-public-java-api`,
+  `analysis-unavailable`), off by default, with exit code `1` when they
+  fire. Removed public Java members are reported as `DELETE` symbols.
 - GitHub Actions CI on Ubuntu, macOS, and Windows for JDK 21 and 25, with
   Wrapper validation, CLI smoke on every cell, test-report artifacts on
   failure, and a required `CI` gate job.

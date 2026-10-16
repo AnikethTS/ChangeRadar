@@ -25,7 +25,7 @@ and a file format is requested, the default directory is
 | Code | Enum | Meaning |
 | --- | --- | --- |
 | `0` | `SUCCESS` | Analysis completed; no enabled blocking policy was violated. |
-| `1` | `POLICY_VIOLATION` | A configured blocking policy was violated. Not emitted until the policy engine exists. |
+| `1` | `POLICY_VIOLATION` | A configured blocking policy was violated (`--policy`). |
 | `2` | `FAILURE` | Invalid arguments, unreadable repository, unresolved Git ref, unsupported `--format`, or an analyzer/tool error. |
 
 CI must preserve this distinction. Do not treat “the report looks scary” as

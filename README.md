@@ -24,10 +24,8 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** foundation. The CLI, Git base/head diff, report formats, and
-exit-code contract work today. Mapping changed lines to Java symbols,
-callers, tests, and blocking policies is next — the report says so instead
-of implying completeness.
+**Status:** Java impact reports and optional blocking policies work today.
+Limitations stay in the report instead of implying a complete graph.
 
 ## Quick start
 
@@ -55,12 +53,12 @@ head   HEAD
 Changed files (1)
   MODIFY  src/Demo.java
 
-Limitations
-  [JAVA_SYMBOLS_NOT_IMPLEMENTED] Changed Java files were detected, but mapping...
-  [NO_POLICY_ENGINE] Blocking policies are not evaluated yet.
-  [STATIC_ANALYSIS_LIMITS] Reflection, dynamic dispatch, generated code...
+Changed symbols (1)
+  MODIFY  method  Demo#n  src/Demo.java:1
 
-No blocking policy ran. Exit 0 means analysis completed, not that the change is safe.
+Policy  none blocking
+
+Exit 0 means analysis completed, not that the change is safe.
 ```
 
 A suggested test will never be phrased as “this test failed” unless
@@ -84,13 +82,13 @@ the same place you already review the change.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.
 - Distinguishes a completed analysis (`0`), a configured policy violation
-  (`1`, not wired yet), and a tool/input failure (`2`).
+  (`1`, only with `--policy`), and a tool/input failure (`2`).
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come: a full symbol solver, richer contract checks, optional
-blocking policies, and a documented GitHub Actions job that comments on a
-pull request. See the [roadmap](docs/architecture.md#roadmap).
+Still to come: a full symbol solver, richer binary-compatibility checks,
+and a documented GitHub Actions job that comments on a pull request. See
+the [roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).
@@ -135,7 +133,7 @@ Details: [CI integration](docs/ci-integration.md).
 - [Architecture](docs/architecture.md) — layers, tradeoffs, roadmap
 - [CI integration](docs/ci-integration.md) — exit codes, artifacts, GitHub Actions
 - [Analysis limitations](docs/analysis-limitations.md) — what static analysis cannot claim
-- [Policy configuration](docs/policy-configuration.md) — fail-open vs fail-closed (planned)
+- [Policy configuration](docs/policy-configuration.md) — `--policy`, fail-open vs fail-closed
 - [Development](docs/development.md) — tests, modules, formatting
 - [Adding a language analyzer](docs/adding-a-language-analyzer.md)
 - [Adding a CI provider](docs/adding-a-ci-provider.md)

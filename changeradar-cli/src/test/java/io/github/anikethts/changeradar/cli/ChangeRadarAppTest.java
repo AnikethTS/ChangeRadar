@@ -70,6 +70,82 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void unknownPolicyIsFailure() throws Exception {
+    seedRepo();
+    CommandLine cmd = command();
+    int code =
+        cmd.execute(
+            "analyze",
+            "--base",
+            "HEAD",
+            "--head",
+            "HEAD",
+            "--repo",
+            tmp.toString(),
+            "--policy",
+            "not-a-policy");
+    assertEquals(2, code);
+  }
+
+  @Test
+  void removedPublicMethodBlocksWhenPolicyEnabled() throws Exception {
+    seedPublicRemoval();
+    CommandLine cmd = command();
+    int withoutPolicy =
+        cmd.execute(
+            "analyze",
+            "--base",
+            "HEAD~1",
+            "--head",
+            "HEAD",
+            "--repo",
+            tmp.toString(),
+            "--format",
+            "json",
+            "--output",
+            tmp.resolve("off").toString());
+    assertEquals(0, withoutPolicy);
+    int withPolicy =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                tmp.resolve("on").toString(),
+                "--policy",
+                "breaking-public-java-api");
+    assertEquals(1, withPolicy);
+    String json = Files.readString(tmp.resolve("on/report.json"));
+    assertTrue(json.contains("\"policyBlocking\" : true"));
+    assertTrue(json.contains("breaking-public-java-api"));
+  }
+
+  @Test
+  void unreadableChangedJavaBlocksWhenAnalysisUnavailableEnabled() throws Exception {
+    seedUnparseableJava();
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "analysis-unavailable");
+    assertEquals(1, code);
+  }
+
+  @Test
   void invalidRefIsFailure() throws Exception {
     seedRepo();
     CommandLine cmd = command();
@@ -93,20 +169,58 @@ class ChangeRadarAppTest {
       Files.createDirectories(src.getParent());
       Files.writeString(src, "class Demo { void n() {} }\n");
       git.add().addFilepattern(".").call();
-      git.commit()
-          .setAuthor("ChangeRadar Test", "test@changeradar.example")
-          .setCommitter("ChangeRadar Test", "test@changeradar.example")
-          .setSign(false)
-          .setMessage("base")
-          .call();
+      commit(git, "base");
       Files.writeString(src, "class Demo { void n() { int x = 1; } }\n");
       git.add().addFilepattern(".").call();
-      git.commit()
-          .setAuthor("ChangeRadar Test", "test@changeradar.example")
-          .setCommitter("ChangeRadar Test", "test@changeradar.example")
-          .setSign(false)
-          .setMessage("head")
-          .call();
+      commit(git, "head");
     }
+  }
+
+  private void seedPublicRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void gone() {}
+            public void stays() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void stays() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedUnparseableJava() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Broken.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(src, "public class Broken {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "public class Broken { this is not java\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private static void commit(Git git, String message) throws Exception {
+    git.commit()
+        .setAuthor("ChangeRadar Test", "test@changeradar.example")
+        .setCommitter("ChangeRadar Test", "test@changeradar.example")
+        .setSign(false)
+        .setMessage(message)
+        .call();
   }
 }
