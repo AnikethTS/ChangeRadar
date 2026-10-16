@@ -43,7 +43,8 @@ This repository's own [CI workflow](../.github/workflows/ci.yml) runs
 and 25). Jobs use `bash` on every OS so `./gradlew` and `./run.sh` behave
 the same. A `CI` gate job fails unless every required job succeeded.
 
-See [`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml).
+See [`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml)
+(this repository also runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml)).
 
 Requirements:
 
@@ -59,6 +60,25 @@ Requirements:
 - Pin third-party actions to immutable commit SHAs in security-conscious
   examples.
 - Upload `build/changeradar/` as an artifact.
+
+### Pull request comments
+
+The optional `comment` job in the example workflow posts `report.md` on the
+pull request conversation. It is not part of the required `CI` gate and
+does not change analyze exit codes (`0` / `1` / `2`).
+
+- Workflow default permission stays `contents: read`. Only the comment job
+  sets `pull-requests: write` (plus `actions: read` to download the
+  artifact).
+- The job runs only when
+  `github.event.pull_request.head.repo.full_name == github.repository`.
+  Fork PRs skip it so an untrusted workflow cannot write comments with a
+  privileged token.
+- One sticky comment is created and then updated (HTML marker
+  `<!-- changeradar-report -->`). Bodies over GitHub's limit are truncated
+  with a link to the workflow run / artifact.
+- A failed comment must not be treated as a policy violation. Do not map
+  comment-job failure to CLI exit `1`.
 
 GitLab CI, Jenkins, and generic shell examples wait until this contract is
 stable and tested.

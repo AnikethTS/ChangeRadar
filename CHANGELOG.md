@@ -13,6 +13,8 @@ exists.
 
 ### Added
 
+- Optional GitHub Actions job that posts or updates one pull-request
+  comment with `report.md` on same-repo PRs (skipped on forks).
 - Python impact analysis (classes, functions, name-based callers, related
   tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,

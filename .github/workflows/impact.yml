@@ -1,0 +1,125 @@
+# Live copy of examples/github-actions/impact.yml. Keep the two in sync.
+# Least privilege: contents: read is enough to analyze. The comment job
+# needs pull-requests: write and is skipped on fork PRs.
+name: ChangeRadar
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Impact report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Fetch PR SHAs
+        run: |
+          git fetch --no-tags origin \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}"
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Analyze base..head
+        run: |
+          ./run.sh analyze \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --format markdown,json \
+            --output build/changeradar
+          # Opt in to blocking, for example:
+          #   --policy breaking-public-java-api
+          #   --policy breaking-public-export
+          #   --policy breaking-public-python
+          #   --policy analysis-unavailable
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: changeradar-report
+          path: build/changeradar/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Optional. Does not change analyze exit codes. Not a required check.
+  # Fork PRs skip this job so an untrusted workflow cannot write comments.
+  comment:
+    name: Comment report
+    needs: impact
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: changeradar-report
+          path: build/changeradar
+
+      - name: Post or update report comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          test -s build/changeradar/report.md
+          python3 - "$RUN_URL" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          run_url = sys.argv[1]
+          marker = "<!-- changeradar-report -->"
+          report = pathlib.Path("build/changeradar/report.md").read_text()
+          header = (
+              marker
+              + "\n\nFull Markdown and JSON: "
+              + run_url
+              + "\n\n"
+          )
+          # GitHub issue-comment bodies max out at 65536 characters.
+          limit = 65000 - len(header)
+          body = header + report
+          if len(body) > 65000:
+              body = (
+                  header
+                  + report[: max(0, limit - 80)]
+                  + "\n\n_Report truncated. Download the `changeradar-report` artifact._\n"
+              )
+          pathlib.Path("/tmp/changeradar-comment.json").write_text(
+              json.dumps({"body": body})
+          )
+          PY
+          COMMENT_ID="$(
+            gh api --paginate "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+              --jq '.[] | select(.user.login=="github-actions[bot]" and (.body | contains("<!-- changeradar-report -->"))) | .id' \
+              | awk 'NF { print; exit }'
+          )"
+          if [ -n "${COMMENT_ID}" ]; then
+            gh api --method PATCH "repos/${GH_REPO}/issues/comments/${COMMENT_ID}" \
+              --input /tmp/changeradar-comment.json
+          else
+            gh api --method POST "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
+              --input /tmp/changeradar-comment.json
+          fi
