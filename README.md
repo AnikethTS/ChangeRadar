@@ -131,10 +131,8 @@ A least-privilege GitHub Actions example lives in
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
 This repository runs the same workflow and posts (or updates) one PR
 comment with `report.md` on same-repo pull requests. Fork PRs skip the
-comment job. `GITHUB_TOKEN` comments as github-actions[bot]; a GitHub App
-named ChangeRadar with `.github/logo.png` as its avatar comments as
-`ChangeRadar[bot]`.
-Details: [CI integration](docs/ci-integration.md).
+comment job. Comments come from github-actions[bot]; the ChangeRadar logo
+is in the comment body. Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
 

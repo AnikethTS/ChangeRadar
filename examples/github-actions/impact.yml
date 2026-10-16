@@ -77,36 +77,32 @@ jobs:
           name: changeradar-report
           path: build/changeradar
 
-      # Optional. GITHUB_TOKEN always comments as github-actions[bot].
-      # Set CHANGERADAR_APP_CLIENT_ID + CHANGERADAR_APP_PRIVATE_KEY to comment
-      # as ChangeRadar[bot] with the app's logo. See docs/ci-integration.md.
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        id: app-token
-        if: ${{ vars.CHANGERADAR_APP_CLIENT_ID != '' }}
-        with:
-          client-id: ${{ vars.CHANGERADAR_APP_CLIENT_ID }}
-          private-key: ${{ secrets.CHANGERADAR_APP_PRIVATE_KEY }}
-
       - name: Post or update report comment
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LOGO_URL: https://raw.githubusercontent.com/AnikethTS/ChangeRadar/main/.github/logo.png
         run: |
           set -euo pipefail
           test -s build/changeradar/report.md
-          python3 - "$RUN_URL" <<'PY'
+          python3 - "$RUN_URL" "$LOGO_URL" <<'PY'
           import json
           import pathlib
           import sys
 
           run_url = sys.argv[1]
+          logo_url = sys.argv[2]
           marker = "<!-- changeradar-report -->"
           report = pathlib.Path("build/changeradar/report.md").read_text()
           header = (
               marker
-              + "\n\nFull Markdown and JSON: "
+              + "\n\n"
+              + '<img src="'
+              + logo_url
+              + '" alt="ChangeRadar" width="220" />\n\n'
+              + "Full Markdown and JSON: "
               + run_url
               + "\n\n"
           )
@@ -125,7 +121,7 @@ jobs:
           PY
           COMMENT_ID="$(
             gh api --paginate "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
-              --jq '.[] | select(.user.type=="Bot" and (.body | contains("<!-- changeradar-report -->"))) | .id' \
+              --jq '.[] | select(.user.login=="github-actions[bot]" and (.body | contains("<!-- changeradar-report -->"))) | .id' \
               | awk 'NF { print; exit }'
           )"
           if [ -n "${COMMENT_ID}" ]; then
