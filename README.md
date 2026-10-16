@@ -24,8 +24,10 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** Java impact reports and optional blocking policies work today.
-Limitations stay in the report instead of implying a complete graph.
+**Status:** `0.1.0` — Java, TypeScript/JavaScript, Python, and PHP impact
+reports, optional `--policy`, and a GitHub Actions example that uploads
+artifacts and comments on same-repo PRs. Limitations stay in the report
+instead of implying a complete graph.
 
 ## Quick start
 
@@ -45,7 +47,7 @@ Machine not ready yet? You need Git and a JDK 21 or newer. Then
 ## Sample report
 
 ```text
-ChangeRadar 0.1.0-SNAPSHOT
+ChangeRadar 0.1.0
 schema 1.0.0
 base   HEAD~1
 head   HEAD
