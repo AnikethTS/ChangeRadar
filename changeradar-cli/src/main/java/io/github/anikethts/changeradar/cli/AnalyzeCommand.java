@@ -1,11 +1,14 @@
 package io.github.anikethts.changeradar.cli;
 
 import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
 import io.github.anikethts.changeradar.core.AnalysisResult;
+import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ExitCode;
 import io.github.anikethts.changeradar.core.GitAccessException;
+import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.PolicyEngine;
 import io.github.anikethts.changeradar.core.PolicyResult;
@@ -28,6 +31,9 @@ import picocli.CommandLine.Option;
 
 @Command(name = "analyze", description = "Compare two Git revisions and write an impact report.")
 public final class AnalyzeCommand implements Callable<Integer> {
+
+  private static final List<String> SOURCE_SUFFIXES =
+      List.of(".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs");
 
   @Option(
       names = "--base",
@@ -64,7 +70,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
       split = ",",
       description =
           "Named blocking policies to enable (off by default): breaking-public-java-api,"
-              + " analysis-unavailable. Repeatable or comma-separated.")
+              + " breaking-public-export, analysis-unavailable. Repeatable or comma-separated.")
   List<String> policies;
 
   private final Clock clock;
@@ -92,22 +98,33 @@ public final class AnalyzeCommand implements Callable<Integer> {
       git.resolve(base);
       git.resolve(head);
       List<ChangedFile> changed = git.diff(base, head);
-      Map<String, String> headJava = new LinkedHashMap<>();
-      for (String path : git.listPaths(head, ".java")) {
-        git.readFile(head, path).ifPresent(source -> headJava.put(path, source));
+      List<LanguageAnalyzer> analyzers =
+          List.of(new JavaLanguageAnalyzer(), new TypeScriptLanguageAnalyzer());
+      Map<String, String> headSources = new LinkedHashMap<>();
+      for (String suffix : SOURCE_SUFFIXES) {
+        for (String path : git.listPaths(head, suffix)) {
+          git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
+        }
       }
-      Map<String, String> baseJava = new LinkedHashMap<>();
+      Map<String, String> baseSources = new LinkedHashMap<>();
       for (ChangedFile file : changed) {
-        if (file.isJavaSource()) {
-          git.readFile(base, file.path()).ifPresent(source -> baseJava.put(file.path(), source));
+        if (file.isJavaSource() || file.isEcmaSource()) {
+          git.readFile(base, file.path()).ifPresent(source -> baseSources.put(file.path(), source));
           if (file.previousPath() != null) {
             git.readFile(base, file.previousPath())
-                .ifPresent(source -> baseJava.put(file.previousPath(), source));
+                .ifPresent(source -> baseSources.put(file.previousPath(), source));
           }
         }
       }
-      JavaLanguageAnalyzer javaAnalyzer = new JavaLanguageAnalyzer();
-      AnalysisResult analysis = javaAnalyzer.analyze(changed, headJava, baseJava);
+      List<AnalysisResult> parts = new ArrayList<>();
+      for (LanguageAnalyzer analyzer : analyzers) {
+        parts.add(
+            analyzer.analyze(
+                changed,
+                filterSources(headSources, analyzer),
+                filterSources(baseSources, analyzer)));
+      }
+      AnalysisResult analysis = AnalysisResult.merge(parts);
       PolicyResult policy = PolicyEngine.evaluate(enabledPolicies, analysis, changed);
       List<Limitation> limitations = new ArrayList<>(analysis.limitations());
       if (enabledPolicies.isEmpty()) {
@@ -152,6 +169,17 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
     }
     return report.policy().blocking() ? ExitCode.POLICY_VIOLATION.code() : ExitCode.SUCCESS.code();
+  }
+
+  private static Map<String, String> filterSources(
+      Map<String, String> sources, LanguageAnalyzer analyzer) {
+    Map<String, String> filtered = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : sources.entrySet()) {
+      if (analyzer.supports(new ChangedFile(entry.getKey(), ChangeType.MODIFY, null))) {
+        filtered.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return filtered;
   }
 
   private Set<String> selectedFormats() {

@@ -13,6 +13,8 @@ exists.
 
 ### Added
 
+- TypeScript/JavaScript impact analysis (classes, functions, exports,
+  name-based callers, related tests) and `--policy breaking-public-export`.
 - Optional blocking `--policy` rules (`breaking-public-java-api`,
   `analysis-unavailable`), off by default, with exit code `1` when they
   fire. Removed public Java members are reported as `DELETE` symbols.

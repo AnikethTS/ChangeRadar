@@ -60,6 +60,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     return List.of();
   }
 
+  @Override
   public AnalysisResult analyze(
       List<ChangedFile> changedFiles,
       Map<String, String> headJavaFiles,

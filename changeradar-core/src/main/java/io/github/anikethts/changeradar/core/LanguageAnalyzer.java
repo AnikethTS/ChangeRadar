@@ -2,10 +2,11 @@ package io.github.anikethts.changeradar.core;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Language-neutral analyzer contract. Java is the only implementation in the MVP. Future TypeScript
- * and Python adapters should map into the same report model rather than inventing a parallel one.
+ * Language-neutral analyzer contract. Java and TypeScript/JavaScript adapters map into the same
+ * report model. Python is next.
  */
 public interface LanguageAnalyzer {
 
@@ -14,4 +15,7 @@ public interface LanguageAnalyzer {
   boolean supports(ChangedFile file);
 
   List<Limitation> limitationsFor(Path repositoryRoot, List<ChangedFile> changedFiles);
+
+  AnalysisResult analyze(
+      List<ChangedFile> changedFiles, Map<String, String> headFiles, Map<String, String> baseFiles);
 }

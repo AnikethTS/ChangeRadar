@@ -14,9 +14,11 @@ import java.util.Set;
 public final class PolicyEngine {
 
   public static final String BREAKING_PUBLIC_JAVA_API = "breaking-public-java-api";
+  public static final String BREAKING_PUBLIC_EXPORT = "breaking-public-export";
   public static final String ANALYSIS_UNAVAILABLE = "analysis-unavailable";
 
-  public static final Set<String> KNOWN = Set.of(BREAKING_PUBLIC_JAVA_API, ANALYSIS_UNAVAILABLE);
+  public static final Set<String> KNOWN =
+      Set.of(BREAKING_PUBLIC_JAVA_API, BREAKING_PUBLIC_EXPORT, ANALYSIS_UNAVAILABLE);
 
   private PolicyEngine() {}
 
@@ -55,7 +57,10 @@ public final class PolicyEngine {
     }
     List<String> violations = new ArrayList<>();
     if (rules.contains(BREAKING_PUBLIC_JAVA_API)) {
-      violations.addAll(breakingPublicJavaApi(analysis));
+      violations.addAll(breakingPublicApi(analysis, true));
+    }
+    if (rules.contains(BREAKING_PUBLIC_EXPORT)) {
+      violations.addAll(breakingPublicApi(analysis, false));
     }
     if (rules.contains(ANALYSIS_UNAVAILABLE)) {
       violations.addAll(analysisUnavailable(analysis, changedFiles));
@@ -63,13 +68,21 @@ public final class PolicyEngine {
     return new PolicyResult(!violations.isEmpty(), List.copyOf(violations));
   }
 
-  private static List<String> breakingPublicJavaApi(AnalysisResult analysis) {
+  private static List<String> breakingPublicApi(AnalysisResult analysis, boolean java) {
+    String rule = java ? BREAKING_PUBLIC_JAVA_API : BREAKING_PUBLIC_EXPORT;
     List<String> violations = new ArrayList<>();
     for (ChangedSymbol symbol : analysis.changedSymbols()) {
       if (!symbol.publiclyVisible() || symbol.changeType() != ChangeType.DELETE) {
         continue;
       }
-      if (isTestPath(symbol.location().path())) {
+      String path = symbol.location().path();
+      if (isTestPath(path)) {
+        continue;
+      }
+      if (java != path.endsWith(".java")) {
+        continue;
+      }
+      if (!java && !new ChangedFile(path, ChangeType.MODIFY, null).isEcmaSource()) {
         continue;
       }
       String label =
@@ -77,13 +90,7 @@ public final class PolicyEngine {
               ? symbol.name()
               : symbol.owner() + "#" + symbol.name();
       violations.add(
-          BREAKING_PUBLIC_JAVA_API
-              + ": public "
-              + symbol.kind()
-              + " "
-              + label
-              + " was removed from "
-              + symbol.location().path());
+          rule + ": public " + symbol.kind() + " " + label + " was removed from " + path);
     }
     return violations;
   }
@@ -92,17 +99,18 @@ public final class PolicyEngine {
       AnalysisResult analysis, List<ChangedFile> changedFiles) {
     List<String> violations = new ArrayList<>();
     for (ChangedFile file : changedFiles) {
-      if (!file.isJavaSource()) {
+      if (!file.isJavaSource() && !file.isEcmaSource()) {
         continue;
       }
       boolean parseFailed =
           analysis.limitations().stream()
               .anyMatch(
                   limitation ->
-                      "JAVA_PARSE_FAILED".equals(limitation.code())
+                      (limitation.code().endsWith("_PARSE_FAILED"))
                           && limitation.message().contains(file.path()));
       if (parseFailed) {
-        violations.add(ANALYSIS_UNAVAILABLE + ": could not parse changed Java file " + file.path());
+        violations.add(
+            ANALYSIS_UNAVAILABLE + ": could not parse changed source file " + file.path());
       }
     }
     return violations;

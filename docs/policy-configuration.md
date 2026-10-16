@@ -10,6 +10,7 @@ Enable them only when you mean to block:
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
   --policy breaking-public-java-api \
+  --policy breaking-public-export \
   --policy analysis-unavailable
 ```
 
@@ -22,7 +23,8 @@ Enable them only when you mean to block:
 - Only an *explicitly enabled* rule can produce exit `1`.
 - Analyzer/tool failure is always exit `2`, never `1` — except when you
   enable `analysis-unavailable`, which treats a failed parse of a *changed*
-  Java file as a policy violation (`1`), not a tool crash.
+  Java or TypeScript/JavaScript file as a policy violation (`1`), not a tool
+  crash.
 - Default is fail-open for uncertain findings: report them, do not fail.
 - Fail-closed for *tool* failure is a CI-workflow choice (for example
   `set -e` vs `|| true`), not a hidden CLI default.
@@ -34,7 +36,11 @@ Enable them only when you mean to block:
   symbol. Body edits of public methods do not trip this rule. Test sources
   are ignored. Overloads are distinguished by parameter types, not by a
   full binary-compatibility checker.
-- `analysis-unavailable` — a changed `.java` file could not be parsed
-  (`JAVA_PARSE_FAILED`). Distinct from “we found risk.”
+- `breaking-public-export` — an exported TypeScript/JavaScript function,
+  class, or type was **removed**. Body edits do not trip this rule. Test
+  sources are ignored. This is not a full semver / `.d.ts` checker.
+- `analysis-unavailable` — a changed `.java`, `.ts`/`.tsx`, or `.js`/`.jsx`
+  file could not be parsed (`JAVA_PARSE_FAILED` or `TS_PARSE_FAILED`).
+  Distinct from “we found risk.”
 
-Repository-specific policy packs come after those two are tested.
+Repository-specific policy packs come after these rules are tested.
