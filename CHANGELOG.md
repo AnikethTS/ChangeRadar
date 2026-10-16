@@ -1,15 +1,16 @@
 # Changelog
 
 All notable changes to this project are documented here. Numbered releases
-follow [Keep a Changelog](https://keepachangelog.com/) once the first tag
-exists.
+follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Fixed
+## [0.1.0] - 2026-10-17
 
-- CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
-  Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
+First tagged release. The CLI compares two Git refs, maps changed lines
+to symbols, lists likely callers and related tests, and writes terminal,
+Markdown, and JSON reports. Analysis is name-based, not a full compiler
+graph.
 
 ### Added
 
@@ -17,6 +18,8 @@ exists.
   comment with `report.md` on same-repo PRs (skipped on forks). The
   author is github-actions[bot]; the ChangeRadar logo is in the comment
   body.
+- PHP impact analysis (classes, functions, name-based callers, related
+  tests) and `--policy breaking-public-php`.
 - Python impact analysis (classes, functions, name-based callers, related
   tests) and `--policy breaking-public-python`.
 - TypeScript/JavaScript impact analysis (classes, functions, exports,
@@ -37,3 +40,11 @@ exists.
   Git diff of changed files via JGit.
 - GitHub Actions CI, issue/PR templates, and contributor docs modeled on
   the project's open-source conventions.
+
+### Fixed
+
+- CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
+  Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
+
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.1.0
