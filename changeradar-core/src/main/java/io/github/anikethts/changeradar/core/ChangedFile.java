@@ -20,4 +20,16 @@ public record ChangedFile(
   public boolean isJavaSource() {
     return path.endsWith(".java");
   }
+
+  public boolean isEcmaSource() {
+    String lower = path.toLowerCase();
+    return lower.endsWith(".ts")
+        || lower.endsWith(".tsx")
+        || lower.endsWith(".mts")
+        || lower.endsWith(".cts")
+        || lower.endsWith(".js")
+        || lower.endsWith(".jsx")
+        || lower.endsWith(".mjs")
+        || lower.endsWith(".cjs");
+  }
 }

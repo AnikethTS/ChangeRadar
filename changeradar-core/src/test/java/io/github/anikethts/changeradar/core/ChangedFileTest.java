@@ -12,4 +12,12 @@ class ChangedFileTest {
     assertTrue(new ChangedFile("src/Main.java", ChangeType.MODIFY, null).isJavaSource());
     assertFalse(new ChangedFile("README.md", ChangeType.MODIFY, null).isJavaSource());
   }
+
+  @Test
+  void ecmaSourceDetection() {
+    assertTrue(new ChangedFile("src/api.ts", ChangeType.MODIFY, null).isEcmaSource());
+    assertTrue(new ChangedFile("src/App.tsx", ChangeType.MODIFY, null).isEcmaSource());
+    assertTrue(new ChangedFile("src/util.js", ChangeType.MODIFY, null).isEcmaSource());
+    assertFalse(new ChangedFile("src/Main.java", ChangeType.MODIFY, null).isEcmaSource());
+  }
 }

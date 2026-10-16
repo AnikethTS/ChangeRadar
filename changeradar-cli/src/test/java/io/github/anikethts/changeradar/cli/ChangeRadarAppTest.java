@@ -70,6 +70,52 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void analyzeTypeScriptDiffWritesSymbols() throws Exception {
+    seedTypeScriptRepo();
+    Path out = tmp.resolve("ts-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("src/api.ts"));
+    assertTrue(json.contains("\"name\" : \"n\"") || json.contains("\"n\""));
+  }
+
+  @Test
+  void removedExportBlocksWhenExportPolicyEnabled() throws Exception {
+    seedTypeScriptRemoval();
+    int withoutPolicy =
+        command()
+            .execute("analyze", "--base", "HEAD~1", "--head", "HEAD", "--repo", tmp.toString());
+    assertEquals(0, withoutPolicy);
+    int withPolicy =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-export");
+    assertEquals(1, withPolicy);
+  }
+
+  @Test
   void unknownPolicyIsFailure() throws Exception {
     seedRepo();
     CommandLine cmd = command();
@@ -197,6 +243,32 @@ class ChangeRadarAppTest {
             public void stays() {}
           }
           """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedTypeScriptRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/api.ts");
+      Files.createDirectories(src.getParent());
+      Files.writeString(src, "export function n(): number { return 1; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "export function n(): number { return 2; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedTypeScriptRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/api.ts");
+      Files.createDirectories(src.getParent());
+      Files.writeString(src, "export function gone() {}\nexport function stays() {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "export function stays() {}\n");
       git.add().addFilepattern(".").call();
       commit(git, "head");
     }
