@@ -10,6 +10,7 @@ import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
+import io.github.anikethts.changeradar.core.SourcePaths;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +44,11 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       Pattern.compile("(?:([A-Za-z_][\\w]*)\\s*(?:->|::))?([A-Za-z_][\\w]*)\\s*\\(");
   private static final Pattern NEW_TYPE =
       Pattern.compile("\\bnew\\s+\\\\?([A-Za-z_][\\w]*)\\s*\\(");
+  private static final Pattern USE =
+      Pattern.compile("(?m)^\\s*use\\s+(?:function\\s+|const\\s+)?([^;]+);");
+  private static final Pattern REQUIRE =
+      Pattern.compile("\\b(?:require|include)(?:_once)?\\s*\\(?\\s*['\"]([^'\"]+)['\"]");
+  private static final List<String> MODULE_SUFFIXES = List.of(".php");
   private static final Set<String> NOT_CALLS =
       Set.of(
           "if",
@@ -158,10 +165,20 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
     if (anyPhp) {
       limitations.add(
           new Limitation(
+              "PHP_IMPORTS",
+              "PHP callers are matched using use/require specifiers against HEAD files, not"
+                  + " php-parser or Composer autoload. call_user_func and attributes may be"
+                  + " missed or over-reported."));
+    }
+    if (findings.stream()
+        .anyMatch(
+            finding ->
+                "CALLER".equals(finding.type()) && finding.confidence() == Confidence.HEURISTIC)) {
+      limitations.add(
+          new Limitation(
               "PHP_NAME_BASED_DISPATCH",
-              "PHP callers are matched by name without php-parser or autoload. Magic methods,"
-                  + " call_user_func, and attributes may be missed or over-reported. Those matches"
-                  + " are labeled HEURISTIC unless the receiver names the type."));
+              "Some PHP call sites could not be tied to a use/require of the changed symbol and"
+                  + " were labeled HEURISTIC."));
     }
 
     return new AnalysisResult(changedSymbols, findings, tests, limitations);
@@ -190,7 +207,8 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       return;
     }
     List<Decl> decls = extractDecls(path, codeLines);
-    into.put(path, new ParsedFile(path, codeLines, decls, isTestPath(path)));
+    into.put(
+        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
   }
 
   private static int stripAndMeasure(String source, List<String> codeLines) {
@@ -365,6 +383,7 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("function".equals(symbol.kind())
           || "method".equals(symbol.kind())
@@ -376,6 +395,9 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       } else if (!symbol.owner().isEmpty()) {
         changedTypes.add(symbol.owner());
       }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
     }
     List<ImpactFinding> findings = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
@@ -389,12 +411,18 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           if (!changedTypes.contains(typeName)) {
             continue;
           }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
           String key = file.path + ":" + lineNo + ":new " + typeName;
           if (seen.add(key)) {
             findings.add(
                 new ImpactFinding(
                     "CALLER",
-                    Confidence.DIRECT,
+                    confidence.get(),
                     file.path + " constructs " + typeName,
                     typeName,
                     new SourceLocation(file.path, lineNo, lineNo)));
@@ -413,18 +441,25 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           if (definition && receiver == null) {
             continue;
           }
-          Confidence confidence =
-              receiver != null && changedTypes.contains(receiver)
-                  ? Confidence.DIRECT
-                  : Confidence.HEURISTIC;
+          String binding = receiver != null ? receiver : name;
+          Optional<Confidence> confidence =
+              importConfidence(file, binding, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
           String symbolId = receiver != null ? receiver + "#" + name : name;
           String key = file.path + ":" + lineNo + ":" + symbolId;
           if (seen.add(key)) {
             findings.add(
                 new ImpactFinding(
                     "CALLER",
-                    confidence,
-                    file.path + " calls " + symbolId + " (" + confidence.name().toLowerCase() + ")",
+                    confidence.get(),
+                    file.path
+                        + " calls "
+                        + symbolId
+                        + " ("
+                        + confidence.get().name().toLowerCase()
+                        + ")",
                     symbolId,
                     new SourceLocation(file.path, lineNo, lineNo)));
           }
@@ -432,6 +467,73 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static Optional<Confidence> importConfidence(
+      ParsedFile file,
+      String binding,
+      String symbolName,
+      Map<String, ParsedFile> parsedHead,
+      Map<String, Set<String>> changedNamesByPath,
+      boolean allowTestHeuristic) {
+    if (changedNamesByPath.getOrDefault(file.path, Set.of()).contains(symbolName)
+        && file.decls.stream()
+            .anyMatch(decl -> decl.name.equals(binding) || decl.name.equals(symbolName))) {
+      return Optional.of(Confidence.DIRECT);
+    }
+    String spec = file.imports.bindings.get(binding);
+    if (spec != null) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, spec, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+      if (resolved.isEmpty()) {
+        return Optional.of(Confidence.HEURISTIC);
+      }
+    }
+    for (String module : file.imports.modules) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, module, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()
+          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+        return Optional.of(Confidence.DIRECT);
+      }
+    }
+    if (allowTestHeuristic) {
+      return Optional.of(Confidence.HEURISTIC);
+    }
+    return Optional.empty();
+  }
+
+  static Imports extractImports(String source) {
+    Map<String, String> bindings = new LinkedHashMap<>();
+    Set<String> modules = new LinkedHashSet<>();
+    Matcher use = USE.matcher(source);
+    while (use.find()) {
+      String clause = use.group(1).trim();
+      String spec = clause;
+      String local = clause;
+      int as = clause.toLowerCase().lastIndexOf(" as ");
+      if (as >= 0) {
+        spec = clause.substring(0, as).trim();
+        local = clause.substring(as + 4).trim();
+      }
+      int slash = spec.lastIndexOf('\\');
+      if (as < 0 && slash >= 0) {
+        local = spec.substring(slash + 1);
+      }
+      modules.add(spec);
+      if (!local.isEmpty()) {
+        bindings.put(local, spec);
+      }
+    }
+    Matcher req = REQUIRE.matcher(source);
+    while (req.find()) {
+      modules.add(req.group(1));
+    }
+    return new Imports(bindings, modules);
   }
 
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
@@ -526,7 +628,10 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
     return lower.contains("/test/") || lower.contains("/tests/") || file.endsWith("test.php");
   }
 
-  private record ParsedFile(String path, List<String> lines, List<Decl> decls, boolean testFile) {}
+  private record ParsedFile(
+      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+
+  record Imports(Map<String, String> bindings, Set<String> modules) {}
 
   private record Decl(
       String kind,

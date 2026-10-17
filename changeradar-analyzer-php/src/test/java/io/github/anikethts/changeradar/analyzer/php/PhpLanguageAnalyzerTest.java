@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
+import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.LineRange;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ class PhpLanguageAnalyzerTest {
             .anyMatch(
                 finding ->
                     finding.type().equals("CALLER")
+                        && finding.confidence() == Confidence.DIRECT
                         && finding.location().path().contains("caller.php")));
     assertTrue(
         result.tests().stream()
@@ -84,6 +86,39 @@ class PhpLanguageAnalyzerTest {
                     "gone".equals(symbol.name())
                         && symbol.changeType() == ChangeType.DELETE
                         && symbol.publiclyVisible()));
+  }
+
+  @Test
+  void sameNameWithoutRequireIsNotACaller() {
+    String api =
+        """
+        <?php
+        function n() {
+          return 1;
+        }
+        """;
+    String decoy =
+        """
+        <?php
+        function n() {
+          return 2;
+        }
+        function run() {
+          return n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.php", ChangeType.MODIFY, null, List.of(new LineRange(2, 4)))),
+            Map.of("api.php", api, "decoy.php", decoy),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("decoy.php")));
   }
 
   @Test
