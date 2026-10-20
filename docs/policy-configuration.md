@@ -19,6 +19,7 @@ policies:
   - breaking-public-java-api
   - analysis-unavailable
 baseline: .changeradar/baseline.txt
+suppressions: .changeradar/suppress.txt
 ```
 
 ```bash
@@ -48,6 +49,26 @@ java -jar changeradar.jar analyze \
 
 `--write-baseline` records current violation keys and does **not** fail
 that run. Later runs fail only on keys that are not in the baseline.
+
+## Finding suppressions
+
+Findings carry a stable `id` (`type|symbolId|path:line`). Commit a file
+of ids you have reviewed and do not want in PR comments, SARIF, or Checks
+annotations:
+
+```bash
+java -jar changeradar.jar analyze \
+  --base "$BASE_SHA" \
+  --head "$HEAD_SHA" \
+  --write-suppressions .changeradar/suppress.txt
+```
+
+`--write-suppressions` records current ids and omits them from **that**
+run. Later runs omit ids listed in `--suppress-file` or the YAML
+`suppressions:` path. `--suppress-file` overrides the YAML field.
+
+Suppressions hide report noise. They do **not** disable policies. Line
+shifts change the id; refresh the file when the finding moves.
 
 ## Renames and signatures
 

@@ -31,6 +31,9 @@ Today the tool records:
   importers (`--full-index` disables this).
 - `POLICY_BASELINE` when `--baseline` / `--policy-file` baseline keys are
   ignored.
+- `FINDING_SUPPRESSIONS` when `--suppress-file` / YAML `suppressions:`
+  (or `--write-suppressions`) omit matching finding ids from the report.
+  Ids include `path:line`; edits that shift lines require a refresh.
 - `JAVA_CALL_CHAINS` when indirect Java callers walk resolved method and
   constructor edges (depth 1 `DIRECT`, deeper `INDIRECT`, max depth 3).
   Heuristic name matches are not chained.

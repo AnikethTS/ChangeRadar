@@ -150,6 +150,72 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void suppressFileOmitsFindingIds() throws Exception {
+    seedCallerRepo();
+    Path out = tmp.resolve("unfiltered");
+    int first =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, first);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("Caller.java"));
+    Path suppress = tmp.resolve(".changeradar/suppress.txt");
+    Path policy = tmp.resolve("changeradar.yml");
+    Files.writeString(
+        policy,
+        """
+        policies: []
+        suppressions: .changeradar/suppress.txt
+        """);
+    int seed =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--write-suppressions",
+                suppress.toString());
+    assertEquals(0, seed);
+    assertTrue(Files.readString(suppress).contains("CALLER|"));
+    Path filtered = tmp.resolve("filtered");
+    int second =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy-file",
+                policy.toString(),
+                "--format",
+                "json",
+                "--output",
+                filtered.toString());
+    assertEquals(0, second);
+    String filteredJson = Files.readString(filtered.resolve("report.json"));
+    assertTrue(filteredJson.contains("\"findings\" : [ ]"));
+    assertTrue(filteredJson.contains("FINDING_SUPPRESSIONS"));
+  }
+
+  @Test
   void analyzeTypeScriptDiffWritesSymbols() throws Exception {
     seedTypeScriptRepo();
     Path out = tmp.resolve("ts-reports");
@@ -415,6 +481,47 @@ class ChangeRadarAppTest {
     cmd.setErr(new PrintWriter(err, true));
     cmd.setOut(new PrintWriter(new StringWriter(), true));
     return cmd;
+  }
+
+  private void seedCallerRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path demo = tmp.resolve("src/main/java/demo/Demo.java");
+      Path caller = tmp.resolve("src/main/java/demo/Caller.java");
+      Files.createDirectories(demo.getParent());
+      Files.writeString(
+          demo,
+          """
+          package demo;
+          public class Demo {
+            public void n() {}
+          }
+          """);
+      Files.writeString(
+          caller,
+          """
+          package demo;
+          public class Caller {
+            void run() {
+              Demo d = new Demo();
+              d.n();
+            }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          demo,
+          """
+          package demo;
+          public class Demo {
+            public void n() {
+              int x = 1;
+            }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
   }
 
   private void seedRepo() throws Exception {

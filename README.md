@@ -27,7 +27,8 @@ adds impact intelligence to those systems.
 **Status:** `0.2.1` — Java, TypeScript/JavaScript, Python, and PHP
 impact reports, a published fat JAR / GitHub Action (Marketplace:
 ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
-and optional policies (`changeradar policies`, `--policy-file`, baseline).
+and optional policies (`changeradar policies`, `--policy-file`, baseline,
+finding-id suppressions).
 Limitations stay in the report instead of implying a complete graph.
 
 ## Quick start

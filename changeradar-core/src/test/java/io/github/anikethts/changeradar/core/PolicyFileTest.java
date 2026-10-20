@@ -23,10 +23,12 @@ class PolicyFileTest {
           - breaking-public-java-api
           - analysis-unavailable
         baseline: .changeradar/baseline.txt
+        suppressions: .changeradar/suppress.txt
         """);
     PolicyFile.Document document = PolicyFile.load(file);
     assertEquals(2, document.policies().size());
     assertTrue(document.policies().contains(PolicyEngine.BREAKING_PUBLIC_JAVA_API));
     assertEquals(".changeradar/baseline.txt", document.baseline());
+    assertEquals(".changeradar/suppress.txt", document.suppressions());
   }
 }

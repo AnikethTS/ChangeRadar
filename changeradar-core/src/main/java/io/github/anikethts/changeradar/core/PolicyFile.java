@@ -17,11 +17,12 @@ import java.util.Set;
  * policies:
  *   - breaking-public-java-api
  * baseline: .changeradar/baseline.txt
+ * suppressions: .changeradar/suppress.txt
  * </pre>
  */
 public final class PolicyFile {
 
-  public record Document(Set<String> policies, String baseline) {
+  public record Document(Set<String> policies, String baseline, String suppressions) {
     public Document {
       Objects.requireNonNull(policies, "policies");
       policies = Set.copyOf(policies);
@@ -40,6 +41,7 @@ public final class PolicyFile {
     }
     List<String> names = new ArrayList<>();
     String baseline = null;
+    String suppressions = null;
     boolean inPolicies = false;
     for (String raw : text.split("\n")) {
       String line = raw.replace("\t", "  ");
@@ -66,13 +68,22 @@ public final class PolicyFile {
         }
         continue;
       }
+      if (trimmed.startsWith("suppressions:")) {
+        inPolicies = false;
+        suppressions = unquote(trimmed.substring("suppressions:".length()).trim());
+        if (suppressions.isEmpty()) {
+          suppressions = null;
+        }
+        continue;
+      }
       if (inPolicies && trimmed.startsWith("-")) {
         addName(names, trimmed.substring(1));
         continue;
       }
       inPolicies = false;
     }
-    return new Document(new LinkedHashSet<>(PolicyEngine.parseEnabled(names)), baseline);
+    return new Document(
+        new LinkedHashSet<>(PolicyEngine.parseEnabled(names)), baseline, suppressions);
   }
 
   public static Set<String> readBaseline(Path file) {
@@ -95,6 +106,14 @@ public final class PolicyFile {
   }
 
   public static void writeBaseline(Path file, List<String> violations) {
+    writeKeys(file, "# ChangeRadar policy baseline. One violation key per line.\n", violations);
+  }
+
+  public static void writeSuppressions(Path file, List<String> ids) {
+    writeKeys(file, "# ChangeRadar finding suppressions. One finding id per line.\n", ids);
+  }
+
+  private static void writeKeys(Path file, String header, List<String> keys) {
     Objects.requireNonNull(file, "file");
     try {
       Path parent = file.getParent();
@@ -102,14 +121,13 @@ public final class PolicyFile {
         Files.createDirectories(parent);
       }
       StringBuilder out = new StringBuilder();
-      out.append("# ChangeRadar policy baseline. One violation key per line.\n");
-      for (String violation : violations) {
-        out.append(violation).append('\n');
+      out.append(header);
+      for (String key : keys) {
+        out.append(key).append('\n');
       }
       Files.writeString(file, out.toString());
     } catch (IOException e) {
-      throw new GitAccessException(
-          "Cannot write policy baseline " + file + ": " + e.getMessage(), e);
+      throw new GitAccessException("Cannot write " + file + ": " + e.getMessage(), e);
     }
   }
 

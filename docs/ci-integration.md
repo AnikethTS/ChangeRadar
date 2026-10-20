@@ -116,6 +116,10 @@ the target Maven/Gradle build.
 Maven: `mvn -B -DskipTests package` and `classpath: target`. Skip compile
 and `classpath` when the repo has no JVM build.
 
+Optional `suppress-file` (or YAML `suppressions:`) is one finding id per
+line. Seed it with `--write-suppressions`. Policies still run on the
+unfiltered analysis.
+
 ### Pull request comments and check summary
 
 The optional `comment` job posts `report.compact.md` (counts, policy
