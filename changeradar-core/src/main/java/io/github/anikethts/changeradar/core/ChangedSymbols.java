@@ -54,7 +54,8 @@ public final class ChangedSymbols {
                   to.owner(),
                   to.location(),
                   ChangeType.MODIFY,
-                  to.publiclyVisible());
+                  to.publiclyVisible(),
+                  to.signature());
           out.add(modified);
           signatureChanges.add(modified);
         } else {
@@ -66,7 +67,8 @@ public final class ChangedSymbols {
                   to.owner(),
                   to.location(),
                   ChangeType.RENAME,
-                  to.publiclyVisible()));
+                  to.publiclyVisible(),
+                  to.signature()));
         }
       } else {
         out.addAll(del);

@@ -123,7 +123,8 @@ the same place you already review the change.
 
 - Compares explicit `--base` and `--head` Git refs (SHAs or branch names).
 - Lists changed files, including additions, edits, deletions, and renames.
-- Maps changed Java lines to types and methods (JavaParser).
+- Maps changed Java lines to types and methods, including overloads
+  (JavaParser).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).

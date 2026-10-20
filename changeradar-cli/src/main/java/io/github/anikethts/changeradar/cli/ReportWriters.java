@@ -428,6 +428,9 @@ final class ReportWriters {
     if ("type".equals(symbol.kind()) || symbol.owner().isEmpty()) {
       return symbol.name();
     }
+    if (!symbol.signature().isEmpty()) {
+      return symbol.methodKey();
+    }
     return symbol.owner() + "#" + symbol.name();
   }
 
