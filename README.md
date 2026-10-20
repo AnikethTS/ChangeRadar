@@ -42,10 +42,18 @@ java -jar changeradar.jar analyze \
   --output build/changeradar
 ```
 
-GitHub Actions: pin this repository's composite Action to a **commit SHA**
-(the same way you pin `actions/checkout`), and set `version` to a release
-tag whose assets include `changeradar.jar`. Copy
+GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
+Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
+`version: v0.2.1` only when you want that exact analyzer. Copy
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
+
+```yaml
+- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1 # v0.2.1 wrapper
+  with:
+    base: ${{ github.event.pull_request.base.sha }}
+    head: ${{ github.event.pull_request.head.sha }}
+    # version: v0.2.1   # pin the JAR; omit for latest
+```
 
 Developing ChangeRadar itself:
 

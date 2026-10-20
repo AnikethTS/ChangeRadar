@@ -1,7 +1,11 @@
-# Copy into a consuming repository. Pin this Action to a commit SHA the same
-# way you pin actions/checkout. `version` is a ChangeRadar *release tag* whose
-# assets include changeradar.jar. Do not run Gradle of this project in
+# Copy into a consuming repository. Do not run Gradle of this project in
 # consumer CI.
+#
+# Two version knobs:
+# 1. uses: …@<sha>  — the Action wrapper (setup-java + download script). Pin
+#    a SHA the same way you pin actions/checkout.
+# 2. version:         — the analyzer JAR. Omit it (or latest) to always take
+#    GitHub's latest published release. Set version: v0.2.1 to pin a JAR.
 name: ChangeRadar
 
 on:
@@ -33,14 +37,14 @@ jobs:
             "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}"
 
-      # Pin to a SHA of AnikethTS/ChangeRadar that contains action.yml, not a moving tag.
-      - uses: AnikethTS/ChangeRadar@2fcffb7ae933a6d7086417f5597e9b25ad616a64
+      # Wrapper SHA (v0.2.1). JAR defaults to latest unless you set version.
+      - uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1
         with:
-          version: v0.2.0
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           format: compact,markdown,json,sarif,github
           output: build/changeradar
+          # version: v0.2.1
           # policy: breaking-public-java-api,analysis-unavailable
           # policy-file: changeradar.yml
           # classpath: build/libs

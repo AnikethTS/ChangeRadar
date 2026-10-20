@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Consumer Action defaults the analyzer JAR to GitHub’s latest release
+  (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
+  Still pin `uses:` to a wrapper SHA.
+
 ### Fixed
 
 - Marketplace `name` is `ChangeRadar Impact Analysis`. GitHub rejected
