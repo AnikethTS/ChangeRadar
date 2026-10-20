@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-20
+
+Analyzer JAR is the `v0.2.2` release asset. Consumer CI is checkout plus
+one Action step; copy
+[`examples/github-actions/changeradar.yml`](examples/github-actions/changeradar.yml).
+
 ### Added
 
 - Finding-id suppressions: `--suppress-file` / YAML `suppressions:` (one
@@ -18,16 +24,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
-- Consumer GitHub Actions example is checkout plus one `uses:` step.
-  Artifact upload, sticky PR comment, and Checks notices run inside the
+- Artifact upload, sticky PR comment, and Checks notices run inside the
   Action (skipped on fork PRs). Compile then `classpath:` remains optional
   for Java DIRECT callers; ChangeRadar still does not run the target build.
-
-- `VERSION` is `0.2.2-SNAPSHOT` after the `v0.2.1` tag. README status and
-  sample report match the current CLI (`0.2.2-SNAPSHOT`, limitations,
-  policies). Consumer example pins wrapper SHA `b825408`.
 - Consumer Action defaults the analyzer JAR to GitHub’s latest release
-  (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
+  (`version` omitted or `latest`). Set `version: v0.2.2` to pin a JAR.
   Still pin `uses:` to a wrapper SHA.
 
 ### Fixed
@@ -142,7 +143,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.2
 [0.2.1]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.1
 [0.2.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.1.0

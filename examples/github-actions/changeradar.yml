@@ -39,13 +39,13 @@ jobs:
           fetch-depth: 0
 
       # Pin to a SHA of AnikethTS/ChangeRadar that includes report posting.
-      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+      - uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
 
           # Pin the analyzer JAR (omit for latest):
-          # version: v0.2.1
+          # version: v0.2.2
 
           # Java: compile in this workflow first, then pass jars. ChangeRadar
           # does not run your Maven/Gradle. See changeradar-java.yml.

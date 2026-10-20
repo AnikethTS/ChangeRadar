@@ -63,7 +63,7 @@ There are two version knobs:
 | `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21, download, report). | Pin a SHA, same as `actions/checkout`. |
 | `version` | Which `changeradar.jar` to download. | **`latest`** — GitHub’s latest published release. Omit the input. |
 
-Pin a specific analyzer with `version: v0.2.1`. Pass `jar:` only when the fat
+Pin a specific analyzer with `version: v0.2.2`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
@@ -78,11 +78,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+      - uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.1
+          # version: v0.2.2
 ```
 
 This repository builds the JAR and runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
@@ -116,7 +116,7 @@ the target Maven/Gradle build.
 
 ```yaml
 - run: ./gradlew assemble --no-daemon
-- uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+- uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
