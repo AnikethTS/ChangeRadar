@@ -11,17 +11,21 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   `type|symbolId|path:line` per line) omit those findings from compact,
   Markdown, JSON, SARIF, and GitHub reports. `--write-suppressions` seeds
   the file. Policies still evaluate the unfiltered analysis.
+- Copy-paste GitHub Actions templates:
+  `examples/github-actions/changeradar.yml` (any repo) and
+  `changeradar-java.yml` (compile then `classpath`). Destination in the
+  consumer repo is `.github/workflows/changeradar.yml`.
 
 ### Changed
 
-- Consumer GitHub Actions example compiles with the project’s own Gradle
-  (or Maven) step, then passes `classpath:` of those jars so Java callers
-  can resolve as `DIRECT`. This repo’s impact workflow does the same with
-  module `build/libs`. ChangeRadar still does not run the target build.
+- Consumer GitHub Actions example is checkout plus one `uses:` step.
+  Artifact upload, sticky PR comment, and Checks notices run inside the
+  Action (skipped on fork PRs). Compile then `classpath:` remains optional
+  for Java DIRECT callers; ChangeRadar still does not run the target build.
 
 - `VERSION` is `0.2.2-SNAPSHOT` after the `v0.2.1` tag. README status and
   sample report match the current CLI (`0.2.2-SNAPSHOT`, limitations,
-  policies). Consumer example pins wrapper SHA `60797d6`.
+  policies). Consumer example pins wrapper SHA `b825408`.
 - Consumer Action defaults the analyzer JAR to GitHub’s latest release
   (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
   Still pin `uses:` to a wrapper SHA.

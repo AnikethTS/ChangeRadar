@@ -1,0 +1,36 @@
+# Created from the ChangeRadar workflow template.
+# Pin uses: to a commit SHA. Omit version for GitHub's latest analyzer JAR.
+name: ChangeRadar
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Impact report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          # version: v0.2.1
+          # classpath: build/libs
+          # policy-file: changeradar.yml
+          # suppress-file: .changeradar/suppress.txt

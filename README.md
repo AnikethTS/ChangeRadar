@@ -47,10 +47,14 @@ java -jar changeradar.jar analyze \
 GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
 Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
 `version: v0.2.1` only when you want that exact analyzer. Copy
-[`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
+[`examples/github-actions/changeradar.yml`](examples/github-actions/changeradar.yml)
+into `.github/workflows/changeradar.yml` (checkout + one step; comment,
+Checks notices, and the artifact are inside the Action). JVM repos can
+copy [`changeradar-java.yml`](examples/github-actions/changeradar-java.yml)
+instead.
 
 ```yaml
-- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3 # wrapper on main
+- uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade # wrapper on main
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
@@ -176,14 +180,15 @@ A high heuristic risk score must not fail the job unless a team explicitly
 enables that policy. A failed analysis is not the same as a detected risk.
 
 A least-privilege GitHub Actions example lives in
-[`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
+[`examples/github-actions/changeradar.yml`](examples/github-actions/changeradar.yml)
+(copy to `.github/workflows/changeradar.yml`).
 Pin `uses: AnikethTS/ChangeRadar@<sha>`. This repository dogfoods the
 Action with a locally built fat JAR. Same-repo PRs get a **compact**
 sticky comment, a job summary, and notice annotations on the Files changed
-tab; the full Markdown / JSON / SARIF stay on the artifact. Fork PRs skip
-the comment and annotations. Do not upload ChangeRadar SARIF to Code
-Scanning. Java repos compile in the workflow and pass `classpath:` of those
-jars so typed callers can be `DIRECT`.
+tab from inside the Action; the full Markdown / JSON / SARIF stay on the
+artifact. Fork PRs skip the comment and annotations. Do not upload
+ChangeRadar SARIF to Code Scanning. Java repos may compile in the workflow
+and pass `classpath:` of those jars so typed callers can be `DIRECT`.
 Details: [CI integration](docs/ci-integration.md).
 
 ## Docs

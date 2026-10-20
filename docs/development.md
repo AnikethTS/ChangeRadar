@@ -40,7 +40,7 @@ changeradar-analyzer-python/     Python adapter
 changeradar-analyzer-php/        PHP adapter
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
-examples/github-actions/      consumer workflow (download release JAR)
+examples/github-actions/      consumer workflow templates to copy
 action.yml                    composite Action: java -jar changeradar.jar
 fixtures/                     later: tiny demo repos + expected reports
 schemas/                      JSON report schema

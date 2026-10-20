@@ -1,0 +1,61 @@
+# TEMPLATE — copy this file into YOUR repository as:
+#   .github/workflows/changeradar.yml
+#
+# Do not clone ChangeRadar or run its Gradle. Edit the commented `with:`
+# keys below for your project. Pin `uses:` to a commit SHA.
+#
+# Two version knobs:
+# 1. uses: …@<sha> — Action wrapper (Java, download, report). Pin a SHA.
+# 2. version: — analyzer JAR. Leave omitted for GitHub's latest release.
+#
+# After copy:
+#   - Same-repo PRs get an artifact, sticky comment, and Checks notices.
+#   - Fork PRs skip comment and annotations.
+#   - Set comment/annotate/upload to false to turn those off.
+name: ChangeRadar
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Impact report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Pin to a SHA of AnikethTS/ChangeRadar that includes report posting.
+      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+
+          # Pin the analyzer JAR (omit for latest):
+          # version: v0.2.1
+
+          # Java: compile in this workflow first, then pass jars. ChangeRadar
+          # does not run your Maven/Gradle. See changeradar-java.yml.
+          # classpath: build/libs
+
+          # Optional policies and finding-id suppressions (commit those files):
+          # policy: breaking-public-java-api,analysis-unavailable
+          # policy-file: changeradar.yml
+          # suppress-file: .changeradar/suppress.txt
+
+          # comment: false
+          # annotate: false
+          # upload: false

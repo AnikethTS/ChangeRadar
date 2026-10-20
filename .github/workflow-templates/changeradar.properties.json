@@ -1,0 +1,6 @@
+{
+  "name": "ChangeRadar impact",
+  "description": "Analyze a pull request and post a compact impact report. Copy, then pin uses: to a SHA.",
+  "iconName": "octicon-graph",
+  "categories": ["Continuous integration"]
+}

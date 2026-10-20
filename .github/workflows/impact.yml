@@ -1,8 +1,7 @@
 # Dogfood this repository: build changeradar.jar, then run the composite
-# Action. Consumer CI should copy examples/github-actions/impact.yml
-# (download a tagged release, pin this Action to a SHA).
-# Least privilege: contents: read is enough to analyze. The comment job
-# needs pull-requests: write and is skipped on fork PRs.
+# Action. Consumers copy examples/github-actions/impact.yml (pin uses: to a
+# SHA; JAR defaults to latest). Artifact, sticky comment, and Checks
+# notices are inside the Action.
 name: ChangeRadar
 
 on:
@@ -23,16 +22,11 @@ jobs:
     permissions:
       contents: read
       checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-
-      - name: Fetch PR SHAs
-        run: |
-          git fetch --no-tags origin \
-            "${{ github.event.pull_request.base.sha }}" \
-            "${{ github.event.pull_request.head.sha }}"
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -52,104 +46,3 @@ jobs:
           format: compact,markdown,json,sarif,github
           output: build/changeradar
           classpath: changeradar-core/build/libs:changeradar-git/build/libs:changeradar-analyzer-java/build/libs:changeradar-analyzer-typescript/build/libs:changeradar-analyzer-python/build/libs:changeradar-analyzer-php/build/libs:changeradar-cli/build/libs
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
-        with:
-          name: changeradar-report
-          path: build/changeradar/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Annotate changed files
-        if: always() && github.event.pull_request.head.repo.full_name == github.repository && hashFiles('build/changeradar/report.github.json') != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          python3 - "$HEAD_SHA" <<'PY'
-          import json
-          import os
-          import pathlib
-          import sys
-
-          head = sys.argv[1]
-          payload = json.loads(pathlib.Path("build/changeradar/report.github.json").read_text())
-          body = {
-              "name": "ChangeRadar annotations",
-              "head_sha": head,
-              "status": "completed",
-              "conclusion": "success",
-              "output": {
-                  "title": payload.get("title") or "ChangeRadar impact",
-                  "summary": (payload.get("summary") or "")[:65000],
-                  "annotations": (payload.get("annotations") or [])[:50],
-              },
-          }
-          pathlib.Path("/tmp/changeradar-check.json").write_text(json.dumps(body))
-          PY
-          gh api --method POST "repos/${GH_REPO}/check-runs" --input /tmp/changeradar-check.json
-
-  comment:
-    name: Comment report
-    needs: impact
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: write
-    steps:
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: changeradar-report
-          path: build/changeradar
-
-      - name: Post or update compact report comment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          LOGO_URL: https://raw.githubusercontent.com/AnikethTS/ChangeRadar/main/.github/logo.png
-        run: |
-          set -euo pipefail
-          test -s build/changeradar/report.compact.md
-          python3 - "$RUN_URL" "$LOGO_URL" <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          run_url = sys.argv[1]
-          logo_url = sys.argv[2]
-          marker = "<!-- changeradar-report -->"
-          report = pathlib.Path("build/changeradar/report.compact.md").read_text()
-          header = (
-              marker
-              + "\n\n"
-              + '<img src="'
-              + logo_url
-              + '" alt="ChangeRadar" width="220" />\n\n'
-              + "Full Markdown, JSON, and SARIF: "
-              + run_url
-              + "\n\n"
-          )
-          pathlib.Path("/tmp/changeradar-comment.json").write_text(
-              json.dumps({"body": header + report})
-          )
-          PY
-          COMMENT_ID="$(
-            gh api --paginate "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
-              --jq '.[] | select(.user.login=="github-actions[bot]" and (.body | contains("<!-- changeradar-report -->"))) | .id' \
-              | awk 'NF { print; exit }'
-          )"
-          if [ -n "${COMMENT_ID}" ]; then
-            gh api --method PATCH "repos/${GH_REPO}/issues/comments/${COMMENT_ID}" \
-              --input /tmp/changeradar-comment.json
-          else
-            gh api --method POST "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" \
-              --input /tmp/changeradar-comment.json
-          fi
