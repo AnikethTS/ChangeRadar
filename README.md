@@ -83,7 +83,8 @@ the same place you already review the change.
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).
 - Maps changed PHP lines to classes and functions (not php-parser).
-- Finds likely callers and related tests, labeled DIRECT or HEURISTIC.
+- Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
+  HEURISTIC. Java callers of callers are INDIRECT (capped).
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.

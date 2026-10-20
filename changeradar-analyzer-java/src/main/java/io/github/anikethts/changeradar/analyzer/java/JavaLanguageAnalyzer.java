@@ -19,6 +19,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import io.github.anikethts.changeradar.core.AnalysisResult;
+import io.github.anikethts.changeradar.core.CallChains;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
@@ -45,8 +46,9 @@ import java.util.regex.Pattern;
 
 /**
  * Java analyzer: maps changed lines to types and methods, then finds callers. In-repo types plus
- * the JRE are resolved with JavaParser's symbol solver (DIRECT). Unresolved calls fall back to name
- * matching (HEURISTIC). Compiled Maven/Gradle dependencies are not on the type path.
+ * the JRE are resolved with JavaParser's symbol solver (DIRECT). Resolved callers of those callers
+ * are INDIRECT, capped by depth and count. Unresolved calls fall back to name matching (HEURISTIC)
+ * and are not chained. Compiled Maven/Gradle dependencies are not on the type path.
  */
 public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
 
@@ -93,6 +95,15 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                 "Java callers are type-resolved against HEAD sources and the JRE. Types that exist"
                     + " only in compiled dependencies are not on the path; those call sites fall"
                     + " back to name matching (HEURISTIC)."));
+        limitations.add(
+            new Limitation(
+                "JAVA_CALL_CHAINS",
+                "Indirect Java callers follow type-resolved method and constructor edges up to "
+                    + CallChains.MAX_DEPTH
+                    + " hops (depth 1 DIRECT, deeper INDIRECT). Heuristic name matches are not"
+                    + " chained. Indirect findings are capped at "
+                    + CallChains.MAX_INDIRECT
+                    + "."));
       } catch (IOException e) {
         limitations.add(
             new Limitation(
@@ -158,7 +169,16 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
               .thenComparing(s -> s.location().startLine())
               .thenComparing(ChangedSymbol::id));
 
-      List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+      CallerScan callers = findCallers(parsedHead, changedSymbols);
+      if (callers.chainCapped()) {
+        limitations.add(
+            new Limitation(
+                "JAVA_CALL_CHAIN_CAP",
+                "Indirect Java callers were capped at "
+                    + CallChains.MAX_INDIRECT
+                    + "; later hops in the graph are omitted."));
+      }
+      List<ImpactFinding> findings = new ArrayList<>(callers.findings());
       findings.addAll(publicApiFindings(changedSymbols));
       findings.sort(
           Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -263,13 +283,16 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             });
   }
 
-  private static List<ImpactFinding> findCallers(
+  private static CallerScan findCallers(
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedMethods = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
+    Set<String> seeds = new LinkedHashSet<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
-        changedMethods.add(symbol.owner() + "#" + symbol.name());
+        String id = symbol.owner() + "#" + symbol.name();
+        changedMethods.add(id);
+        seeds.add(id);
         String simpleOwner = simpleName(symbol.owner());
         if (!simpleOwner.isEmpty()) {
           changedMethods.add(simpleOwner + "#" + symbol.name());
@@ -278,6 +301,9 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       if ("type".equals(symbol.kind())) {
         changedTypes.add(symbol.name());
         changedTypes.add(simpleName(symbol.name()));
+        if (!symbol.name().isEmpty()) {
+          seeds.add(symbol.name());
+        }
       } else {
         String simple = simpleName(symbol.owner());
         if (!simple.isEmpty()) {
@@ -285,122 +311,166 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         }
         if (!symbol.owner().isEmpty()) {
           changedTypes.add(symbol.owner());
+          seeds.add(symbol.owner());
         }
       }
     }
 
+    List<CallChains.Edge> edges = new ArrayList<>();
     List<ImpactFinding> findings = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
     for (ParsedFile file : parsedHead.values()) {
+      String pkg = packageName(file.cu);
       for (MethodCallExpr call : file.cu.findAll(MethodCallExpr.class)) {
-        String methodName = call.getNameAsString();
-        Optional<String> scopeType =
-            call.getScope()
-                .filter(NameExpr.class::isInstance)
-                .map(scope -> ((NameExpr) scope).getNameAsString());
-        Optional<String> enclosing = enclosingType(call);
-        if (enclosing.isPresent() && changedMethods.contains(enclosing.get() + "#" + methodName)) {
-          boolean insideChanged =
-              call.getRange()
-                  .map(
-                      range ->
-                          changedSymbols.stream()
-                              .anyMatch(
-                                  symbol ->
-                                      symbol.location().path().equals(file.path)
-                                          && symbol.location().startLine() <= range.begin.line
-                                          && range.end.line <= symbol.location().endLine()
-                                          && methodName.equals(symbol.name())))
-                  .orElse(false);
-          if (insideChanged && scopeType.isEmpty()) {
-            continue;
-          }
-        }
         Optional<ResolvedCall> resolved = resolveMethodCall(call);
-        final Confidence confidence;
-        final String matchedOwner;
-        if (resolved.isPresent()) {
+        Optional<SourceLocation> location = locationOf(file.path, call);
+        Optional<String> callerId = enclosingCallableId(call, pkg);
+        if (resolved.isPresent() && location.isPresent() && callerId.isPresent()) {
           ResolvedCall match = resolved.get();
-          if (!changedMethods.contains(match.owner() + "#" + match.name())
-              && !changedMethods.contains(simpleName(match.owner()) + "#" + match.name())) {
-            continue;
-          }
-          confidence = Confidence.DIRECT;
-          matchedOwner = match.owner();
-        } else if (scopeType.isPresent()
-            && changedMethods.contains(scopeType.get() + "#" + methodName)) {
-          confidence = Confidence.DIRECT;
-          matchedOwner = scopeType.get();
-        } else if (scopeType.isEmpty()
-            && enclosing.isPresent()
-            && changedMethods.contains(enclosing.get() + "#" + methodName)) {
-          // Unresolved this/static call: only the enclosing type, not every parseBase() in the
-          // repo.
-          confidence = Confidence.HEURISTIC;
-          matchedOwner = enclosing.get();
-        } else if (scopeType.isPresent()
-            && changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
-          confidence = Confidence.HEURISTIC;
-          matchedOwner =
-              changedMethods.stream()
-                  .filter(id -> id.endsWith("#" + methodName))
-                  .map(id -> id.substring(0, id.indexOf('#')))
-                  .findFirst()
-                  .orElse("");
-        } else {
+          String calleeId = match.owner() + "#" + match.name();
+          edges.add(new CallChains.Edge(calleeId, callerId.get(), location.get()));
           continue;
         }
-        String symbolId = matchedOwner + "#" + methodName;
-        Optional<String> caller = enclosing;
-        call.getRange()
-            .ifPresent(
-                range -> {
-                  String key = file.path + ":" + range.begin.line + ":" + symbolId;
-                  if (seen.add(key)) {
-                    findings.add(
-                        new ImpactFinding(
-                            "CALLER",
-                            confidence,
-                            caller.orElse(file.path)
-                                + " calls "
-                                + symbolId
-                                + " ("
-                                + confidence.name().toLowerCase()
-                                + ")",
-                            symbolId,
-                            new SourceLocation(file.path, range.begin.line, range.end.line)));
-                  }
-                });
+        heuristicMethodCaller(file, call, changedMethods, changedSymbols, seen, findings);
       }
       for (ObjectCreationExpr create : file.cu.findAll(ObjectCreationExpr.class)) {
         Optional<String> resolvedType = resolveCreatedType(create);
-        String typeName = resolvedType.orElseGet(() -> create.getType().getNameAsString());
-        boolean matched =
-            resolvedType.isPresent()
-                ? changedTypes.contains(typeName) || changedTypes.contains(simpleName(typeName))
-                : changedTypes.contains(typeName);
-        if (!matched) {
+        Optional<SourceLocation> location = locationOf(file.path, create);
+        Optional<String> callerId = enclosingCallableId(create, pkg);
+        if (resolvedType.isPresent() && location.isPresent() && callerId.isPresent()) {
+          String typeName = resolvedType.get();
+          edges.add(new CallChains.Edge(typeName, callerId.get(), location.get()));
+          edges.add(
+              new CallChains.Edge(
+                  typeName + "#" + simpleName(typeName), callerId.get(), location.get()));
           continue;
         }
-        Confidence confidence = resolvedType.isPresent() ? Confidence.DIRECT : Confidence.HEURISTIC;
-        create
-            .getRange()
-            .ifPresent(
-                range -> {
-                  String key = file.path + ":" + range.begin.line + ":new " + typeName;
-                  if (seen.add(key)) {
-                    findings.add(
-                        new ImpactFinding(
-                            "CALLER",
-                            confidence,
-                            enclosingType(create).orElse(file.path) + " constructs " + typeName,
-                            typeName,
-                            new SourceLocation(file.path, range.begin.line, range.end.line)));
-                  }
-                });
+        heuristicConstructor(file, create, resolvedType, changedTypes, seen, findings);
       }
     }
-    return findings;
+
+    CallChains.Expansion expansion = CallChains.fromResolved(seeds, edges);
+    for (ImpactFinding finding : expansion.findings()) {
+      String key =
+          finding.location().path()
+              + ":"
+              + finding.location().startLine()
+              + ":"
+              + finding.symbolId();
+      if (seen.add(key)) {
+        findings.add(finding);
+      }
+    }
+    return new CallerScan(findings, expansion.capped());
+  }
+
+  private static void heuristicMethodCaller(
+      ParsedFile file,
+      MethodCallExpr call,
+      Set<String> changedMethods,
+      List<ChangedSymbol> changedSymbols,
+      Set<String> seen,
+      List<ImpactFinding> findings) {
+    String methodName = call.getNameAsString();
+    Optional<String> scopeType =
+        call.getScope()
+            .filter(NameExpr.class::isInstance)
+            .map(scope -> ((NameExpr) scope).getNameAsString());
+    Optional<String> enclosing = enclosingType(call);
+    if (enclosing.isPresent() && changedMethods.contains(enclosing.get() + "#" + methodName)) {
+      boolean insideChanged =
+          call.getRange()
+              .map(
+                  range ->
+                      changedSymbols.stream()
+                          .anyMatch(
+                              symbol ->
+                                  symbol.location().path().equals(file.path)
+                                      && symbol.location().startLine() <= range.begin.line
+                                      && range.end.line <= symbol.location().endLine()
+                                      && methodName.equals(symbol.name())))
+              .orElse(false);
+      if (insideChanged && scopeType.isEmpty()) {
+        return;
+      }
+    }
+    final Confidence confidence;
+    final String matchedOwner;
+    if (scopeType.isPresent() && changedMethods.contains(scopeType.get() + "#" + methodName)) {
+      confidence = Confidence.DIRECT;
+      matchedOwner = scopeType.get();
+    } else if (scopeType.isEmpty()
+        && enclosing.isPresent()
+        && changedMethods.contains(enclosing.get() + "#" + methodName)) {
+      // Unresolved this/static call: only the enclosing type, not every parseBase() in the
+      // repo.
+      confidence = Confidence.HEURISTIC;
+      matchedOwner = enclosing.get();
+    } else if (scopeType.isPresent()
+        && changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
+      confidence = Confidence.HEURISTIC;
+      matchedOwner =
+          changedMethods.stream()
+              .filter(id -> id.endsWith("#" + methodName))
+              .map(id -> id.substring(0, id.indexOf('#')))
+              .findFirst()
+              .orElse("");
+    } else {
+      return;
+    }
+    String symbolId = matchedOwner + "#" + methodName;
+    call.getRange()
+        .ifPresent(
+            range -> {
+              String key = file.path + ":" + range.begin.line + ":" + symbolId;
+              if (seen.add(key)) {
+                findings.add(
+                    new ImpactFinding(
+                        "CALLER",
+                        confidence,
+                        enclosing.orElse(file.path)
+                            + " calls "
+                            + symbolId
+                            + " ("
+                            + confidence.name().toLowerCase()
+                            + ")",
+                        symbolId,
+                        new SourceLocation(file.path, range.begin.line, range.end.line)));
+              }
+            });
+  }
+
+  private static void heuristicConstructor(
+      ParsedFile file,
+      ObjectCreationExpr create,
+      Optional<String> resolvedType,
+      Set<String> changedTypes,
+      Set<String> seen,
+      List<ImpactFinding> findings) {
+    String typeName = resolvedType.orElseGet(() -> create.getType().getNameAsString());
+    boolean matched =
+        resolvedType.isPresent()
+            ? changedTypes.contains(typeName) || changedTypes.contains(simpleName(typeName))
+            : changedTypes.contains(typeName);
+    if (!matched) {
+      return;
+    }
+    Confidence confidence = resolvedType.isPresent() ? Confidence.DIRECT : Confidence.HEURISTIC;
+    create
+        .getRange()
+        .ifPresent(
+            range -> {
+              String key = file.path + ":" + range.begin.line + ":new " + typeName;
+              if (seen.add(key)) {
+                findings.add(
+                    new ImpactFinding(
+                        "CALLER",
+                        confidence,
+                        enclosingType(create).orElse(file.path) + " constructs " + typeName,
+                        typeName,
+                        new SourceLocation(file.path, range.begin.line, range.end.line)));
+              }
+            });
   }
 
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
@@ -669,6 +739,32 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     }
     return Optional.empty();
   }
+
+  private static Optional<String> enclosingCallableId(Node node, String pkg) {
+    Node current = node;
+    while (current != null) {
+      if (current instanceof MethodDeclaration method) {
+        String owner = qualify(pkg, enclosingType(method).orElse(""));
+        return Optional.of(owner + "#" + method.getNameAsString());
+      }
+      if (current instanceof ConstructorDeclaration ctor) {
+        String owner = qualify(pkg, enclosingType(ctor).orElse(""));
+        return Optional.of(owner + "#" + ctor.getNameAsString());
+      }
+      current = current.getParentNode().orElse(null);
+    }
+    return Optional.empty();
+  }
+
+  private static String packageName(CompilationUnit cu) {
+    return cu.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
+  }
+
+  private static Optional<SourceLocation> locationOf(String path, Node node) {
+    return node.getRange().map(range -> new SourceLocation(path, range.begin.line, range.end.line));
+  }
+
+  private record CallerScan(List<ImpactFinding> findings, boolean chainCapped) {}
 
   private static String simpleName(String owner) {
     int dot = owner.lastIndexOf('.');
