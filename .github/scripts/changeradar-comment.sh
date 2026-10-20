@@ -18,19 +18,27 @@ import sys
 
 run_url, logo_url, compact = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
 marker = "<!-- changeradar-report -->"
-report = compact.read_text()
+body = compact.read_text()
+if body.startswith("## ChangeRadar"):
+    body = body.split("\n", 1)[-1].lstrip()
 header = (
     marker
-    + "\n\n"
+    + "\n"
+    + "<table><tr>"
+    + '<td width="44" valign="middle">'
     + '<img src="'
     + logo_url
-    + '" alt="ChangeRadar" width="220" />\n\n'
-    + "Full Markdown, JSON, and SARIF: "
+    + '" width="36" height="36" alt="ChangeRadar" />'
+    + "</td>"
+    + '<td valign="middle">\n\n'
+    + "**ChangeRadar** · impact report  \n"
+    + "[Full Markdown, JSON, and SARIF]("
     + run_url
-    + "\n\n"
+    + ")\n\n"
+    + "</td></tr></table>\n\n"
 )
 pathlib.Path("/tmp/changeradar-comment.json").write_text(
-    json.dumps({"body": header + report})
+    json.dumps({"body": header + body})
 )
 PY
 COMMENT_ID="$(

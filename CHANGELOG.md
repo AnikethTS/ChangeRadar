@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- PR comments use a 36px radar mark next to the title, GitHub alert
+  callouts for policy, and a one-row counts table. The wide README logo
+  is not pasted into the comment.
+
 ### Added
 
 - CI `check` and CLI smoke also run on the previous GitHub-hosted images

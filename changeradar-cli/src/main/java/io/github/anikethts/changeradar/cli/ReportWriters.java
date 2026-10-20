@@ -233,21 +233,28 @@ final class ReportWriters {
     StringBuilder md = new StringBuilder();
     md.append("## ChangeRadar\n\n");
     if (report.policy().blocking()) {
-      md.append("**Policy: blocking** (exit 1)\n\n");
+      md.append("> [!CAUTION]\n");
+      md.append("> **Policy blocking** (exit 1)\n");
       for (String violation : report.policy().violations()) {
-        md.append("- ").append(violation).append('\n');
+        md.append("> - ").append(violation).append('\n');
       }
       md.append('\n');
     } else {
+      md.append("> [!NOTE]\n");
       md.append(
-          "**Policy: none blocking.** Exit 0 means analysis completed, not that the change is"
+          "> **Policy not blocking.** Exit 0 means analysis finished, not that the change is"
               + " safe.\n\n");
     }
-    md.append("| | Count |\n|---|---|\n");
-    md.append("| Changed files | ").append(report.changedFiles().size()).append(" |\n");
-    md.append("| Changed symbols | ").append(report.changedSymbols().size()).append(" |\n");
-    md.append("| Findings | ").append(report.findings().size()).append(" |\n");
-    md.append("| Tests to consider | ").append(report.tests().size()).append(" |\n\n");
+    md.append("| Files | Symbols | Findings | Tests |\n| ---: | ---: | ---: | ---: |\n");
+    md.append("| ")
+        .append(report.changedFiles().size())
+        .append(" | ")
+        .append(report.changedSymbols().size())
+        .append(" | ")
+        .append(report.findings().size())
+        .append(" | ")
+        .append(report.tests().size())
+        .append(" |\n\n");
     List<ImpactFinding> direct =
         report.findings().stream()
             .filter(finding -> finding.confidence() == Confidence.DIRECT)
@@ -265,15 +272,15 @@ final class ReportWriters {
       md.append("_None._\n\n");
     } else {
       for (ImpactFinding finding : direct) {
-        md.append("- `")
+        md.append("- **")
+            .append(finding.type())
+            .append("** `")
             .append(finding.location().path())
             .append(":")
             .append(finding.location().startLine())
-            .append("` ")
+            .append("` — ")
             .append(finding.summary())
-            .append(" (`")
-            .append(finding.id())
-            .append("`)\n");
+            .append('\n');
       }
       md.append('\n');
     }
@@ -297,9 +304,7 @@ final class ReportWriters {
                       .append("`)\n"));
       md.append('\n');
     }
-    md.append(
-        "Download the full Markdown, JSON, and SARIF from the workflow artifact. Absence of a"
-            + " finding is not proof of no impact.\n");
+    md.append("_Absence of a finding is not proof of no impact._\n");
     return md.toString();
   }
 
