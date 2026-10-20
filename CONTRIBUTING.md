@@ -37,7 +37,8 @@ git config core.hooksPath .githooks
 - Prefer fixture repositories under `fixtures/` (or `@TempDir` Git repos in
   tests) over mocking JGit unless the mock is the thing under test.
 - Run `./gradlew check` locally before opening a PR. CI runs the same
-  checks on Linux, macOS, and Windows (JDK 21 and 25).
+  checks on current and previous GitHub-hosted Ubuntu, macOS, and Windows
+  images (JDK 21 on all of them; JDK 25 on `*-latest`).
 - Write your commit messages and PR description around *why*, not just
   *what* — the diff already shows what changed.
 

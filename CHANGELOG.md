@@ -5,6 +5,13 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- CI `check` and CLI smoke also run on the previous GitHub-hosted images
+  (`ubuntu-24.04`, `ubuntu-22.04`, `windows-2022`, `macos-15`) with JDK 21.
+  GitHub does not offer a Windows 10 runner; `windows-2022` is the prior
+  Windows Server image (NT 10.0).
+
 ## [0.2.2] - 2026-10-20
 
 Analyzer JAR is the `v0.2.2` release asset. Consumer CI is checkout plus

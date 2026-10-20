@@ -53,6 +53,17 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         java: ["21", "25"]
+        include:
+          # Previous GitHub-hosted images (Java 21 is the consumer floor).
+          # There is no windows-10 runner; windows-2022 is NT 10.0 (Win10/11 family).
+          - os: ubuntu-24.04
+            java: "21"
+          - os: ubuntu-22.04
+            java: "21"
+          - os: windows-2022
+            java: "21"
+          - os: macos-15
+            java: "21"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -88,6 +99,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         java: ["21", "25"]
+        include:
+          - os: ubuntu-24.04
+            java: "21"
+          - os: ubuntu-22.04
+            java: "21"
+          - os: windows-2022
+            java: "21"
+          - os: macos-15
+            java: "21"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

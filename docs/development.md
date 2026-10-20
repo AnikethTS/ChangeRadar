@@ -49,8 +49,11 @@ schemas/                      JSON report schema
 
 ## CI
 
-GitHub Actions runs `./gradlew check` and a CLI smoke job on Ubuntu,
-macOS, and Windows, each on JDK 21 and JDK 25. The Gradle Wrapper is
+GitHub Actions runs `./gradlew check` and a CLI smoke job on current
+`ubuntu-latest`, `macos-latest`, and `windows-latest` (JDK 21 and 25),
+plus previous hosted images `ubuntu-24.04`, `ubuntu-22.04`,
+`windows-2022`, and `macos-15` (JDK 21). GitHub does not host Windows 10;
+`windows-2022` covers that NT 10.0 family. The Gradle Wrapper is
 validated, workflows are linted with actionlint, and a `CI` gate job
 fails unless every required job succeeded. Third-party actions in this
 repo's workflows are pinned to commit SHAs.
