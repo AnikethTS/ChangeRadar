@@ -33,6 +33,9 @@ Today the tool records:
 - `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched
   using import/require/`use` specifiers against HEAD files (not tsc,
   CPython, php-parser, or Composer autoload).
+- `TS_STRUCTURAL_EDGES` / `PY_STRUCTURAL_EDGES` / `PHP_STRUCTURAL_EDGES`
+  when overrides, field reads, and decorator/attribute uses are matched
+  the same way (not a compiler or autoloader).
 - `TS_NAME_BASED_DISPATCH` / `PY_NAME_BASED_DISPATCH` /
   `PHP_NAME_BASED_DISPATCH` when a call site could not be tied to an
   import of the changed symbol (`HEURISTIC`, including many tests).

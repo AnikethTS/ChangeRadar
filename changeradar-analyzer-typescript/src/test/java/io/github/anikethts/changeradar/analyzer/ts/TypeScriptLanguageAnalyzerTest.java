@@ -122,6 +122,63 @@ class TypeScriptLanguageAnalyzerTest {
   }
 
   @Test
+  void overrideAndFieldAndDecoratorAreReported() {
+    String api =
+        """
+        export class Api {
+          n() {}
+        }
+        export class Flag {}
+        export class Demo {
+          timeout = 1;
+        }
+        """;
+    String impl =
+        """
+        import { Api, Flag, Demo } from "./api";
+        export class Impl extends Api {
+          n() {}
+        }
+        export class Worker {
+          @Flag
+          demo: Demo;
+          read(d: Demo) {
+            return d.timeout;
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(2, 2), new LineRange(4, 4), new LineRange(6, 6)))),
+            Map.of("src/api.ts", api, "src/impl.ts", impl),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "OVERRIDE".equals(finding.type())
+                        && finding.location().path().contains("impl.ts")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "FIELD_ACCESS".equals(finding.type())
+                        && finding.location().path().contains("impl.ts")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "ANNOTATION_USE".equals(finding.type())
+                        && finding.location().path().contains("impl.ts")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "TS_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
   void unmatchedBracesAreParseFailures() {
     AnalysisResult result =
         analyzer.analyze(

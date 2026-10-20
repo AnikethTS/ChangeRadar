@@ -11,6 +11,7 @@ import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
+import io.github.anikethts.changeradar.core.StructuralScan;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -35,15 +36,31 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
 
   private static final Pattern CLASS =
       Pattern.compile(
-          "^(?:export\\s+(?:default\\s+)?)?(?:abstract\\s+)?class\\s+([A-Za-z_$][\\w$]*)");
+          "^(?:export\\s+(?:default\\s+)?)?(?:abstract\\s+)?class\\s+([A-Za-z_$][\\w$]*)\\b(.*)");
   private static final Pattern FUNCTION =
       Pattern.compile(
           "^(?:export\\s+(?:default\\s+)?)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)");
   private static final Pattern CONST_FN =
       Pattern.compile(
           "^(?:export\\s+)?(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:async\\s*)?(?:\\(|function\\b)");
-  private static final Pattern TYPE_OR_INTERFACE =
-      Pattern.compile("^(?:export\\s+)?(?:type|interface)\\s+([A-Za-z_$][\\w$]*)");
+  private static final Pattern TYPE_ALIAS =
+      Pattern.compile("^(?:export\\s+)?type\\s+([A-Za-z_$][\\w$]*)");
+  private static final Pattern INTERFACE =
+      Pattern.compile("^(?:export\\s+)?interface\\s+([A-Za-z_$][\\w$]*)\\b(.*)");
+  private static final Pattern FIELD =
+      Pattern.compile(
+          "^(?:(?:public|private|protected|static|readonly|declare|override|abstract)\\s+)*"
+              + "([A-Za-z_$][\\w$]*)\\s*(?:\\?\\s*)?(?::[^=;(]+)?\\s*(?:=|;)");
+  private static final Pattern DECORATOR = Pattern.compile("^@([A-Za-z_$][\\w$]*)");
+  private static final Pattern FIELD_ACCESS =
+      Pattern.compile("([A-Za-z_$][\\w$]*)\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*(?!\\()");
+  private static final Pattern TYPED_FIELD =
+      Pattern.compile(
+          "^(?:(?:public|private|protected|static|readonly|declare)\\s+)*"
+              + "[A-Za-z_$][\\w$]*\\s*\\??\\s*:\\s*([A-Za-z_$][\\w$]*)");
+  private static final Set<String> SUPER_KEYWORDS = Set.of("extends", "implements");
+  private static final Set<String> INJECT_DECORATORS =
+      Set.of("Inject", "Injectable", "Autowired", "Resource");
   private static final Pattern METHOD =
       Pattern.compile(
           "^(?:(?:public|private|protected|static|async|readonly|override|abstract|get|set)\\s+)*"
@@ -163,6 +180,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(ChangedSymbol::id));
 
     List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+    findings.addAll(findStructural(parsedHead, changedSymbols));
     findings.addAll(publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -181,6 +199,11 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
               "TypeScript/JavaScript callers are matched using import/require specifiers against"
                   + " HEAD files, not tsc. Dynamic import(), eval, and path aliases may be missed"
                   + " or over-reported."));
+      limitations.add(
+          new Limitation(
+              "TS_STRUCTURAL_EDGES",
+              "TypeScript/JavaScript overrides, field reads, decorators, and typed fields are"
+                  + " matched by name and imports against HEAD files, not tsc."));
     }
     if (findings.stream()
         .anyMatch(
@@ -218,9 +241,11 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
               "Could not parse " + path + ": unmatched braces (depth " + depth + ")."));
       return;
     }
-    List<Decl> decls = extractDecls(path, codeLines);
+    Map<String, List<String>> supers = new LinkedHashMap<>();
+    List<Decl> decls = extractDecls(path, codeLines, supers);
     into.put(
-        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
+        path,
+        new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source), supers));
   }
 
   private static int stripAndMeasure(String source, List<String> codeLines) {
@@ -313,7 +338,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     return depth;
   }
 
-  private static List<Decl> extractDecls(String path, List<String> lines) {
+  private static List<Decl> extractDecls(
+      String path, List<String> lines, Map<String, List<String>> supers) {
     List<Decl> decls = new ArrayList<>();
     int brace = 0;
     String currentClass = null;
@@ -327,21 +353,23 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
         Matcher cls = CLASS.matcher(trimmed);
         if (cls.find()) {
           boolean exported = trimmed.startsWith("export");
+          String name = cls.group(1);
           decls.add(
               new Decl(
                   "type",
-                  cls.group(1),
-                  cls.group(1),
+                  name,
+                  name,
                   exported,
-                  testFile || isTestName(cls.group(1)),
+                  testFile || isTestName(name),
                   path,
                   lineNo,
                   lineNo));
-          currentClass = cls.group(1);
+          supers.put(name, superNames(name, cls.group(2)));
+          currentClass = name;
           classExported = exported;
           classLevel = brace + 1;
         } else {
-          addTopLevel(decls, path, trimmed, lineNo, testFile);
+          addTopLevel(decls, path, trimmed, lineNo, testFile, supers);
         }
       } else if (brace == classLevel) {
         Matcher method = METHOD.matcher(trimmed);
@@ -356,6 +384,20 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
                   path,
                   lineNo,
                   lineNo));
+        } else {
+          Matcher field = FIELD.matcher(trimmed);
+          if (field.find() && !NOT_METHODS.contains(field.group(1))) {
+            decls.add(
+                new Decl(
+                    "field",
+                    field.group(1),
+                    currentClass,
+                    classExported,
+                    testFile || isTestName(currentClass),
+                    path,
+                    lineNo,
+                    lineNo));
+          }
         }
       }
       brace += netBraces(lines.get(i));
@@ -368,8 +410,23 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     return decls;
   }
 
+  private static List<String> superNames(String typeName, String tail) {
+    List<String> names = new ArrayList<>();
+    for (String id : StructuralScan.identifiers(tail)) {
+      if (!SUPER_KEYWORDS.contains(id) && !id.equals(typeName)) {
+        names.add(id);
+      }
+    }
+    return names;
+  }
+
   private static void addTopLevel(
-      List<Decl> decls, String path, String trimmed, int lineNo, boolean testFile) {
+      List<Decl> decls,
+      String path,
+      String trimmed,
+      int lineNo,
+      boolean testFile,
+      Map<String, List<String>> supers) {
     Matcher fn = FUNCTION.matcher(trimmed);
     if (fn.find()) {
       decls.add(
@@ -398,7 +455,22 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
               lineNo));
       return;
     }
-    Matcher type = TYPE_OR_INTERFACE.matcher(trimmed);
+    Matcher iface = INTERFACE.matcher(trimmed);
+    if (iface.find()) {
+      decls.add(
+          new Decl(
+              "type",
+              iface.group(1),
+              iface.group(1),
+              trimmed.startsWith("export"),
+              testFile || isTestName(iface.group(1)),
+              path,
+              lineNo,
+              lineNo));
+      supers.put(iface.group(1), superNames(iface.group(1), iface.group(2)));
+      return;
+    }
+    Matcher type = TYPE_ALIAS.matcher(trimmed);
     if (type.find()) {
       decls.add(
           new Decl(
@@ -514,6 +586,148 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static List<ImpactFinding> findStructural(
+      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+    Set<String> changedFields = new LinkedHashSet<>();
+    Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
+    Set<String> changedOwnerMethods = new LinkedHashSet<>();
+    for (ChangedSymbol symbol : changedSymbols) {
+      if ("field".equals(symbol.kind())) {
+        changedFields.add(symbol.name());
+      }
+      if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
+        if (!symbol.owner().isEmpty()) {
+          changedOwnerMethods.add(symbol.owner() + "#" + symbol.name());
+        }
+      }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
+    }
+    List<ImpactFinding> findings = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (ParsedFile file : parsedHead.values()) {
+      for (Decl decl : file.decls) {
+        if (!"method".equals(decl.kind) && !"constructor".equals(decl.kind)) {
+          continue;
+        }
+        for (String parent : file.supers.getOrDefault(decl.owner, List.of())) {
+          boolean parentChanged = changedOwnerMethods.contains(parent + "#" + decl.name);
+          boolean childChanged = changedOwnerMethods.contains(decl.owner + "#" + decl.name);
+          if (!parentChanged && !childChanged) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, parent, decl.name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()
+              && parentChanged
+              && file.path.equals(parentFile(parsedHead, parent))) {
+            confidence = Optional.of(Confidence.DIRECT);
+          }
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "OVERRIDE",
+                  confidence.get(),
+                  decl.owner + "#" + decl.name + " overrides " + parent + "#" + decl.name,
+                  parent + "#" + decl.name,
+                  new SourceLocation(file.path, decl.startLine, decl.endLine)));
+        }
+      }
+      for (int i = 0; i < file.lines.size(); i++) {
+        String trimmed = file.lines.get(i).trim();
+        int lineNo = i + 1;
+        Matcher decorator = DECORATOR.matcher(trimmed);
+        if (decorator.find() && changedTypeDecls.contains(decorator.group(1))) {
+          String name = decorator.group(1);
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    "ANNOTATION_USE",
+                    confidence.get(),
+                    file.path + " uses @" + name,
+                    name,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher typed = TYPED_FIELD.matcher(trimmed);
+        if (typed.find() && changedTypeDecls.contains(typed.group(1))) {
+          String typeName = typed.group(1);
+          final int lineIndex = i;
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            boolean inject =
+                INJECT_DECORATORS.stream()
+                    .anyMatch(
+                        ann ->
+                            trimmed.contains("@" + ann)
+                                || previousIsDecorator(file, lineIndex, ann));
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    inject ? "INJECTION" : "FIELD_TYPE",
+                    confidence.get(),
+                    file.path + (inject ? " injects " : " is typed as ") + typeName,
+                    typeName,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher access = FIELD_ACCESS.matcher(file.lines.get(i));
+        while (access.find()) {
+          String name = access.group(2);
+          if (!changedFields.contains(name) || NOT_METHODS.contains(name)) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "FIELD_ACCESS",
+                  confidence.get(),
+                  file.path + " reads " + name,
+                  name,
+                  new SourceLocation(file.path, lineNo, lineNo)));
+        }
+      }
+    }
+    return findings;
+  }
+
+  private static boolean previousIsDecorator(ParsedFile file, int index, String name) {
+    if (index == 0) {
+      return false;
+    }
+    return file.lines.get(index - 1).trim().startsWith("@" + name);
+  }
+
+  private static String parentFile(Map<String, ParsedFile> parsedHead, String typeName) {
+    for (ParsedFile file : parsedHead.values()) {
+      if (file.decls.stream()
+          .anyMatch(decl -> "type".equals(decl.kind) && decl.name.equals(typeName))) {
+        return file.path;
+      }
+    }
+    return "";
   }
 
   private static Optional<Confidence> importConfidence(
@@ -704,7 +918,12 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
   }
 
   private record ParsedFile(
-      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+      String path,
+      List<String> lines,
+      List<Decl> decls,
+      boolean testFile,
+      Imports imports,
+      Map<String, List<String>> supers) {}
 
   record Imports(Map<String, String> bindings, Set<String> modules) {}
 

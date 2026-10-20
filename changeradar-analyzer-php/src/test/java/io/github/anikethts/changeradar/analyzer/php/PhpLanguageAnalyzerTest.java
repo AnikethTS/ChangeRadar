@@ -122,6 +122,66 @@ class PhpLanguageAnalyzerTest {
   }
 
   @Test
+  void overrideAndFieldAndAttributeAreReported() {
+    String api =
+        """
+        <?php
+        class Api {
+          function n() {}
+        }
+        class Flag {}
+        class Demo {
+          public $timeout;
+        }
+        """;
+    String impl =
+        """
+        <?php
+        require 'api.php';
+        class Impl extends Api {
+          function n() {}
+        }
+        class Worker {
+          #[Flag]
+          public Demo $demo;
+          function read($d) {
+            return $d->timeout;
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "api.php",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 3), new LineRange(5, 5), new LineRange(7, 7)))),
+            Map.of("api.php", api, "impl.php", impl),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "OVERRIDE".equals(finding.type())
+                        && finding.location().path().contains("impl.php")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "FIELD_ACCESS".equals(finding.type())
+                        && finding.location().path().contains("impl.php")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "ANNOTATION_USE".equals(finding.type())
+                        && finding.location().path().contains("impl.php")));
+    assertTrue(
+        result.limitations().stream().anyMatch(l -> "PHP_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
   void unmatchedBracesAreParseFailures() {
     AnalysisResult result =
         analyzer.analyze(

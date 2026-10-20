@@ -11,6 +11,7 @@ import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
+import io.github.anikethts.changeradar.core.StructuralScan;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,7 +34,15 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
 
   public static final String LANGUAGE_ID = "python";
 
-  private static final Pattern CLASS = Pattern.compile("^class\\s+([A-Za-z_][\\w]*)");
+  private static final Pattern CLASS =
+      Pattern.compile("^class\\s+([A-Za-z_][\\w]*)\\s*(?:\\(([^)]*)\\))?");
+  private static final Pattern FIELD = Pattern.compile("^([A-Za-z_][\\w]*)\\s*(:[^=]+)?\\s*=");
+  private static final Pattern TYPED_ATTR =
+      Pattern.compile("^([A-Za-z_][\\w]*)\\s*:\\s*([A-Za-z_][\\w]*)");
+  private static final Pattern DECORATOR = Pattern.compile("^@([A-Za-z_][\\w]*)");
+  private static final Pattern FIELD_ACCESS =
+      Pattern.compile("([A-Za-z_][\\w]*)\\s*\\.\\s*([A-Za-z_][\\w]*)\\s*(?!\\()");
+  private static final Set<String> INJECT_DECORATORS = Set.of("inject", "Inject", "autowired");
   private static final Pattern DEF = Pattern.compile("^(?:async\\s+)?def\\s+([A-Za-z_][\\w]*)");
   private static final Pattern CALL =
       Pattern.compile("(?:([A-Za-z_][\\w]*)\\s*\\.)?([A-Za-z_][\\w]*)\\s*\\(");
@@ -128,6 +137,7 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(ChangedSymbol::id));
 
     List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+    findings.addAll(findStructural(parsedHead, changedSymbols));
     findings.addAll(publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -145,6 +155,11 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
               "PY_IMPORTS",
               "Python callers are matched using import specifiers against HEAD files, not CPython."
                   + " getattr, importlib, and star imports may be missed or over-reported."));
+      limitations.add(
+          new Limitation(
+              "PY_STRUCTURAL_EDGES",
+              "Python overrides, attribute reads, and decorators are matched by name and imports"
+                  + " against HEAD files, not CPython."));
     }
     if (findings.stream()
         .anyMatch(
@@ -180,9 +195,11 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
               "PY_PARSE_FAILED", "Could not parse " + path + ": unclosed string literal."));
       return;
     }
-    List<Decl> decls = extractDecls(path, codeLines);
+    Map<String, List<String>> supers = new LinkedHashMap<>();
+    List<Decl> decls = extractDecls(path, codeLines, supers);
     into.put(
-        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
+        path,
+        new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source), supers));
   }
 
   private static boolean mask(String source, List<String> codeLines) {
@@ -280,7 +297,8 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
     return !inSq && !inDq && triple == 0;
   }
 
-  private static List<Decl> extractDecls(String path, List<String> lines) {
+  private static List<Decl> extractDecls(
+      String path, List<String> lines, Map<String, List<String>> supers) {
     List<Decl> decls = new ArrayList<>();
     String currentClass = null;
     int classIndent = -1;
@@ -304,6 +322,7 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
           decls.add(
               new Decl(
                   "type", name, name, isPublicName(name), testFile, path, lineNo, lineNo, indent));
+          supers.put(name, superNames(name, cls.group(2)));
           currentClass = name;
           classIndent = indent;
           continue;
@@ -339,10 +358,35 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
                   lineNo,
                   lineNo,
                   indent));
+        } else {
+          Matcher field = FIELD.matcher(trimmed);
+          if (field.find() && !"def".equals(field.group(1)) && !"class".equals(field.group(1))) {
+            decls.add(
+                new Decl(
+                    "field",
+                    field.group(1),
+                    currentClass,
+                    isPublicName(field.group(1)),
+                    testFile,
+                    path,
+                    lineNo,
+                    lineNo,
+                    indent));
+          }
         }
       }
     }
     return closeBodies(decls, lines.size());
+  }
+
+  private static List<String> superNames(String typeName, String bases) {
+    List<String> names = new ArrayList<>();
+    for (String id : StructuralScan.identifiers(bases)) {
+      if (!id.equals(typeName) && !"object".equals(id) && !"metaclass".equals(id)) {
+        names.add(id);
+      }
+    }
+    return names;
   }
 
   private static List<Decl> closeBodies(List<Decl> decls, int lineCount) {
@@ -478,6 +522,130 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static List<ImpactFinding> findStructural(
+      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+    Set<String> changedFields = new LinkedHashSet<>();
+    Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
+    Set<String> changedOwnerMethods = new LinkedHashSet<>();
+    for (ChangedSymbol symbol : changedSymbols) {
+      if ("field".equals(symbol.kind())) {
+        changedFields.add(symbol.name());
+      }
+      if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
+        if (!symbol.owner().isEmpty()) {
+          changedOwnerMethods.add(symbol.owner() + "#" + symbol.name());
+        }
+      }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
+    }
+    List<ImpactFinding> findings = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (ParsedFile file : parsedHead.values()) {
+      for (Decl decl : file.decls) {
+        if (!"method".equals(decl.kind) && !"constructor".equals(decl.kind)) {
+          continue;
+        }
+        for (String parent : file.supers.getOrDefault(decl.owner, List.of())) {
+          boolean parentChanged = changedOwnerMethods.contains(parent + "#" + decl.name);
+          boolean childChanged = changedOwnerMethods.contains(decl.owner + "#" + decl.name);
+          if (!parentChanged && !childChanged) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, parent, decl.name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "OVERRIDE",
+                  confidence.get(),
+                  decl.owner + "#" + decl.name + " overrides " + parent + "#" + decl.name,
+                  parent + "#" + decl.name,
+                  new SourceLocation(file.path, decl.startLine, decl.endLine)));
+        }
+      }
+      for (int i = 0; i < file.lines.size(); i++) {
+        String trimmed = file.lines.get(i).trim();
+        int lineNo = i + 1;
+        Matcher decorator = DECORATOR.matcher(trimmed);
+        if (decorator.find() && changedTypeDecls.contains(decorator.group(1))) {
+          String name = decorator.group(1);
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    "ANNOTATION_USE",
+                    confidence.get(),
+                    file.path + " uses @" + name,
+                    name,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher typed = TYPED_ATTR.matcher(trimmed);
+        if (typed.find() && changedTypeDecls.contains(typed.group(2))) {
+          String typeName = typed.group(2);
+          final int lineIndex = i;
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            boolean inject =
+                INJECT_DECORATORS.stream()
+                    .anyMatch(ann -> previousIsDecorator(file, lineIndex, ann));
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    inject ? "INJECTION" : "FIELD_TYPE",
+                    confidence.get(),
+                    file.path + (inject ? " injects " : " is typed as ") + typeName,
+                    typeName,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher access = FIELD_ACCESS.matcher(file.lines.get(i));
+        while (access.find()) {
+          String name = access.group(2);
+          if (!changedFields.contains(name) || NOT_CALLS.contains(name)) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "FIELD_ACCESS",
+                  confidence.get(),
+                  file.path + " reads " + name,
+                  name,
+                  new SourceLocation(file.path, lineNo, lineNo)));
+        }
+      }
+    }
+    return findings;
+  }
+
+  private static boolean previousIsDecorator(ParsedFile file, int index, String name) {
+    if (index == 0) {
+      return false;
+    }
+    return file.lines.get(index - 1).trim().startsWith("@" + name);
   }
 
   private static Optional<Confidence> importConfidence(
@@ -663,7 +831,12 @@ public final class PythonLanguageAnalyzer implements LanguageAnalyzer {
   }
 
   private record ParsedFile(
-      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+      String path,
+      List<String> lines,
+      List<Decl> decls,
+      boolean testFile,
+      Imports imports,
+      Map<String, List<String>> supers) {}
 
   record Imports(Map<String, String> bindings, Set<String> modules) {}
 

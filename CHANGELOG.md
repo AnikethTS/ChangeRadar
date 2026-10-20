@@ -7,6 +7,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- TypeScript, Python, and PHP structural edges: overrides (`OVERRIDE`),
+  field/property reads (`FIELD_ACCESS`), decorator/attribute uses
+  (`ANNOTATION_USE`), and typed fields (`FIELD_TYPE` / `INJECTION`).
+  Matched through imports against HEAD files, not tsc/CPython/php-parser.
 - Java call chains: type-resolved callers of callers are reported as
   `INDIRECT` (max depth 3, max 40 indirect sites). Heuristic name matches
   are not chained.

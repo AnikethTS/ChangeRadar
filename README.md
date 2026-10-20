@@ -84,7 +84,9 @@ the same place you already review the change.
 - Maps changed Python lines to classes and functions (not CPython).
 - Maps changed PHP lines to classes and functions (not php-parser).
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
-  HEURISTIC. Java callers of callers are INDIRECT (capped).
+  HEURISTIC. Java callers of callers are INDIRECT (capped). TypeScript,
+  Python, and PHP also report overrides, field reads, and
+  decorator/attribute uses when an import maps to the change.
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.

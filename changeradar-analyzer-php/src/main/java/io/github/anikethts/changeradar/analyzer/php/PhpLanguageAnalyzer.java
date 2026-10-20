@@ -11,6 +11,7 @@ import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
+import io.github.anikethts.changeradar.core.StructuralScan;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,9 +35,21 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
   public static final String LANGUAGE_ID = "php";
 
   private static final Pattern CLASS =
-      Pattern.compile("^(?:(?:abstract|final)\\s+)?class\\s+([A-Za-z_][\\w]*)");
+      Pattern.compile("^(?:(?:abstract|final)\\s+)?class\\s+([A-Za-z_][\\w]*)\\b(.*)");
   private static final Pattern INTERFACE_OR_ENUM =
-      Pattern.compile("^(?:interface|enum)\\s+([A-Za-z_][\\w]*)");
+      Pattern.compile("^(?:interface|enum)\\s+([A-Za-z_][\\w]*)\\b(.*)");
+  private static final Pattern FIELD =
+      Pattern.compile(
+          "^(?:(?:public|private|protected|static|readonly|var)\\s+)+"
+              + "(?:[\\\\A-Za-z_][\\w\\\\]*\\s+)?\\$([A-Za-z_][\\w]*)");
+  private static final Pattern TYPED_PROP =
+      Pattern.compile(
+          "^(?:(?:public|private|protected|static|readonly)\\s+)+([A-Za-z_][\\w]*)\\s+\\$");
+  private static final Pattern ATTRIBUTE = Pattern.compile("#\\[\\\\?([A-Za-z_][\\w]*)");
+  private static final Pattern FIELD_ACCESS =
+      Pattern.compile("(?:->|::)\\$?([A-Za-z_][\\w]*)\\s*(?!\\()");
+  private static final Set<String> SUPER_KEYWORDS = Set.of("extends", "implements");
+  private static final Set<String> INJECT_ATTRS = Set.of("Inject", "Autowired", "Resource");
   private static final Pattern FUNCTION =
       Pattern.compile(
           "^(?:(?:public|private|protected|static|final|abstract)\\s+)*function\\s+&?\\s*([A-Za-z_][\\w]*)");
@@ -151,6 +164,7 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(ChangedSymbol::id));
 
     List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+    findings.addAll(findStructural(parsedHead, changedSymbols));
     findings.addAll(publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -167,8 +181,13 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           new Limitation(
               "PHP_IMPORTS",
               "PHP callers are matched using use/require specifiers against HEAD files, not"
-                  + " php-parser or Composer autoload. call_user_func and attributes may be"
-                  + " missed or over-reported."));
+                  + " php-parser or Composer autoload. call_user_func may be missed or"
+                  + " over-reported."));
+      limitations.add(
+          new Limitation(
+              "PHP_STRUCTURAL_EDGES",
+              "PHP overrides, property reads, and attributes are matched by name and use/require"
+                  + " specifiers against HEAD files, not php-parser or Composer autoload."));
     }
     if (findings.stream()
         .anyMatch(
@@ -206,9 +225,11 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
               "Could not parse " + path + ": unmatched braces (depth " + depth + ")."));
       return;
     }
-    List<Decl> decls = extractDecls(path, codeLines);
+    Map<String, List<String>> supers = new LinkedHashMap<>();
+    List<Decl> decls = extractDecls(path, codeLines, supers);
     into.put(
-        path, new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source)));
+        path,
+        new ParsedFile(path, codeLines, decls, isTestPath(path), extractImports(source), supers));
   }
 
   private static int stripAndMeasure(String source, List<String> codeLines) {
@@ -260,7 +281,7 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
         i++;
         continue;
       }
-      if (c == '#') {
+      if (c == '#' && next != '[') {
         inLineComment = true;
         continue;
       }
@@ -290,7 +311,8 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
     return depth;
   }
 
-  private static List<Decl> extractDecls(String path, List<String> lines) {
+  private static List<Decl> extractDecls(
+      String path, List<String> lines, Map<String, List<String>> supers) {
     List<Decl> decls = new ArrayList<>();
     int brace = 0;
     String currentClass = null;
@@ -303,6 +325,13 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
         String typeName = typeName(trimmed);
         if (typeName != null) {
           decls.add(new Decl("type", typeName, typeName, true, testFile, path, lineNo, lineNo));
+          Matcher cls = CLASS.matcher(trimmed);
+          Matcher iface = INTERFACE_OR_ENUM.matcher(trimmed);
+          if (cls.find()) {
+            supers.put(typeName, superNames(typeName, cls.group(2)));
+          } else if (iface.find()) {
+            supers.put(typeName, superNames(typeName, iface.group(2)));
+          }
           currentClass = typeName;
           classLevel = brace + 1;
         } else {
@@ -336,6 +365,20 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
                   path,
                   lineNo,
                   lineNo));
+        } else {
+          Matcher field = FIELD.matcher(trimmed);
+          if (field.find()) {
+            decls.add(
+                new Decl(
+                    "field",
+                    field.group(1),
+                    currentClass,
+                    !trimmed.contains("private") && !trimmed.contains("protected"),
+                    testFile,
+                    path,
+                    lineNo,
+                    lineNo));
+          }
         }
       }
       brace += netBraces(lines.get(i));
@@ -345,6 +388,16 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return decls;
+  }
+
+  private static List<String> superNames(String typeName, String tail) {
+    List<String> names = new ArrayList<>();
+    for (String id : StructuralScan.identifiers(tail)) {
+      if (!SUPER_KEYWORDS.contains(id) && !id.equals(typeName)) {
+        names.add(id);
+      }
+    }
+    return names;
   }
 
   private static String typeName(String trimmed) {
@@ -467,6 +520,131 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       }
     }
     return findings;
+  }
+
+  private static List<ImpactFinding> findStructural(
+      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+    Set<String> changedFields = new LinkedHashSet<>();
+    Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
+    Set<String> changedOwnerMethods = new LinkedHashSet<>();
+    for (ChangedSymbol symbol : changedSymbols) {
+      if ("field".equals(symbol.kind())) {
+        changedFields.add(symbol.name());
+      }
+      if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
+        if (!symbol.owner().isEmpty()) {
+          changedOwnerMethods.add(symbol.owner() + "#" + symbol.name());
+        }
+      }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
+    }
+    List<ImpactFinding> findings = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (ParsedFile file : parsedHead.values()) {
+      for (Decl decl : file.decls) {
+        if (!"method".equals(decl.kind) && !"constructor".equals(decl.kind)) {
+          continue;
+        }
+        for (String parent : file.supers.getOrDefault(decl.owner, List.of())) {
+          boolean parentChanged = changedOwnerMethods.contains(parent + "#" + decl.name);
+          boolean childChanged = changedOwnerMethods.contains(decl.owner + "#" + decl.name);
+          if (!parentChanged && !childChanged) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, parent, decl.name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "OVERRIDE",
+                  confidence.get(),
+                  decl.owner + "#" + decl.name + " overrides " + parent + "#" + decl.name,
+                  parent + "#" + decl.name,
+                  new SourceLocation(file.path, decl.startLine, decl.endLine)));
+        }
+      }
+      for (int i = 0; i < file.lines.size(); i++) {
+        String trimmed = file.lines.get(i).trim();
+        int lineNo = i + 1;
+        Matcher attribute = ATTRIBUTE.matcher(trimmed);
+        if (attribute.find() && changedTypeDecls.contains(attribute.group(1))) {
+          String name = attribute.group(1);
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    "ANNOTATION_USE",
+                    confidence.get(),
+                    file.path + " uses #[" + name + "]",
+                    name,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher typed = TYPED_PROP.matcher(trimmed);
+        if (typed.find() && changedTypeDecls.contains(typed.group(1))) {
+          String typeName = typed.group(1);
+          final int lineIndex = i;
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isPresent()) {
+            boolean inject =
+                INJECT_ATTRS.stream()
+                    .anyMatch(
+                        ann -> trimmed.contains(ann) || previousIsAttribute(file, lineIndex, ann));
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    inject ? "INJECTION" : "FIELD_TYPE",
+                    confidence.get(),
+                    file.path + (inject ? " injects " : " is typed as ") + typeName,
+                    typeName,
+                    new SourceLocation(file.path, lineNo, lineNo)));
+          }
+        }
+        Matcher access = FIELD_ACCESS.matcher(file.lines.get(i));
+        while (access.find()) {
+          String name = access.group(1);
+          if (!changedFields.contains(name) || NOT_CALLS.contains(name)) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "FIELD_ACCESS",
+                  confidence.get(),
+                  file.path + " reads " + name,
+                  name,
+                  new SourceLocation(file.path, lineNo, lineNo)));
+        }
+      }
+    }
+    return findings;
+  }
+
+  private static boolean previousIsAttribute(ParsedFile file, int index, String name) {
+    if (index == 0) {
+      return false;
+    }
+    return file.lines.get(index - 1).trim().contains("#[" + name);
   }
 
   private static Optional<Confidence> importConfidence(
@@ -629,7 +807,12 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
   }
 
   private record ParsedFile(
-      String path, List<String> lines, List<Decl> decls, boolean testFile, Imports imports) {}
+      String path,
+      List<String> lines,
+      List<Decl> decls,
+      boolean testFile,
+      Imports imports,
+      Map<String, List<String>> supers) {}
 
   record Imports(Map<String, String> bindings, Set<String> modules) {}
 
