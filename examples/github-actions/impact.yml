@@ -1,11 +1,12 @@
-# Copy into a consuming repository. Do not run Gradle of this project in
-# consumer CI.
+# Copy into a consuming repository. Do not clone ChangeRadar and run its Gradle.
 #
 # Two version knobs:
-# 1. uses: …@<sha>  — the Action wrapper (setup-java + download script). Pin
-#    a SHA the same way you pin actions/checkout.
-# 2. version:         — the analyzer JAR. Omit it (or latest) to always take
-#    GitHub's latest published release. Set version: v0.2.1 to pin a JAR.
+# 1. uses: …@<sha>  — the Action wrapper. Pin a SHA like actions/checkout.
+# 2. version:         — analyzer JAR. Omit for GitHub's latest release.
+#
+# Java: compile in THIS workflow, then pass classpath. ChangeRadar will not
+# run Maven/Gradle of the analyzed repo. Delete the compile steps if there
+# is no JVM build.
 name: ChangeRadar
 
 on:
@@ -37,17 +38,29 @@ jobs:
             "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}"
 
-      # Wrapper SHA (main after the latest-JAR default). JAR defaults to latest.
-      - uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Compile project jars
+        run: ./gradlew assemble --no-daemon
+        # Maven instead: mvn -B -DskipTests package
+        # then classpath: target
+
+      # Wrapper SHA on main after ship-quality 0.2.1. JAR defaults to latest.
+      - uses: AnikethTS/ChangeRadar@53d4218a62ad4dd556a9da6e3bf571095b950a59
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           format: compact,markdown,json,sarif,github
           output: build/changeradar
+          classpath: build/libs
           # version: v0.2.1
           # policy: breaking-public-java-api,analysis-unavailable
           # policy-file: changeradar.yml
-          # classpath: build/libs
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

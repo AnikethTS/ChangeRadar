@@ -26,6 +26,8 @@ It is not a second impact engine.
 - [ ] Third-party actions/plugins pinned to immutable versions where the
       platform allows it.
 - [ ] No automatic deploy or rollback from ChangeRadar output.
+- [ ] Java: the **workflow** compiles; `--classpath` points at those jars.
+      The CLI never invokes the target build.
 
 Put examples under `examples/<provider>/` and link them from
 [CI integration](ci-integration.md).

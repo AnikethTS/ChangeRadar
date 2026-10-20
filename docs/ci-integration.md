@@ -96,9 +96,25 @@ Requirements:
   analyzer JAR still defaults to latest unless `version` is set.
 - Upload `build/changeradar/` as an artifact.
 
-Optional Java type resolution: pass `--classpath` (or the Action `classpath`
-input) pointing at **already-built** jars from a previous compile step.
-ChangeRadar does not run the target Maven/Gradle build.
+Java type resolution: compile **in this workflow**, then pass `--classpath`
+(or the Action `classpath` input) at those jars. ChangeRadar does not run
+the target Maven/Gradle build.
+
+```yaml
+- uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+  with:
+    distribution: temurin
+    java-version: "21"
+- run: ./gradlew assemble --no-daemon
+- uses: AnikethTS/ChangeRadar@53d4218a62ad4dd556a9da6e3bf571095b950a59
+  with:
+    base: ${{ github.event.pull_request.base.sha }}
+    head: ${{ github.event.pull_request.head.sha }}
+    classpath: build/libs
+```
+
+Maven: `mvn -B -DskipTests package` and `classpath: target`. Skip compile
+and `classpath` when the repo has no JVM build.
 
 ### Pull request comments and check summary
 
