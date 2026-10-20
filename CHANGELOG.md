@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Push to `main` fast-forwards the `release` branch. Push to `release`
+  publishes GitHub Release `v` plus `VERSION` when that tag does not
+  exist; `Release JAR` still uploads `changeradar.jar`.
+
 ## [0.2.3] - 2026-10-21
 
 Analyzer JAR is the `v0.2.3` release asset. Omit `version` for latest;

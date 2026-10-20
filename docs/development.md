@@ -60,3 +60,14 @@ changeradar.jar` and checks `report.json` against
 `schemas/report-v1.schema.json`, and a `CI` gate job fails unless every
 required job succeeded. Third-party actions in this repo's workflows are
 pinned to commit SHAs.
+
+## Releasing
+
+Ship from `main`. A push to `main` fast-forwards `release`. A push to
+`release` creates GitHub Release `v$(cat VERSION)` only when that tag is
+new. `Release JAR` then attaches `changeradar.jar`.
+
+Bump `VERSION` and fold `CHANGELOG.md` on a PR, merge to `main`, and the
+tag plus release follow. Feature merges that do not change `VERSION` only
+move `release`; they do not cut a new JAR. Do not commit directly on
+`release`.
