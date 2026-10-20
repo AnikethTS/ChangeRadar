@@ -44,31 +44,39 @@ The CLI itself still returns `2` for tool failure.
 ## GitHub Actions
 
 Consumers copy
-[`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml).
+[`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml):
+checkout with `fetch-depth: 0`, then one `uses:` step. The Action downloads
+the JAR, analyzes, uploads `changeradar-report`, posts a sticky PR comment,
+and posts Checks notices. Set `comment: false`, `annotate: false`, or
+`upload: false` to skip those.
 
 There are two version knobs:
 
 | Knob | What it is | Default for other repos |
 | --- | --- | --- |
-| `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21 + download). | Pin a SHA, same as `actions/checkout`. |
+| `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21, download, report). | Pin a SHA, same as `actions/checkout`. |
 | `version` | Which `changeradar.jar` to download. | **`latest`** — GitHub’s latest published release. Omit the input. |
 
 Pin a specific analyzer with `version: v0.2.1`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
-# Latest JAR (default)
-- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3
-  with:
-    base: ${{ github.event.pull_request.base.sha }}
-    head: ${{ github.event.pull_request.head.sha }}
-
-# Pinned JAR
-- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3
-  with:
-    version: v0.2.1
-    base: ${{ github.event.pull_request.base.sha }}
-    head: ${{ github.event.pull_request.head.sha }}
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: AnikethTS/ChangeRadar@7fca92785f11ad72059c294676c89fa20b4a15d7
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          # version: v0.2.1
 ```
 
 This repository builds the JAR and runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
@@ -87,26 +95,22 @@ Requirements:
   must fail with exit `2`, not a silent empty report.
 - Pass `github.event.pull_request.base.sha` and
   `github.event.pull_request.head.sha` (or `github.sha` on push).
-- `permissions: contents: read` is enough to analyze. Writing a pull-request
-  comment needs `pull-requests: write`. Annotating the Files changed tab
-  needs `checks: write`. Forked PRs from untrusted repos should not run
-  privileged comment or check-run jobs.
+- `permissions: contents: read` is enough to analyze. Sticky comments need
+  `pull-requests: write` on the job; Files changed notices need
+  `checks: write`. Forked PRs skip those steps even when the permissions
+  are present.
 - Pin third-party actions **and** the ChangeRadar **wrapper**
   (`uses: AnikethTS/ChangeRadar@<sha>`) to immutable commit SHAs. The
   analyzer JAR still defaults to latest unless `version` is set.
-- Upload `build/changeradar/` as an artifact.
+- The Action uploads `build/changeradar/` as artifact `changeradar-report`.
 
 Java type resolution: compile **in this workflow**, then pass `--classpath`
 (or the Action `classpath` input) at those jars. ChangeRadar does not run
 the target Maven/Gradle build.
 
 ```yaml
-- uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-  with:
-    distribution: temurin
-    java-version: "21"
 - run: ./gradlew assemble --no-daemon
-- uses: AnikethTS/ChangeRadar@53d4218a62ad4dd556a9da6e3bf571095b950a59
+- uses: AnikethTS/ChangeRadar@7fca92785f11ad72059c294676c89fa20b4a15d7
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
@@ -114,7 +118,8 @@ the target Maven/Gradle build.
 ```
 
 Maven: `mvn -B -DskipTests package` and `classpath: target`. Skip compile
-and `classpath` when the repo has no JVM build.
+and `classpath` when the repo has no JVM build. The Action already runs
+`setup-java`.
 
 Optional `suppress-file` (or YAML `suppressions:`) is one finding id per
 line. Seed it with `--write-suppressions`. Policies still run on the
@@ -122,25 +127,25 @@ unfiltered analysis.
 
 ### Pull request comments and check summary
 
-The optional `comment` job posts `report.compact.md` (counts, policy
-result, top DIRECT findings, tests, link to the artifact). Full Markdown
-and JSON stay on the artifact. The compact body is also written to
+The Action posts `report.compact.md` as a sticky PR comment (counts, policy
+result, top DIRECT findings, tests, link to the run). Full Markdown and
+JSON stay on the artifact. The compact body is also written to
 `$GITHUB_STEP_SUMMARY`.
 
-- Workflow default permission stays `contents: read`. Only the comment job
-  sets `pull-requests: write` (plus `actions: read` to download the
-  artifact).
-- The job runs only when
+- Workflow default permission stays `contents: read`. The impact job adds
+  `pull-requests: write` and `checks: write` when you want comments and
+  notices.
+- Comment and annotate steps run only when
   `github.event.pull_request.head.repo.full_name == github.repository`.
-  Fork PRs skip it so an untrusted workflow cannot write comments with a
+  Fork PRs skip them so an untrusted workflow cannot write with a
   privileged token.
 - One sticky comment is created and then updated (HTML marker
   `<!-- changeradar-report -->`).
 - The author is **github-actions[bot]** (`GITHUB_TOKEN`). GitHub does not
   allow a custom name or avatar for that account. The comment body starts
   with the ChangeRadar logo so the report is still recognizable.
-- A failed comment must not be treated as a policy violation. Do not map
-  comment-job failure to CLI exit `1`.
+- Comment and annotate use `continue-on-error`. A missing token must not
+  be treated as a policy violation (CLI exit `1`).
 
 ### Diff annotations (not Code Scanning)
 
@@ -149,10 +154,10 @@ That turns on GitHub Code Scanning, files impact findings as security
 alerts, and GitHub’s advanced-security bot reports “more than 20 potential
 problems.” Impact is not a vulnerability scan.
 
-`--format github` writes `report.github.json`. The example workflow posts
-that as a Checks API run (`annotation_level: notice`, DIRECT then INDIRECT,
-capped at 50) so GitHub can show findings on the Files changed tab without
-opening the Security tab.
+`--format github` writes `report.github.json`. The Action posts that as a
+Checks API run (`annotation_level: notice`, DIRECT then INDIRECT, capped at
+50) so GitHub can show findings on the Files changed tab without opening
+the Security tab.
 
 `--format sarif` still writes SARIF 2.1 as an artifact for tools that
 consume SARIF. Results use SARIF `note` (not `warning`/`error`). Leave it

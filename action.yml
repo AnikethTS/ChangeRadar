@@ -1,5 +1,5 @@
 name: ChangeRadar Impact Analysis
-description: Download a ChangeRadar release JAR and analyze a Git base..head diff.
+description: Download a ChangeRadar release JAR, analyze a Git base..head diff, and post the report.
 author: AnikethTS
 branding:
   icon: activity
@@ -48,6 +48,18 @@ inputs:
     description: Optional --suppress-file path (one finding id per line)
     required: false
     default: ""
+  comment:
+    description: Post or update a sticky PR comment (same-repo pull requests only)
+    required: false
+    default: "true"
+  annotate:
+    description: Post Checks API notice annotations (same-repo pull requests only)
+    required: false
+    default: "true"
+  upload:
+    description: Upload the report directory as artifact changeradar-report
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -55,6 +67,12 @@ runs:
       with:
         distribution: temurin
         java-version: "21"
+
+    - name: Fetch analysis SHAs
+      shell: bash
+      run: |
+        set -euo pipefail
+        git fetch --no-tags origin "${{ inputs.base }}" "${{ inputs.head }}" || true
 
     - name: Resolve ChangeRadar JAR
       shell: bash
@@ -110,3 +128,35 @@ runs:
           ARGS+=(--suppress-file "${{ inputs.suppress-file }}")
         fi
         java -jar "${CHANGERADAR_JAR}" "${ARGS[@]}"
+
+    - name: Upload report
+      if: ${{ always() && inputs.upload != 'false' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: changeradar-report
+        path: ${{ inputs.output }}/
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Annotate changed files
+      if: ${{ always() && inputs.annotate != 'false' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        bash "${{ github.action_path }}/.github/scripts/changeradar-annotate.sh" \
+          "${{ inputs.output }}" "${{ inputs.head }}"
+
+    - name: Post or update compact report comment
+      if: ${{ always() && inputs.comment != 'false' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        bash "${{ github.action_path }}/.github/scripts/changeradar-comment.sh" \
+          "${{ inputs.output }}" \
+          "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          "https://raw.githubusercontent.com/AnikethTS/ChangeRadar/v0.2.1/.github/logo.png" \
+          "${{ github.event.pull_request.number }}"
