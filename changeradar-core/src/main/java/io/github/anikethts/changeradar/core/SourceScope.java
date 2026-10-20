@@ -45,16 +45,21 @@ public final class SourceScope {
     for (String seed : seeds) {
       seedDirs.add(parentDir(seed));
     }
+    TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headSources);
     for (Map.Entry<String, String> entry : headSources.entrySet()) {
       String path = entry.getKey();
       if (keep.contains(path)) {
+        continue;
+      }
+      if (TsConfigPaths.isConfigPath(path)) {
+        keep.add(path);
         continue;
       }
       if (path.endsWith(".java") && seedDirs.contains(parentDir(path))) {
         keep.add(path);
         continue;
       }
-      if (importsSeed(path, entry.getValue(), seeds, headSources.keySet())) {
+      if (importsSeed(path, entry.getValue(), seeds, headSources.keySet(), pathMap)) {
         keep.add(path);
       }
     }
@@ -69,22 +74,26 @@ public final class SourceScope {
   }
 
   private static boolean importsSeed(
-      String fromFile, String source, Set<String> seeds, Set<String> known) {
+      String fromFile,
+      String source,
+      Set<String> seeds,
+      Set<String> known,
+      TsConfigPaths.PathMap pathMap) {
     Matcher quoted = QUOTED.matcher(source);
     while (quoted.find()) {
-      if (resolvesToSeed(fromFile, quoted.group(1), seeds, known)) {
+      if (resolvesToSeed(fromFile, quoted.group(1), seeds, known, pathMap)) {
         return true;
       }
     }
     Matcher from = FROM_MODULE.matcher(source);
     while (from.find()) {
-      if (resolvesToSeed(fromFile, from.group(1), seeds, known)) {
+      if (resolvesToSeed(fromFile, from.group(1), seeds, known, pathMap)) {
         return true;
       }
     }
     Matcher imp = IMPORT_MODULE.matcher(source);
     while (imp.find()) {
-      if (resolvesToSeed(fromFile, imp.group(1), seeds, known)) {
+      if (resolvesToSeed(fromFile, imp.group(1), seeds, known, pathMap)) {
         return true;
       }
     }
@@ -95,7 +104,7 @@ public final class SourceScope {
       if (as >= 0) {
         spec = spec.substring(0, as).trim();
       }
-      if (resolvesToSeed(fromFile, spec, seeds, known)) {
+      if (resolvesToSeed(fromFile, spec, seeds, known, pathMap)) {
         return true;
       }
     }
@@ -103,8 +112,13 @@ public final class SourceScope {
   }
 
   private static boolean resolvesToSeed(
-      String fromFile, String spec, Set<String> seeds, Set<String> known) {
-    Optional<String> resolved = SourcePaths.resolveExisting(fromFile, spec, known, SUFFIXES);
+      String fromFile,
+      String spec,
+      Set<String> seeds,
+      Set<String> known,
+      TsConfigPaths.PathMap pathMap) {
+    Optional<String> resolved =
+        SourcePaths.resolveExisting(fromFile, spec, known, SUFFIXES, pathMap);
     return resolved.filter(seeds::contains).isPresent();
   }
 

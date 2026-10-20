@@ -27,4 +27,31 @@ class SourceScopeTest {
     assertFalse(subset.containsKey("src/unrelated.ts"));
     assertEquals(2, subset.size());
   }
+
+  @Test
+  void keepsImporterThatUsesTsconfigPathAlias() {
+    Map<String, String> head =
+        Map.of(
+            "src/api.ts",
+            "export function n() { return 1; }\n",
+            "src/caller.ts",
+            "import { n } from \"@app/api\";\nexport function run() { return n(); }\n",
+            "src/unrelated.ts",
+            "export function other() { return 2; }\n",
+            "tsconfig.json",
+            """
+            {
+              "compilerOptions": {
+                "baseUrl": ".",
+                "paths": { "@app/*": ["src/*"] }
+              }
+            }
+            """);
+    Map<String, String> subset =
+        SourceScope.subset(List.of(new ChangedFile("src/api.ts", ChangeType.MODIFY, null)), head);
+    assertTrue(subset.containsKey("src/api.ts"));
+    assertTrue(subset.containsKey("src/caller.ts"));
+    assertTrue(subset.containsKey("tsconfig.json"));
+    assertFalse(subset.containsKey("src/unrelated.ts"));
+  }
 }
