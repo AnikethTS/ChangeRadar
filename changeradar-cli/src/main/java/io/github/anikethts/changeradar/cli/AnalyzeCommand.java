@@ -11,7 +11,9 @@ import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbols;
 import io.github.anikethts.changeradar.core.ExitCode;
+import io.github.anikethts.changeradar.core.FindingSuppressions;
 import io.github.anikethts.changeradar.core.GitAccessException;
+import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.PolicyEngine;
@@ -87,7 +89,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
 
   @Option(
       names = "--policy-file",
-      description = "YAML file of enabled policies and an optional baseline path.")
+      description = "YAML file of enabled policies and optional baseline/suppressions paths.")
   Path policyFile;
 
   @Option(
@@ -103,6 +105,20 @@ public final class AnalyzeCommand implements Callable<Integer> {
           "Write current policy violation keys to this file and do not fail the job for those"
               + " keys this run.")
   Path writeBaseline;
+
+  @Option(
+      names = "--suppress-file",
+      description =
+          "Existing finding suppressions (one finding id per line). Overrides suppressions in"
+              + " --policy-file.")
+  Path suppressFile;
+
+  @Option(
+      names = "--write-suppressions",
+      description =
+          "Write current finding ids to this file and omit those findings from this run's"
+              + " report.")
+  Path writeSuppressions;
 
   @Option(
       names = "--classpath",
@@ -137,12 +153,16 @@ public final class AnalyzeCommand implements Callable<Integer> {
     }
     Set<String> enabledPolicies = new LinkedHashSet<>();
     Path baselinePath = baseline;
+    Path suppressPath = suppressFile;
     if (policyFile != null) {
       Path resolvedPolicy = repository.resolve(policyFile).normalize();
       PolicyFile.Document document = PolicyFile.load(resolvedPolicy);
       enabledPolicies.addAll(document.policies());
       if (baselinePath == null && document.baseline() != null) {
         baselinePath = repository.resolve(document.baseline()).normalize();
+      }
+      if (suppressPath == null && document.suppressions() != null) {
+        suppressPath = repository.resolve(document.suppressions()).normalize();
       }
     }
     enabledPolicies.addAll(PolicyEngine.parseEnabled(policies));
@@ -210,6 +230,17 @@ public final class AnalyzeCommand implements Callable<Integer> {
       if (writeBaseline != null) {
         policy = PolicyResult.none();
       }
+      Set<String> suppressed = new LinkedHashSet<>();
+      if (suppressPath != null) {
+        suppressed.addAll(PolicyFile.readBaseline(suppressPath));
+      }
+      if (writeSuppressions != null) {
+        Path dest = repository.resolve(writeSuppressions).normalize();
+        List<String> ids = analysis.findings().stream().map(ImpactFinding::id).toList();
+        PolicyFile.writeSuppressions(dest, ids);
+        suppressed.addAll(ids);
+      }
+      List<ImpactFinding> findings = FindingSuppressions.apply(analysis.findings(), suppressed);
       List<Limitation> limitations = new ArrayList<>(analysis.limitations());
       if (scoped && parsedHead.size() < headSources.size()) {
         limitations.add(
@@ -236,6 +267,15 @@ public final class AnalyzeCommand implements Callable<Integer> {
                     + baselinePath
                     + " are ignored. Re-run with --write-baseline to refresh."));
       }
+      if (!suppressed.isEmpty()) {
+        limitations.add(
+            new Limitation(
+                "FINDING_SUPPRESSIONS",
+                "Findings listed in "
+                    + (suppressPath != null ? suppressPath : writeSuppressions)
+                    + " are omitted from the report. Re-run with --write-suppressions to"
+                    + " refresh. Line shifts can invalidate ids."));
+      }
       limitations.add(
           new Limitation(
               "STATIC_ANALYSIS_LIMITS",
@@ -250,7 +290,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               new AnalysisRequest(repository, base, head),
               changed,
               analysis.changedSymbols(),
-              analysis.findings(),
+              findings,
               analysis.tests(),
               List.copyOf(limitations),
               policy);

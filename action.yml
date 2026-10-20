@@ -44,6 +44,10 @@ inputs:
       workflow. ChangeRadar does not run the target build.
     required: false
     default: ""
+  suppress-file:
+    description: Optional --suppress-file path (one finding id per line)
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -101,5 +105,8 @@ runs:
         fi
         if [ -n "${{ inputs.classpath }}" ]; then
           ARGS+=(--classpath "${{ inputs.classpath }}")
+        fi
+        if [ -n "${{ inputs.suppress-file }}" ]; then
+          ARGS+=(--suppress-file "${{ inputs.suppress-file }}")
         fi
         java -jar "${CHANGERADAR_JAR}" "${ARGS[@]}"

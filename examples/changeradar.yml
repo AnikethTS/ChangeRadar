@@ -4,6 +4,9 @@
 # not fail the first run:
 #   java -jar changeradar.jar analyze --base "$BASE" --head "$HEAD" \
 #     --policy-file changeradar.yml --write-baseline .changeradar/baseline.txt
+# Seed finding suppressions (one id per line) the same way:
+#   java -jar changeradar.jar analyze --base "$BASE" --head "$HEAD" \
+#     --write-suppressions .changeradar/suppress.txt
 policies:
   - breaking-public-java-api
   # - breaking-public-export
@@ -11,3 +14,4 @@ policies:
   # - breaking-public-php
   # - analysis-unavailable
 baseline: .changeradar/baseline.txt
+suppressions: .changeradar/suppress.txt

@@ -5,6 +5,13 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Finding-id suppressions: `--suppress-file` / YAML `suppressions:` (one
+  `type|symbolId|path:line` per line) omit those findings from compact,
+  Markdown, JSON, SARIF, and GitHub reports. `--write-suppressions` seeds
+  the file. Policies still evaluate the unfiltered analysis.
+
 ### Changed
 
 - Consumer GitHub Actions example compiles with the project’s own Gradle
