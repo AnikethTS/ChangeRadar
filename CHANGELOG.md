@@ -11,6 +11,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   `type|symbolId|path:line` per line) omit those findings from compact,
   Markdown, JSON, SARIF, and GitHub reports. `--write-suppressions` seeds
   the file. Policies still evaluate the unfiltered analysis.
+- Copy-paste GitHub Actions templates:
+  `examples/github-actions/changeradar.yml` (any repo) and
+  `changeradar-java.yml` (compile then `classpath`). Destination in the
+  consumer repo is `.github/workflows/changeradar.yml`.
 
 ### Changed
 

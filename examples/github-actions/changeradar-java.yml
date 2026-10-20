@@ -1,0 +1,52 @@
+# TEMPLATE — copy this file into a JVM repository as:
+#   .github/workflows/changeradar.yml
+#
+# Compiles your project, then passes those jars as classpath so Java callers
+# can resolve as DIRECT. ChangeRadar does not run the target build.
+name: ChangeRadar
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Impact report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Compile project jars
+        run: ./gradlew assemble --no-daemon
+        # Maven instead:
+        #   run: mvn -B -DskipTests package
+        #   classpath: target
+
+      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          classpath: build/libs
+          # version: v0.2.1
+          # policy-file: changeradar.yml
+          # suppress-file: .changeradar/suppress.txt

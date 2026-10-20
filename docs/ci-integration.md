@@ -43,12 +43,18 @@ The CLI itself still returns `2` for tool failure.
 
 ## GitHub Actions
 
-Consumers copy
-[`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml):
-checkout with `fetch-depth: 0`, then one `uses:` step. The Action downloads
-the JAR, analyzes, uploads `changeradar-report`, posts a sticky PR comment,
-and posts Checks notices. Set `comment: false`, `annotate: false`, or
-`upload: false` to skip those.
+Consumers copy a template into **their** repo as
+`.github/workflows/changeradar.yml`:
+
+| File | Use when |
+| --- | --- |
+| [`examples/github-actions/changeradar.yml`](../examples/github-actions/changeradar.yml) | Default. Checkout + one `uses:` step. |
+| [`examples/github-actions/changeradar-java.yml`](../examples/github-actions/changeradar-java.yml) | JVM repo: compile, then `classpath:`. |
+
+The Action downloads the JAR, analyzes, uploads `changeradar-report`, posts
+a sticky PR comment, and posts Checks notices. Set `comment: false`,
+`annotate: false`, or `upload: false` to skip those. Optional keys in the
+template (`version`, `policy-file`, `suppress-file`) are commented in.
 
 There are two version knobs:
 

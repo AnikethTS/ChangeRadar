@@ -1,3 +1,7 @@
+# Short example of the consumer workflow. Prefer the commented templates:
+#   changeradar.yml       — copy to .github/workflows/changeradar.yml
+#   changeradar-java.yml  — same, plus compile + classpath
+#
 # Copy into a consuming repository. Do not clone ChangeRadar or run its Gradle.
 #
 # Two version knobs:
