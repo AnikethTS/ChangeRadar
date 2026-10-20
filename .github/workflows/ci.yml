@@ -165,13 +165,14 @@ jobs:
           test -s build/changeradar/report.github.json
           if command -v python3 >/dev/null; then PY=python3; else PY=python; fi
           "${PY}" -m venv "${RUNNER_TEMP}/schema-venv"
-          if [ -x "${RUNNER_TEMP}/schema-venv/bin/python" ]; then
-            VPY="${RUNNER_TEMP}/schema-venv/bin/python"
+          if [ -x "${RUNNER_TEMP}/schema-venv/bin/pip" ]; then
+            VENV="${RUNNER_TEMP}/schema-venv/bin"
           else
-            VPY="${RUNNER_TEMP}/schema-venv/Scripts/python"
+            VENV="${RUNNER_TEMP}/schema-venv/Scripts"
           fi
-          "${VPY}" -m pip install --quiet jsonschema
-          "${VPY}" .github/scripts/validate-report-schema.py
+          "${VENV}/pip" install --quiet check-jsonschema
+          "${VENV}/check-jsonschema" --schemafile schemas/report-v1.schema.json \
+            build/changeradar/report.json
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
