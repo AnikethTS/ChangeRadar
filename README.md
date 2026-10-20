@@ -84,9 +84,10 @@ the same place you already review the change.
 - Maps changed Python lines to classes and functions (not CPython).
 - Maps changed PHP lines to classes and functions (not php-parser).
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
-  HEURISTIC. Java callers of callers are INDIRECT (capped). TypeScript,
-  Python, and PHP also report overrides, field reads, and
-  decorator/attribute uses when an import maps to the change.
+  HEURISTIC. Java callers of callers are INDIRECT (capped). Java also
+  reports overrides, field reads, annotation uses, and inject-style
+  fields. TypeScript, Python, and PHP report the same when an import
+  maps to the change.
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.
@@ -95,8 +96,8 @@ the same place you already review the change.
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come: a full symbol solver and richer binary-compatibility
-checks. See the [roadmap](docs/architecture.md#roadmap).
+Still to come: richer binary-compatibility checks. See the
+[roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).

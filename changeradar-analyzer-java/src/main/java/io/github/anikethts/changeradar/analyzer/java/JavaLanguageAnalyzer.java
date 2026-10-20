@@ -7,13 +7,20 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
+import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
@@ -48,7 +55,8 @@ import java.util.regex.Pattern;
  * Java analyzer: maps changed lines to types and methods, then finds callers. In-repo types plus
  * the JRE are resolved with JavaParser's symbol solver (DIRECT). Resolved callers of those callers
  * are INDIRECT, capped by depth and count. Unresolved calls fall back to name matching (HEURISTIC)
- * and are not chained. Compiled Maven/Gradle dependencies are not on the type path.
+ * and are not chained. Overrides, field reads, annotation uses, and inject-style fields are extra
+ * structural findings. Compiled Maven/Gradle dependencies are not on the type path.
  */
 public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
 
@@ -59,6 +67,8 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
           new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
 
   private static final Pattern PACKAGE_DECL = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)\\s*;");
+
+  private static final Set<String> INJECT_ANNOTATIONS = Set.of("Autowired", "Inject", "Resource");
 
   @Override
   public String languageId() {
@@ -104,6 +114,12 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                     + " chained. Indirect findings are capped at "
                     + CallChains.MAX_INDIRECT
                     + "."));
+        limitations.add(
+            new Limitation(
+                "JAVA_STRUCTURAL_EDGES",
+                "Java overrides, field access, annotation uses, and inject-style fields"
+                    + " (@Autowired/@Inject/@Resource) are resolved against HEAD sources and the"
+                    + " JRE only. Spring/Jakarta containers are not simulated."));
       } catch (IOException e) {
         limitations.add(
             new Limitation(
@@ -249,6 +265,9 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       for (ConstructorDeclaration ctor : cu.findAll(ConstructorDeclaration.class)) {
         addCallable(decls, pkg, path, ctor, "constructor", ctor.getNameAsString(), ctor.isPublic());
       }
+      for (FieldDeclaration field : cu.findAll(FieldDeclaration.class)) {
+        addFields(decls, pkg, path, field);
+      }
       into.put(path, new ParsedFile(path, cu, decls, isTestPath(path)));
     } catch (RuntimeException e) {
       limitations.add(
@@ -283,10 +302,33 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             });
   }
 
+  private static void addFields(List<Decl> decls, String pkg, String path, FieldDeclaration field) {
+    String owner = qualify(pkg, enclosingType(field).orElse(""));
+    for (VariableDeclarator variable : field.getVariables()) {
+      variable
+          .getRange()
+          .ifPresent(
+              range ->
+                  decls.add(
+                      new Decl(
+                          "field",
+                          variable.getNameAsString(),
+                          owner,
+                          variable.getType().asString(),
+                          field.isPublic(),
+                          isTestPath(path) || isTestName(owner),
+                          path,
+                          range.begin.line,
+                          range.end.line)));
+    }
+  }
+
   private static CallerScan findCallers(
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedMethods = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
+    Set<String> changedTypeDecls = new LinkedHashSet<>();
+    Set<String> changedFields = new LinkedHashSet<>();
     Set<String> seeds = new LinkedHashSet<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
@@ -298,11 +340,32 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
           changedMethods.add(simpleOwner + "#" + symbol.name());
         }
       }
+      if ("field".equals(symbol.kind())) {
+        changedFields.add(symbol.owner() + "#" + symbol.name());
+        String simpleOwner = simpleName(symbol.owner());
+        if (!simpleOwner.isEmpty()) {
+          changedFields.add(simpleOwner + "#" + symbol.name());
+        }
+      }
       if ("type".equals(symbol.kind())) {
         changedTypes.add(symbol.name());
         changedTypes.add(simpleName(symbol.name()));
         if (!symbol.name().isEmpty()) {
           seeds.add(symbol.name());
+        }
+        boolean nestedMemberAlsoChanged =
+            changedSymbols.stream()
+                .anyMatch(
+                    other ->
+                        !"type".equals(other.kind())
+                            && other.location().path().equals(symbol.location().path())
+                            && symbol.location().startLine() <= other.location().startLine()
+                            && other.location().endLine() <= symbol.location().endLine());
+        if (!nestedMemberAlsoChanged
+            || symbol.changeType() == ChangeType.ADD
+            || symbol.changeType() == ChangeType.DELETE) {
+          changedTypeDecls.add(symbol.name());
+          changedTypeDecls.add(simpleName(symbol.name()));
         }
       } else {
         String simple = simpleName(symbol.owner());
@@ -348,6 +411,9 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         heuristicConstructor(file, create, resolvedType, changedTypes, seen, findings);
       }
     }
+
+    collectStructuralFindings(
+        parsedHead, changedMethods, changedTypeDecls, changedFields, seeds, seen, findings);
 
     CallChains.Expansion expansion = CallChains.fromResolved(seeds, edges);
     for (ImpactFinding finding : expansion.findings()) {
@@ -473,13 +539,166 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             });
   }
 
+  private static void collectStructuralFindings(
+      Map<String, ParsedFile> parsedHead,
+      Set<String> changedMethods,
+      Set<String> changedTypeDecls,
+      Set<String> changedFields,
+      Set<String> seeds,
+      Set<String> seen,
+      List<ImpactFinding> findings) {
+    for (ParsedFile file : parsedHead.values()) {
+      String pkg = packageName(file.cu);
+      for (MethodDeclaration method : file.cu.findAll(MethodDeclaration.class)) {
+        Optional<SourceLocation> location = locationOf(file.path, method);
+        if (location.isEmpty()) {
+          continue;
+        }
+        String childId =
+            qualify(pkg, enclosingType(method).orElse("")) + "#" + method.getNameAsString();
+        for (String parentId : ancestorMethodIds(method)) {
+          boolean parentChanged = changedMethods.contains(parentId);
+          boolean childChanged = changedMethods.contains(childId);
+          if (!parentChanged && !childChanged) {
+            continue;
+          }
+          if (parentChanged) {
+            seeds.add(childId);
+          }
+          addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "OVERRIDE",
+                  Confidence.DIRECT,
+                  childId + " overrides " + parentId,
+                  parentId,
+                  location.get()));
+        }
+      }
+      for (FieldAccessExpr access : file.cu.findAll(FieldAccessExpr.class)) {
+        emitFieldAccess(file, access, resolveField(access), changedFields, seen, findings);
+      }
+      for (NameExpr name : file.cu.findAll(NameExpr.class)) {
+        emitFieldAccess(file, name, resolveField(name), changedFields, seen, findings);
+      }
+      for (FieldDeclaration field : file.cu.findAll(FieldDeclaration.class)) {
+        boolean inject =
+            field.getAnnotations().stream()
+                .anyMatch(ann -> INJECT_ANNOTATIONS.contains(ann.getName().getIdentifier()));
+        for (VariableDeclarator variable : field.getVariables()) {
+          Optional<String> fieldType = resolveVariableType(variable);
+          Optional<SourceLocation> location = locationOf(file.path, variable);
+          if (fieldType.isEmpty() || location.isEmpty()) {
+            continue;
+          }
+          String typeName = fieldType.get();
+          if (!changedTypeDecls.contains(typeName)
+              && !changedTypeDecls.contains(simpleName(typeName))) {
+            continue;
+          }
+          String owner = qualify(pkg, enclosingType(field).orElse(file.path));
+          String summary =
+              inject
+                  ? owner + "#" + variable.getNameAsString() + " injects " + typeName
+                  : owner + "#" + variable.getNameAsString() + " is typed as " + typeName;
+          addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  inject ? "INJECTION" : "FIELD_TYPE",
+                  Confidence.DIRECT,
+                  summary,
+                  typeName,
+                  location.get()));
+        }
+      }
+      for (AnnotationExpr annotation : file.cu.findAll(AnnotationExpr.class)) {
+        Optional<String> typeName = resolveAnnotationType(annotation);
+        String simple = annotation.getName().getIdentifier();
+        boolean matched =
+            typeName
+                .map(
+                    name ->
+                        changedTypeDecls.contains(name)
+                            || changedTypeDecls.contains(simpleName(name)))
+                .orElseGet(() -> changedTypeDecls.contains(simple));
+        if (!matched) {
+          continue;
+        }
+        Optional<SourceLocation> location = locationOf(file.path, annotation);
+        if (location.isEmpty()) {
+          continue;
+        }
+        String symbolId = typeName.orElse(simple);
+        addFinding(
+            seen,
+            findings,
+            new ImpactFinding(
+                "ANNOTATION_USE",
+                typeName.isPresent() ? Confidence.DIRECT : Confidence.HEURISTIC,
+                enclosingType(annotation).orElse(file.path) + " uses @" + simple,
+                symbolId,
+                location.get()));
+      }
+    }
+  }
+
+  private static void emitFieldAccess(
+      ParsedFile file,
+      Node node,
+      Optional<ResolvedCall> field,
+      Set<String> changedFields,
+      Set<String> seen,
+      List<ImpactFinding> findings) {
+    if (field.isEmpty()) {
+      return;
+    }
+    ResolvedCall match = field.get();
+    String symbolId = match.owner() + "#" + match.name();
+    if (!changedFields.contains(symbolId)
+        && !changedFields.contains(simpleName(match.owner()) + "#" + match.name())) {
+      return;
+    }
+    Optional<SourceLocation> location = locationOf(file.path, node);
+    if (location.isEmpty()) {
+      return;
+    }
+    addFinding(
+        seen,
+        findings,
+        new ImpactFinding(
+            "FIELD_ACCESS",
+            Confidence.DIRECT,
+            enclosingType(node).orElse(file.path) + " reads " + symbolId,
+            symbolId,
+            location.get()));
+  }
+
+  private static void addFinding(
+      Set<String> seen, List<ImpactFinding> findings, ImpactFinding finding) {
+    String key =
+        finding.location().path()
+            + ":"
+            + finding.location().startLine()
+            + ":"
+            + finding.type()
+            + ":"
+            + finding.symbolId();
+    if (seen.add(key)) {
+      findings.add(finding);
+    }
+  }
+
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
     List<ImpactFinding> findings = new ArrayList<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if (!symbol.publiclyVisible()) {
         continue;
       }
-      if (!"type".equals(symbol.kind()) && !"method".equals(symbol.kind())) {
+      if (!"type".equals(symbol.kind())
+          && !"method".equals(symbol.kind())
+          && !"field".equals(symbol.kind())) {
         continue;
       }
       findings.add(
@@ -589,6 +808,80 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     try {
       ResolvedConstructorDeclaration resolved = create.resolve();
       return Optional.of(resolved.declaringType().getQualifiedName());
+    } catch (RuntimeException e) {
+      return Optional.empty();
+    }
+  }
+
+  private static List<String> ancestorMethodIds(MethodDeclaration method) {
+    try {
+      ResolvedMethodDeclaration resolved = method.resolve();
+      String childType = resolved.declaringType().getQualifiedName();
+      List<String> ids = new ArrayList<>();
+      Set<String> seen = new LinkedHashSet<>();
+      for (ResolvedReferenceType ancestor :
+          resolved.declaringType().asReferenceType().getAllAncestors()) {
+        ancestor
+            .getTypeDeclaration()
+            .ifPresent(
+                declaration -> {
+                  for (ResolvedMethodDeclaration candidate : declaration.getDeclaredMethods()) {
+                    if (!candidate.getSignature().equals(resolved.getSignature())) {
+                      continue;
+                    }
+                    String parentType = candidate.declaringType().getQualifiedName();
+                    if (parentType.equals(childType) || "java.lang.Object".equals(parentType)) {
+                      continue;
+                    }
+                    String id = parentType + "#" + candidate.getName();
+                    if (seen.add(id)) {
+                      ids.add(id);
+                    }
+                  }
+                });
+      }
+      return ids;
+    } catch (RuntimeException e) {
+      return List.of();
+    }
+  }
+
+  private static Optional<ResolvedCall> resolveField(Node node) {
+    try {
+      final ResolvedValueDeclaration value;
+      if (node instanceof FieldAccessExpr access) {
+        value = access.resolve();
+      } else if (node instanceof NameExpr name) {
+        value = name.resolve();
+      } else {
+        return Optional.empty();
+      }
+      if (!value.isField()) {
+        return Optional.empty();
+      }
+      ResolvedFieldDeclaration field = value.asField();
+      return Optional.of(
+          new ResolvedCall(field.declaringType().getQualifiedName(), field.getName()));
+    } catch (RuntimeException e) {
+      return Optional.empty();
+    }
+  }
+
+  private static Optional<String> resolveVariableType(VariableDeclarator variable) {
+    try {
+      var resolved = variable.getType().resolve();
+      if (resolved.isReferenceType()) {
+        return Optional.of(resolved.asReferenceType().getQualifiedName());
+      }
+      return Optional.empty();
+    } catch (RuntimeException e) {
+      return Optional.empty();
+    }
+  }
+
+  private static Optional<String> resolveAnnotationType(AnnotationExpr annotation) {
+    try {
+      return Optional.of(annotation.resolve().getQualifiedName());
     } catch (RuntimeException e) {
       return Optional.empty();
     }

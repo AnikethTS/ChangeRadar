@@ -11,6 +11,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   field/property reads (`FIELD_ACCESS`), decorator/attribute uses
   (`ANNOTATION_USE`), and typed fields (`FIELD_TYPE` / `INJECTION`).
   Matched through imports against HEAD files, not tsc/CPython/php-parser.
+- Java structural edges: overrides/implementations (`OVERRIDE`), reads of
+  changed fields (`FIELD_ACCESS`), uses of a changed annotation type
+  (`ANNOTATION_USE`), and inject-style fields (`INJECTION` /
+  `FIELD_TYPE`). Method-only edits do not flag every field of that type.
 - Java call chains: type-resolved callers of callers are reported as
   `INDIRECT` (max depth 3, max 40 indirect sites). Heuristic name matches
   are not chained.

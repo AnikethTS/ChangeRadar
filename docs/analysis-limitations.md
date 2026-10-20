@@ -28,6 +28,9 @@ Today the tool records:
   constructor edges (depth 1 `DIRECT`, deeper `INDIRECT`, max depth 3).
   Heuristic name matches are not chained.
 - `JAVA_CALL_CHAIN_CAP` when indirect findings hit the cap of 40.
+- `JAVA_STRUCTURAL_EDGES` when Java overrides, field access, annotation
+  uses, and inject-style fields are resolved against HEAD sources (not a
+  Spring/Jakarta container).
 - `NAME_BASED_DISPATCH` when a Java call site could not be resolved and
   fell back to method-name matching (`HEURISTIC`).
 - `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched
