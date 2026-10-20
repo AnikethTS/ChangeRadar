@@ -45,7 +45,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
           ".php");
 
   private static final Set<String> FORMATS =
-      Set.of("terminal", "markdown", "json", "sarif", "compact");
+      Set.of("terminal", "markdown", "json", "sarif", "compact", "github");
 
   @Option(
       names = "--base",
@@ -70,7 +70,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
       defaultValue = "terminal",
       split = ",",
       description =
-          "Comma-separated formats: terminal, markdown, json, compact, sarif. Default: terminal.")
+          "Comma-separated formats: terminal, markdown, json, compact, sarif, github. Default:"
+              + " terminal.")
   List<String> formats;
 
   @Option(names = "--output", description = "Directory for report files. Created if missing.")
@@ -263,7 +264,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
         selected.contains("markdown")
             || selected.contains("json")
             || selected.contains("sarif")
-            || selected.contains("compact");
+            || selected.contains("compact")
+            || selected.contains("github");
     Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
     if (files) {
       Files.createDirectories(dest);
@@ -278,6 +280,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       if (selected.contains("sarif")) {
         writers.writeSarif(report, dest.resolve("report.sarif"));
+      }
+      if (selected.contains("github")) {
+        writers.writeGithub(report, dest.resolve("report.github.json"));
       }
     }
     String summary = System.getenv("GITHUB_STEP_SUMMARY");

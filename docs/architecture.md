@@ -57,7 +57,7 @@ plus tests against the shared model.
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
 | 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
-| 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action, compact comment, job summary, SARIF upload. **Current.** |
+| 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action, compact comment, job summary, Checks annotations. **Current.** |
 | 8 Policies | Optional blocking rules | `--policy-file`, `policies` command, baseline, rename/signature. **Current.** |
 | 9 More analyzers | TypeScript, then Python | TS/JS, Python, and PHP current. |
 

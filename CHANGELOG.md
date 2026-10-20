@@ -5,6 +5,14 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stop uploading ChangeRadar SARIF to GitHub Code Scanning. That setup
+  banner and “more than 20 potential problems” were impact findings filed
+  as security alerts. The workflow now posts Checks API `notice`
+  annotations (`--format github`) on the diff instead. SARIF stays an
+  artifact and uses `note`, not `warning`.
+
 ### Added
 
 - Distributable `changeradar.jar` (`./gradlew :changeradar-cli:shadowJar`) and a

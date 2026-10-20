@@ -91,15 +91,18 @@ class ChangeRadarAppTest {
                 "--repo",
                 tmp.toString(),
                 "--format",
-                "compact,sarif",
+                "compact,sarif,github",
                 "--output",
                 out.toString());
     assertEquals(0, code);
     String compact = Files.readString(out.resolve("report.compact.md"));
     String sarif = Files.readString(out.resolve("report.sarif"));
+    String github = Files.readString(out.resolve("report.github.json"));
     assertTrue(compact.contains("ChangeRadar"));
     assertTrue(sarif.contains("\"version\""));
     assertTrue(sarif.contains("2.1.0"));
+    assertTrue(!sarif.contains("\"warning\""));
+    assertTrue(github.contains("\"annotations\""));
   }
 
   @Test

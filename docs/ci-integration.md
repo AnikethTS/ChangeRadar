@@ -16,10 +16,11 @@ java -jar changeradar.jar analyze \
 ```
 
 `--repo` defaults to the current directory. `--format` is a comma-separated
-list of `terminal`, `markdown`, `json`, `compact`, and `sarif`. File
-formats are written under `--output` as `report.md`, `report.json`,
-`report.compact.md`, and `report.sarif`. If `--output` is omitted and a
-file format is requested, the default directory is `build/changeradar`.
+list of `terminal`, `markdown`, `json`, `compact`, `sarif`, and `github`.
+File formats are written under `--output` as `report.md`, `report.json`,
+`report.compact.md`, `report.sarif`, and `report.github.json`. If
+`--output` is omitted and a file format is requested, the default
+directory is `build/changeradar`.
 
 When `GITHUB_STEP_SUMMARY` is set (GitHub Actions), the compact report is
 appended there as well.
@@ -67,9 +68,9 @@ Requirements:
 - Pass `github.event.pull_request.base.sha` and
   `github.event.pull_request.head.sha` (or `github.sha` on push).
 - `permissions: contents: read` is enough to analyze. Writing a pull-request
-  comment needs `pull-requests: write`. Uploading SARIF to code scanning
-  needs `security-events: write`. Forked PRs from untrusted repos should
-  not run privileged comment or SARIF-upload jobs.
+  comment needs `pull-requests: write`. Annotating the Files changed tab
+  needs `checks: write`. Forked PRs from untrusted repos should not run
+  privileged comment or check-run jobs.
 - Pin third-party actions **and** `AnikethTS/ChangeRadar` to immutable
   commit SHAs.
 - Upload `build/changeradar/` as an artifact.
@@ -100,12 +101,21 @@ and JSON stay on the artifact. The compact body is also written to
 - A failed comment must not be treated as a policy violation. Do not map
   comment-job failure to CLI exit `1`.
 
-### SARIF
+### Diff annotations (not Code Scanning)
 
-`--format sarif` writes SARIF 2.1. The example workflow uploads it with
-`github/codeql-action/upload-sarif` (SHA-pinned) so GitHub can show
-findings on the pull-request diff. Each result includes the stable finding
-`id` as a partial fingerprint.
+Do **not** upload ChangeRadar SARIF with `github/codeql-action/upload-sarif`.
+That turns on GitHub Code Scanning, files impact findings as security
+alerts, and GitHub’s advanced-security bot reports “more than 20 potential
+problems.” Impact is not a vulnerability scan.
+
+`--format github` writes `report.github.json`. The example workflow posts
+that as a Checks API run (`annotation_level: notice`, DIRECT then INDIRECT,
+capped at 50) so GitHub can show findings on the Files changed tab without
+opening the Security tab.
+
+`--format sarif` still writes SARIF 2.1 as an artifact for tools that
+consume SARIF. Results use SARIF `note` (not `warning`/`error`). Leave it
+on the artifact unless you intentionally want Code Scanning.
 
 GitLab CI, Jenkins, and generic shell examples wait until this contract is
 stable and tested.

@@ -115,12 +115,13 @@ jobs:
           ./run.sh analyze \
             --base "${BASE}" \
             --head HEAD \
-            --format terminal,markdown,json,compact,sarif \
+            --format terminal,markdown,json,compact,sarif,github \
             --output build/changeradar
           test -s build/changeradar/report.json
           test -s build/changeradar/report.md
           test -s build/changeradar/report.compact.md
           test -s build/changeradar/report.sarif
+          test -s build/changeradar/report.github.json
           ./gradlew :changeradar-cli:shadowJar --quiet --no-daemon
           test -s changeradar-cli/build/libs/changeradar.jar
 
