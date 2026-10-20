@@ -310,7 +310,7 @@ final class ReportWriters {
       rules.putIfAbsent(
           finding.type(),
           new SarifRule(finding.type(), new SarifMessage(finding.type() + " impact finding")));
-      String level = finding.confidence() == Confidence.DIRECT ? "warning" : "note";
+      String level = "note";
       results.add(
           new SarifResult(
               finding.type(),
@@ -338,6 +338,38 @@ final class ReportWriters {
                             List.copyOf(rules.values()))),
                     results)));
     mapper.writeValue(file.toFile(), log);
+  }
+
+  void writeGithub(Report report, Path file) throws IOException {
+    mapper.writeValue(file.toFile(), githubCheck(report));
+  }
+
+  GithubCheck githubCheck(Report report) {
+    List<GithubAnnotation> annotations = new ArrayList<>();
+    List<ImpactFinding> ordered = new ArrayList<>(report.findings());
+    ordered.sort(
+        Comparator.comparing((ImpactFinding f) -> f.confidence() == Confidence.DIRECT ? 0 : 1)
+            .thenComparing(f -> f.location().path())
+            .thenComparing(f -> f.location().startLine())
+            .thenComparing(ImpactFinding::id));
+    for (ImpactFinding finding : ordered) {
+      if (finding.confidence() == Confidence.HEURISTIC) {
+        continue;
+      }
+      if (annotations.size() >= 50) {
+        break;
+      }
+      int line = Math.max(1, finding.location().startLine());
+      annotations.add(
+          new GithubAnnotation(
+              finding.location().path().replace('\\', '/'),
+              line,
+              line,
+              "notice",
+              finding.type() + " [" + finding.confidence() + "]",
+              finding.summary() + " (`" + finding.id() + "`)"));
+    }
+    return new GithubCheck("ChangeRadar impact", compactMarkdown(report), annotations);
   }
 
   void writeJson(Report report, Path file) throws IOException {
@@ -436,4 +468,14 @@ final class ReportWriters {
   record SarifArtifact(String uri) {}
 
   record SarifRegion(int startLine) {}
+
+  record GithubCheck(String title, String summary, List<GithubAnnotation> annotations) {}
+
+  record GithubAnnotation(
+      String path,
+      @JsonProperty("start_line") int startLine,
+      @JsonProperty("end_line") int endLine,
+      @JsonProperty("annotation_level") String annotationLevel,
+      String title,
+      String message) {}
 }

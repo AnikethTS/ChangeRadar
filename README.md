@@ -151,8 +151,10 @@ A least-privilege GitHub Actions example lives in
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
 Pin `uses: AnikethTS/ChangeRadar@<sha>`. This repository dogfoods the
 Action with a locally built fat JAR. Same-repo PRs get a **compact**
-sticky comment, a job summary, and SARIF on the diff; the full Markdown /
-JSON stay on the artifact. Fork PRs skip the comment and SARIF upload.
+sticky comment, a job summary, and notice annotations on the Files changed
+tab; the full Markdown / JSON / SARIF stay on the artifact. Fork PRs skip
+the comment and annotations. Do not upload ChangeRadar SARIF to Code
+Scanning.
 Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
