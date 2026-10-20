@@ -155,8 +155,9 @@ JSON stay on the artifact. The compact body is also written to
 - One sticky comment is created and then updated (HTML marker
   `<!-- changeradar-report -->`).
 - The author is **github-actions[bot]** (`GITHUB_TOKEN`). GitHub does not
-  allow a custom name or avatar for that account. The comment body starts
-  with the ChangeRadar logo so the report is still recognizable.
+  allow a custom name or avatar for that account. The comment uses a
+  cropped lockup (`.github/logo-comment.png`, 280×97) so the radar and
+  name are readable. The full-bleed README banner is not used there.
 - Comment and annotate use `continue-on-error`. A missing token must not
   be treated as a policy violation (CLI exit `1`).
 

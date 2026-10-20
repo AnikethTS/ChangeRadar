@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- PR comments use a cropped 280×97 lockup (radar + name) instead of the
+  full-bleed README banner or a 36px icon, plus GitHub alert callouts for
+  policy and a one-row counts table.
+
 ### Added
 
 - CI `check` and CLI smoke also run on the previous GitHub-hosted images

@@ -154,9 +154,14 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        ACTION_REPO: ${{ github.action_repository }}
+        ACTION_REF: ${{ github.action_ref }}
       run: |
+        REPO="${ACTION_REPO:-${{ github.repository }}}"
+        REF="${ACTION_REF:-${{ github.sha }}}"
+        LOGO="https://raw.githubusercontent.com/${REPO}/${REF}/.github/logo-comment.png"
         bash "${{ github.action_path }}/.github/scripts/changeradar-comment.sh" \
           "${{ inputs.output }}" \
           "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-          "https://raw.githubusercontent.com/AnikethTS/ChangeRadar/v0.2.1/.github/logo.png" \
+          "${LOGO}" \
           "${{ github.event.pull_request.number }}"
