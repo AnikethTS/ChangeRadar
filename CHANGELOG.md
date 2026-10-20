@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- CodeQL `Analyze (java)` compiles modules one at a time. Parallel javac under
+  the CodeQL tracer failed `:changeradar-analyzer-typescript:compileJava`
+  with no compiler output; `./gradlew check` was already green.
+
 ### Changed
 
 - Consumer Action defaults the analyzer JAR to GitHub’s latest release
