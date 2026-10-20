@@ -10,6 +10,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - TypeScript/JavaScript callers through `export * from` and named
   `export { … } from` barrels are DIRECT when the specifier chain lands
   on the changed HEAD module (cycles are ignored; not tsc).
+- TypeScript/JavaScript `compilerOptions.paths` / `baseUrl` from the
+  nearest HEAD `tsconfig.json` or `jsconfig.json` resolve import aliases
+  (JSONC allowed; `extends` and multi-star mappings are ignored).
 
 ### Changed
 

@@ -13,6 +13,7 @@ import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
 import io.github.anikethts.changeradar.core.StructuralScan;
 import io.github.anikethts.changeradar.core.TestRecommendation;
+import io.github.anikethts.changeradar.core.TsConfigPaths;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -124,6 +125,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     List<Limitation> limitations = new ArrayList<>();
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
+    TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headFiles);
 
     for (Map.Entry<String, String> entry : headFiles.entrySet()) {
       if (!isEcmaPath(entry.getKey())) {
@@ -181,8 +183,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(s -> s.location().startLine())
             .thenComparing(ChangedSymbol::id));
 
-    List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
-    findings.addAll(findStructural(parsedHead, changedSymbols));
+    List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols, pathMap);
+    findings.addAll(findStructural(parsedHead, changedSymbols, pathMap));
     findings.addAll(publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -199,14 +201,23 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           new Limitation(
               "TS_IMPORTS",
               "TypeScript/JavaScript callers are matched using import/require specifiers against"
-                  + " HEAD files, following export * from and named export { … } from re-exports."
-                  + " This is not tsc. Dynamic import(), eval, and path aliases may be missed or"
+                  + " HEAD files, following export * from, named export { … } from re-exports, and"
+                  + " nearest tsconfig.json/jsconfig.json compilerOptions.paths. This is not tsc."
+                  + " Dynamic import(), eval, extends, and unmapped aliases may be missed or"
                   + " over-reported."));
       limitations.add(
           new Limitation(
               "TS_STRUCTURAL_EDGES",
               "TypeScript/JavaScript overrides, field reads, decorators, and typed fields are"
                   + " matched by name and imports against HEAD files, not tsc."));
+      if (pathMap.hasMappings()) {
+        limitations.add(
+            new Limitation(
+                "TS_TSCONFIG_PATHS",
+                "Path aliases came from nearest tsconfig.json/jsconfig.json compilerOptions.paths"
+                    + " and baseUrl. extends, project references, and mappings with more than one"
+                    + " * are ignored."));
+      }
     }
     if (findings.stream()
         .anyMatch(
@@ -502,7 +513,9 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
   }
 
   private static List<ImpactFinding> findCallers(
-      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+      Map<String, ParsedFile> parsedHead,
+      List<ChangedSymbol> changedSymbols,
+      TsConfigPaths.PathMap pathMap) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
     Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
@@ -535,7 +548,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           }
           Optional<Confidence> confidence =
               importConfidence(
-                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isEmpty()) {
             continue;
           }
@@ -565,7 +578,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           }
           String binding = receiver != null ? receiver : name;
           Optional<Confidence> confidence =
-              importConfidence(file, binding, name, parsedHead, changedNamesByPath, file.testFile);
+              importConfidence(
+                  file, binding, name, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isEmpty()) {
             continue;
           }
@@ -592,7 +606,9 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
   }
 
   private static List<ImpactFinding> findStructural(
-      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+      Map<String, ParsedFile> parsedHead,
+      List<ChangedSymbol> changedSymbols,
+      TsConfigPaths.PathMap pathMap) {
     Set<String> changedFields = new LinkedHashSet<>();
     Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
     Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
@@ -625,7 +641,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           }
           Optional<Confidence> confidence =
               importConfidence(
-                  file, parent, decl.name, parsedHead, changedNamesByPath, file.testFile);
+                  file, parent, decl.name, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isEmpty()
               && parentChanged
               && file.path.equals(parentFile(parsedHead, parent))) {
@@ -652,7 +668,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
         if (decorator.find() && changedTypeDecls.contains(decorator.group(1))) {
           String name = decorator.group(1);
           Optional<Confidence> confidence =
-              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+              importConfidence(
+                  file, name, name, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isPresent()) {
             StructuralScan.addFinding(
                 seen,
@@ -671,7 +688,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           final int lineIndex = i;
           Optional<Confidence> confidence =
               importConfidence(
-                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isPresent()) {
             boolean inject =
                 INJECT_DECORATORS.stream()
@@ -697,7 +714,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
             continue;
           }
           Optional<Confidence> confidence =
-              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile);
+              importConfidence(
+                  file, name, name, parsedHead, changedNamesByPath, file.testFile, pathMap);
           if (confidence.isEmpty()) {
             continue;
           }
@@ -739,7 +757,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       String symbolName,
       Map<String, ParsedFile> parsedHead,
       Map<String, Set<String>> changedNamesByPath,
-      boolean allowTestHeuristic) {
+      boolean allowTestHeuristic,
+      TsConfigPaths.PathMap pathMap) {
     if (changedNamesByPath.getOrDefault(file.path, Set.of()).contains(symbolName)
         && file.decls.stream()
             .anyMatch(decl -> decl.name.equals(binding) || decl.name.equals(symbolName))) {
@@ -749,7 +768,13 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     if (spec != null) {
       Optional<Boolean> hit =
           moduleHoldsChangedName(
-              file.path, spec, symbolName, parsedHead, changedNamesByPath, new LinkedHashSet<>());
+              file.path,
+              spec,
+              symbolName,
+              parsedHead,
+              changedNamesByPath,
+              new LinkedHashSet<>(),
+              pathMap);
       if (hit.isEmpty()) {
         return Optional.of(Confidence.HEURISTIC);
       }
@@ -759,7 +784,13 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     }
     for (String module : file.imports.modules) {
       if (moduleHoldsChangedName(
-              file.path, module, symbolName, parsedHead, changedNamesByPath, new LinkedHashSet<>())
+              file.path,
+              module,
+              symbolName,
+              parsedHead,
+              changedNamesByPath,
+              new LinkedHashSet<>(),
+              pathMap)
           .orElse(false)) {
         return Optional.of(Confidence.DIRECT);
       }
@@ -780,9 +811,11 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       String symbolName,
       Map<String, ParsedFile> parsedHead,
       Map<String, Set<String>> changedNamesByPath,
-      Set<String> visited) {
+      Set<String> visited,
+      TsConfigPaths.PathMap pathMap) {
     Optional<String> resolved =
-        SourcePaths.resolveExisting(fromFile, specifier, parsedHead.keySet(), MODULE_SUFFIXES);
+        SourcePaths.resolveExisting(
+            fromFile, specifier, parsedHead.keySet(), MODULE_SUFFIXES, pathMap);
     if (resolved.isEmpty()) {
       return Optional.empty();
     }
@@ -800,12 +833,13 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     String namedSpec = target.imports.bindings.get(symbolName);
     if (namedSpec != null
         && moduleHoldsChangedName(
-                path, namedSpec, symbolName, parsedHead, changedNamesByPath, visited)
+                path, namedSpec, symbolName, parsedHead, changedNamesByPath, visited, pathMap)
             .orElse(false)) {
       return Optional.of(true);
     }
     for (String star : target.imports.starExports) {
-      if (moduleHoldsChangedName(path, star, symbolName, parsedHead, changedNamesByPath, visited)
+      if (moduleHoldsChangedName(
+              path, star, symbolName, parsedHead, changedNamesByPath, visited, pathMap)
           .orElse(false)) {
         return Optional.of(true);
       }

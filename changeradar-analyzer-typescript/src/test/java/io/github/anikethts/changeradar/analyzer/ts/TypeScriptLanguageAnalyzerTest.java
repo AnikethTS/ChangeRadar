@@ -285,6 +285,50 @@ class TypeScriptLanguageAnalyzerTest {
   }
 
   @Test
+  void followsTsconfigPathAliasToTheImplementation() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String caller =
+        """
+        import { n } from "@app/api";
+        export function run() {
+          return n();
+        }
+        """;
+    String tsconfig =
+        """
+        {
+          "compilerOptions": {
+            "baseUrl": ".",
+            "paths": { "@app/*": ["src/*"] }
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts", api,
+                "src/caller.ts", caller,
+                "tsconfig.json", tsconfig),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.ts")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "TS_TSCONFIG_PATHS".equals(l.code())));
+  }
+
+  @Test
   void unmatchedBracesAreParseFailures() {
     AnalysisResult result =
         analyzer.analyze(

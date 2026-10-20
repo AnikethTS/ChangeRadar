@@ -21,6 +21,7 @@ import io.github.anikethts.changeradar.core.PolicyFile;
 import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
 import io.github.anikethts.changeradar.core.SourceScope;
+import io.github.anikethts.changeradar.core.TsConfigPaths;
 import io.github.anikethts.changeradar.core.Version;
 import io.github.anikethts.changeradar.git.JGitRepository;
 import java.nio.file.Files;
@@ -184,6 +185,11 @@ public final class AnalyzeCommand implements Callable<Integer> {
           git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
         }
       }
+      for (String path : git.listPaths(head, ".json")) {
+        if (TsConfigPaths.isConfigPath(path)) {
+          git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
+        }
+      }
       boolean scoped = !fullIndex;
       Map<String, String> parsedHead =
           scoped ? SourceScope.subset(changed, headSources) : headSources;
@@ -341,7 +347,10 @@ public final class AnalyzeCommand implements Callable<Integer> {
       Map<String, String> sources, LanguageAnalyzer analyzer) {
     Map<String, String> filtered = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : sources.entrySet()) {
-      if (analyzer.supports(new ChangedFile(entry.getKey(), ChangeType.MODIFY, null))) {
+      ChangedFile asFile = new ChangedFile(entry.getKey(), ChangeType.MODIFY, null);
+      if (analyzer.supports(asFile)
+          || (TsConfigPaths.isConfigPath(entry.getKey())
+              && TypeScriptLanguageAnalyzer.LANGUAGE_ID.equals(analyzer.languageId()))) {
         filtered.put(entry.getKey(), entry.getValue());
       }
     }

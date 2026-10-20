@@ -36,6 +36,15 @@ public final class SourcePaths {
 
   public static Optional<String> resolveExisting(
       String fromFile, String specifier, Collection<String> knownPaths, List<String> suffixes) {
+    return resolveExisting(fromFile, specifier, knownPaths, suffixes, TsConfigPaths.PathMap.EMPTY);
+  }
+
+  public static Optional<String> resolveExisting(
+      String fromFile,
+      String specifier,
+      Collection<String> knownPaths,
+      List<String> suffixes,
+      TsConfigPaths.PathMap pathMap) {
     if (specifier == null || specifier.isBlank()) {
       return Optional.empty();
     }
@@ -45,6 +54,14 @@ public final class SourcePaths {
       String dir = slash < 0 ? "" : fromFile.substring(0, slash);
       String joined = dir.isEmpty() ? spec : dir + "/" + spec;
       return matchStem(normalize(joined), knownPaths, suffixes);
+    }
+    if (pathMap != null) {
+      for (String stem : pathMap.expand(fromFile, spec)) {
+        Optional<String> aliased = matchStem(stem, knownPaths, suffixes);
+        if (aliased.isPresent()) {
+          return aliased;
+        }
+      }
     }
     Optional<String> dotted = matchStem(spec.replace('.', '/'), knownPaths, suffixes);
     if (dotted.isPresent()) {

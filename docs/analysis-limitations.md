@@ -46,8 +46,11 @@ Today the tool records:
 - `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched
   using import/require/`use` specifiers against HEAD files (not tsc,
   CPython, php-parser, or Composer autoload). TypeScript follows
-  `export * from` and named `export { … } from` re-exports; path aliases
-  and `export * as` namespaces are still missed.
+  `export * from`, named `export { … } from`, and nearest
+  `tsconfig.json` / `jsconfig.json` `paths` (not `extends`; `export * as`
+  namespaces are still missed).
+- `TS_TSCONFIG_PATHS` when at least one of those configs declared
+  `compilerOptions.paths`.
 - `TS_STRUCTURAL_EDGES` / `PY_STRUCTURAL_EDGES` / `PHP_STRUCTURAL_EDGES`
   when overrides, field reads, and decorator/attribute uses are matched
   the same way (not a compiler or autoloader).
