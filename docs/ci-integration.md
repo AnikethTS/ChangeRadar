@@ -94,8 +94,12 @@ This repository's [CI workflow](../.github/workflows/ci.yml) still runs
 images (JDK 21 and 25) and on the previous hosted images `ubuntu-24.04`,
 `ubuntu-22.04`, `windows-2022`, and `macos-15` (JDK 21). GitHub-hosted
 runners have no Windows 10 label; `windows-2022` is the prior Server image.
-Jobs use `bash` on every OS so `./gradlew` and `./run.sh` behave the same.
-A `CI` gate job fails unless every required job succeeded.
+Jobs use `bash` on every OS so `./gradlew` and `java -jar changeradar.jar`
+behave the same. Smoke validates `report.json` against the report schema.
+A `CI` gate job fails unless every required job succeeded. Protect main
+requires the stable names `CI`, `Check`, `CLI smoke`, `actionlint`,
+`Gradle Wrapper`, CodeQL `Analyze (java)`, Dependency Review, and
+`Impact report`.
 
 Requirements:
 
