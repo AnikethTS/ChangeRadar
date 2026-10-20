@@ -7,9 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
-- CodeQL `Analyze (java)` compiles modules one at a time. Parallel javac under
-  the CodeQL tracer failed `:changeradar-analyzer-typescript:compileJava`
-  with no compiler output; `./gradlew check` was already green.
+- CodeQL `Analyze (java)` forces a real javac (`--no-parallel --no-build-cache
+  --rerun-tasks`). Parallel compile under the tracer failed with no output;
+  Gradle’s build cache then skipped compile so CodeQL saw no Java.
 
 ### Changed
 
