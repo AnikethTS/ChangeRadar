@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.analyzer.php;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
+import io.github.anikethts.changeradar.core.CallChains;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
@@ -163,7 +164,8 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(s -> s.location().startLine())
             .thenComparing(ChangedSymbol::id));
 
-    List<ImpactFinding> findings = findCallers(parsedHead, changedSymbols);
+    CallerScan callers = findCallers(parsedHead, changedSymbols);
+    List<ImpactFinding> findings = new ArrayList<>(callers.findings());
     findings.addAll(findStructural(parsedHead, changedSymbols));
     findings.addAll(publicApiFindings(changedSymbols));
     findings.sort(
@@ -188,6 +190,21 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
               "PHP_STRUCTURAL_EDGES",
               "PHP overrides, property reads, and attributes are matched by name and use/require"
                   + " specifiers against HEAD files, not php-parser or Composer autoload."));
+      limitations.add(
+          new Limitation(
+              "PHP_CALL_CHAINS",
+              "Indirect PHP callers follow use/require-resolved function and method edges up to "
+                  + CallChains.MAX_DEPTH
+                  + " hops (depth 1 DIRECT, deeper INDIRECT). Heuristic name matches are not"
+                  + " chained. Indirect findings are capped at "
+                  + CallChains.MAX_INDIRECT
+                  + "."));
+      if (callers.chainCapped()) {
+        limitations.add(
+            new Limitation(
+                "PHP_CALL_CHAIN_CAP",
+                "Indirect PHP caller findings were capped at " + CallChains.MAX_INDIRECT + "."));
+      }
     }
     if (findings.stream()
         .anyMatch(
@@ -387,7 +404,43 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
         classLevel = -1;
       }
     }
-    return decls;
+    return closeBodies(decls, lines);
+  }
+
+  private static List<Decl> closeBodies(List<Decl> decls, List<String> lines) {
+    int[] after = new int[lines.size()];
+    int depth = 0;
+    for (int i = 0; i < lines.size(); i++) {
+      depth += netBraces(lines.get(i));
+      after[i] = depth;
+    }
+    List<Decl> closed = new ArrayList<>();
+    for (Decl decl : decls) {
+      int startIdx = Math.max(0, decl.startLine - 1);
+      int depthBefore = startIdx == 0 ? 0 : after[startIdx - 1];
+      int end = lines.size();
+      if (after[startIdx] <= depthBefore) {
+        end = decl.startLine;
+      } else {
+        for (int j = startIdx + 1; j < lines.size(); j++) {
+          if (after[j] <= depthBefore) {
+            end = j + 1;
+            break;
+          }
+        }
+      }
+      closed.add(
+          new Decl(
+              decl.kind,
+              decl.name,
+              decl.owner,
+              decl.publiclyVisible,
+              decl.test,
+              decl.path,
+              decl.startLine,
+              Math.max(decl.startLine, end)));
+    }
+    return closed;
   }
 
   private static List<String> superNames(String typeName, String tail) {
@@ -432,19 +485,22 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
     return n;
   }
 
-  private static List<ImpactFinding> findCallers(
+  private static CallerScan findCallers(
       Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
     Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
+    Set<String> seeds = new LinkedHashSet<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("function".equals(symbol.kind())
           || "method".equals(symbol.kind())
           || "constructor".equals(symbol.kind())) {
         changedFns.add(symbol.name());
+        seeds.add(symbolSeed(symbol));
       }
       if ("type".equals(symbol.kind())) {
         changedTypes.add(symbol.name());
+        seeds.add(symbol.location().path() + "#" + symbol.name());
       } else if (!symbol.owner().isEmpty()) {
         changedTypes.add(symbol.owner());
       }
@@ -452,22 +508,46 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
           .add(symbol.name());
     }
+    List<CallChains.Edge> edges = new ArrayList<>();
     List<ImpactFinding> findings = new ArrayList<>();
     Set<String> seen = new LinkedHashSet<>();
     for (ParsedFile file : parsedHead.values()) {
       for (int i = 0; i < file.lines.size(); i++) {
         String line = file.lines.get(i);
         int lineNo = i + 1;
+        Optional<String> enclosing = enclosingCallableId(file, lineNo);
+        SourceLocation location = new SourceLocation(file.path, lineNo, lineNo);
         Matcher neu = NEW_TYPE.matcher(line);
         while (neu.find()) {
           String typeName = neu.group(1);
+          Optional<String> constructed = resolveTypeId(file, typeName, parsedHead);
+          if (constructed.isPresent()) {
+            if (enclosing.isPresent()) {
+              edges.add(new CallChains.Edge(constructed.get(), enclosing.get(), location));
+            } else if (changedTypes.contains(typeName)) {
+              Optional<Confidence> confidence =
+                  importConfidence(
+                      file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
+              if (confidence.isPresent()
+                  && seen.add(file.path + ":" + lineNo + ":new " + typeName)) {
+                findings.add(
+                    new ImpactFinding(
+                        "CALLER",
+                        confidence.get(),
+                        file.path + " constructs " + typeName,
+                        typeName,
+                        location));
+              }
+            }
+            continue;
+          }
           if (!changedTypes.contains(typeName)) {
             continue;
           }
           Optional<Confidence> confidence =
               importConfidence(
                   file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile);
-          if (confidence.isEmpty()) {
+          if (confidence.isEmpty() || confidence.get() == Confidence.DIRECT) {
             continue;
           }
           String key = file.path + ":" + lineNo + ":new " + typeName;
@@ -478,14 +558,14 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
                     confidence.get(),
                     file.path + " constructs " + typeName,
                     typeName,
-                    new SourceLocation(file.path, lineNo, lineNo)));
+                    location));
           }
         }
         Matcher call = CALL.matcher(line);
         while (call.find()) {
           String receiver = call.group(1);
           String name = call.group(2);
-          if (NOT_CALLS.contains(name) || !changedFns.contains(name)) {
+          if (NOT_CALLS.contains(name)) {
             continue;
           }
           boolean definition =
@@ -494,10 +574,49 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           if (definition && receiver == null) {
             continue;
           }
+          if (receiver == null && line.contains("new " + name)) {
+            continue;
+          }
+          Optional<String> callee = resolveCallableId(file, receiver, name, parsedHead);
+          if (callee.isPresent()) {
+            if (enclosing.isPresent()) {
+              edges.add(new CallChains.Edge(callee.get(), enclosing.get(), location));
+            } else if (changedFns.contains(name)) {
+              Optional<Confidence> confidence =
+                  importConfidence(
+                      file,
+                      receiver != null ? receiver : name,
+                      name,
+                      parsedHead,
+                      changedNamesByPath,
+                      file.testFile);
+              if (confidence.isPresent()) {
+                String symbolId = receiver != null ? receiver + "#" + name : name;
+                if (seen.add(file.path + ":" + lineNo + ":" + symbolId)) {
+                  findings.add(
+                      new ImpactFinding(
+                          "CALLER",
+                          confidence.get(),
+                          file.path
+                              + " calls "
+                              + symbolId
+                              + " ("
+                              + confidence.get().name().toLowerCase()
+                              + ")",
+                          symbolId,
+                          location));
+                }
+              }
+            }
+            continue;
+          }
+          if (!changedFns.contains(name)) {
+            continue;
+          }
           String binding = receiver != null ? receiver : name;
           Optional<Confidence> confidence =
               importConfidence(file, binding, name, parsedHead, changedNamesByPath, file.testFile);
-          if (confidence.isEmpty()) {
+          if (confidence.isEmpty() || confidence.get() == Confidence.DIRECT) {
             continue;
           }
           String symbolId = receiver != null ? receiver + "#" + name : name;
@@ -514,12 +633,121 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
                         + confidence.get().name().toLowerCase()
                         + ")",
                     symbolId,
-                    new SourceLocation(file.path, lineNo, lineNo)));
+                    location));
           }
         }
       }
     }
-    return findings;
+    CallChains.Expansion expansion = CallChains.fromResolved(seeds, edges);
+    for (ImpactFinding finding : expansion.findings()) {
+      String key =
+          finding.location().path()
+              + ":"
+              + finding.location().startLine()
+              + ":"
+              + finding.symbolId();
+      if (seen.add(key)) {
+        findings.add(finding);
+      }
+    }
+    return new CallerScan(findings, expansion.capped());
+  }
+
+  private static String symbolSeed(ChangedSymbol symbol) {
+    if (symbol.owner().isEmpty()) {
+      return symbol.location().path() + "#" + symbol.name();
+    }
+    return symbol.location().path() + "#" + symbol.owner() + "#" + symbol.name();
+  }
+
+  private static String declId(Decl decl) {
+    if ("type".equals(decl.kind) || decl.owner.isEmpty()) {
+      return decl.path + "#" + decl.name;
+    }
+    return decl.path + "#" + decl.owner + "#" + decl.name;
+  }
+
+  private static boolean isCallableKind(String kind) {
+    return "function".equals(kind) || "method".equals(kind) || "constructor".equals(kind);
+  }
+
+  private static Optional<String> enclosingCallableId(ParsedFile file, int lineNo) {
+    Decl best = null;
+    for (Decl decl : file.decls) {
+      if (!isCallableKind(decl.kind)) {
+        continue;
+      }
+      if (decl.startLine <= lineNo && lineNo <= decl.endLine) {
+        if (best == null || decl.startLine >= best.startLine) {
+          best = decl;
+        }
+      }
+    }
+    return best == null ? Optional.empty() : Optional.of(declId(best));
+  }
+
+  private static Optional<ParsedFile> resolveImportedFile(
+      ParsedFile file, String binding, Map<String, ParsedFile> parsedHead) {
+    String spec = file.imports.bindings.get(binding);
+    if (spec != null) {
+      return SourcePaths.resolveExisting(file.path, spec, parsedHead.keySet(), MODULE_SUFFIXES)
+          .map(parsedHead::get);
+    }
+    for (String module : file.imports.modules) {
+      Optional<String> resolved =
+          SourcePaths.resolveExisting(file.path, module, parsedHead.keySet(), MODULE_SUFFIXES);
+      if (resolved.isPresent()) {
+        return Optional.ofNullable(parsedHead.get(resolved.get()));
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> resolveCallableId(
+      ParsedFile file, String receiver, String name, Map<String, ParsedFile> parsedHead) {
+    if (receiver == null) {
+      for (Decl decl : file.decls) {
+        if (isCallableKind(decl.kind) && decl.name.equals(name)) {
+          return Optional.of(declId(decl));
+        }
+      }
+    } else {
+      for (Decl decl : file.decls) {
+        if (isCallableKind(decl.kind) && decl.name.equals(name) && decl.owner.equals(receiver)) {
+          return Optional.of(declId(decl));
+        }
+      }
+    }
+    String binding = receiver != null ? receiver : name;
+    Optional<ParsedFile> imported = resolveImportedFile(file, binding, parsedHead);
+    if (imported.isEmpty()) {
+      return Optional.empty();
+    }
+    for (Decl decl : imported.get().decls) {
+      if (isCallableKind(decl.kind) && decl.name.equals(name)) {
+        return Optional.of(declId(decl));
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> resolveTypeId(
+      ParsedFile file, String name, Map<String, ParsedFile> parsedHead) {
+    for (Decl decl : file.decls) {
+      if ("type".equals(decl.kind) && decl.name.equals(name)) {
+        return Optional.of(declId(decl));
+      }
+    }
+    Optional<ParsedFile> imported = resolveImportedFile(file, name, parsedHead);
+    if (imported.isEmpty()) {
+      return Optional.empty();
+    }
+    for (Decl decl : imported.get().decls) {
+      if ("type".equals(decl.kind) && decl.name.equals(name)) {
+        return Optional.of(declId(decl));
+      }
+    }
+    return Optional.empty();
   }
 
   private static List<ImpactFinding> findStructural(
@@ -813,6 +1041,8 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
       boolean testFile,
       Imports imports,
       Map<String, List<String>> supers) {}
+
+  private record CallerScan(List<ImpactFinding> findings, boolean chainCapped) {}
 
   record Imports(Map<String, String> bindings, Set<String> modules) {}
 
