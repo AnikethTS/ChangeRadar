@@ -24,11 +24,11 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.1` — Java, TypeScript/JavaScript, Python, and PHP
+**Status:** `0.2.2` — Java, TypeScript/JavaScript, Python, and PHP
 impact reports, a published fat JAR / GitHub Action (Marketplace:
 ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
-and optional policies (`changeradar policies`, `--policy-file`, baseline,
-finding-id suppressions).
+finding-id suppressions, and optional policies (`changeradar policies`,
+`--policy-file`, baseline).
 Limitations stay in the report instead of implying a complete graph.
 
 ## Quick start
@@ -46,7 +46,7 @@ java -jar changeradar.jar analyze \
 
 GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
 Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
-`version: v0.2.1` only when you want that exact analyzer. Copy
+`version: v0.2.2` only when you want that exact analyzer. Copy
 [`examples/github-actions/changeradar.yml`](examples/github-actions/changeradar.yml)
 into `.github/workflows/changeradar.yml` (checkout + one step; comment,
 Checks notices, and the artifact are inside the Action). JVM repos can
@@ -54,11 +54,11 @@ copy [`changeradar-java.yml`](examples/github-actions/changeradar-java.yml)
 instead.
 
 ```yaml
-- uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade # wrapper on main
+- uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6 # wrapper on main
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
-    # version: v0.2.1   # pin the JAR; omit for latest
+    # version: v0.2.2   # pin the JAR; omit for latest
 ```
 
 Developing ChangeRadar itself:
@@ -75,7 +75,7 @@ See [Development](docs/development.md).
 ## Sample report
 
 ```text
-ChangeRadar 0.2.2-SNAPSHOT
+ChangeRadar 0.2.2
 schema 1.0.0
 base   HEAD~1
 head   HEAD

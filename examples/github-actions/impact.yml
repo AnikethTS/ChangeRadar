@@ -7,7 +7,7 @@
 # Two version knobs:
 # 1. uses: …@<sha> — Action wrapper (Java, download, report). Pin a SHA.
 # 2. version: — analyzer JAR. Omit (or latest) for GitHub's latest release.
-#    Set version: v0.2.1 to pin a JAR.
+#    Set version: v0.2.2 to pin a JAR.
 #
 # Artifact upload, sticky PR comment, and Checks notices are inside the Action.
 # Job needs checks: write and pull-requests: write for those (fork PRs skip them).
@@ -41,11 +41,11 @@ jobs:
           fetch-depth: 0
 
       # Wrapper SHA that posts artifact, comment, and Checks notices. JAR defaults to latest.
-      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
+      - uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.1
+          # version: v0.2.2
           # classpath: build/libs
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt
