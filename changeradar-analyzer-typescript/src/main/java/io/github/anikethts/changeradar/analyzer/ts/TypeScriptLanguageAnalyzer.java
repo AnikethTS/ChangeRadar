@@ -79,6 +79,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
   private static final Pattern IMPORT_REQUIRE =
       Pattern.compile(
           "(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*require\\s*\\(\\s*['\"]([^'\"]+)['\"]");
+  private static final Pattern EXPORT_STAR =
+      Pattern.compile("export\\s+\\*\\s+from\\s+['\"]([^'\"]+)['\"]");
   private static final List<String> MODULE_SUFFIXES =
       List.of(".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs");
   private static final Set<String> NOT_METHODS =
@@ -197,8 +199,9 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           new Limitation(
               "TS_IMPORTS",
               "TypeScript/JavaScript callers are matched using import/require specifiers against"
-                  + " HEAD files, not tsc. Dynamic import(), eval, and path aliases may be missed"
-                  + " or over-reported."));
+                  + " HEAD files, following export * from and named export { … } from re-exports."
+                  + " This is not tsc. Dynamic import(), eval, and path aliases may be missed or"
+                  + " over-reported."));
       limitations.add(
           new Limitation(
               "TS_STRUCTURAL_EDGES",
@@ -744,21 +747,20 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     }
     String spec = file.imports.bindings.get(binding);
     if (spec != null) {
-      Optional<String> resolved =
-          SourcePaths.resolveExisting(file.path, spec, parsedHead.keySet(), MODULE_SUFFIXES);
-      if (resolved.isPresent()
-          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
-        return Optional.of(Confidence.DIRECT);
-      }
-      if (resolved.isEmpty()) {
+      Optional<Boolean> hit =
+          moduleHoldsChangedName(
+              file.path, spec, symbolName, parsedHead, changedNamesByPath, new LinkedHashSet<>());
+      if (hit.isEmpty()) {
         return Optional.of(Confidence.HEURISTIC);
+      }
+      if (hit.get()) {
+        return Optional.of(Confidence.DIRECT);
       }
     }
     for (String module : file.imports.modules) {
-      Optional<String> resolved =
-          SourcePaths.resolveExisting(file.path, module, parsedHead.keySet(), MODULE_SUFFIXES);
-      if (resolved.isPresent()
-          && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
+      if (moduleHoldsChangedName(
+              file.path, module, symbolName, parsedHead, changedNamesByPath, new LinkedHashSet<>())
+          .orElse(false)) {
         return Optional.of(Confidence.DIRECT);
       }
     }
@@ -768,9 +770,53 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
     return Optional.empty();
   }
 
+  /**
+   * True when {@code specifier} from {@code fromFile} is (or re-exports) a HEAD module whose
+   * changed names include {@code symbolName}. Empty when the first specifier does not resolve.
+   */
+  private static Optional<Boolean> moduleHoldsChangedName(
+      String fromFile,
+      String specifier,
+      String symbolName,
+      Map<String, ParsedFile> parsedHead,
+      Map<String, Set<String>> changedNamesByPath,
+      Set<String> visited) {
+    Optional<String> resolved =
+        SourcePaths.resolveExisting(fromFile, specifier, parsedHead.keySet(), MODULE_SUFFIXES);
+    if (resolved.isEmpty()) {
+      return Optional.empty();
+    }
+    String path = resolved.get();
+    if (!visited.add(path)) {
+      return Optional.of(false);
+    }
+    if (changedNamesByPath.getOrDefault(path, Set.of()).contains(symbolName)) {
+      return Optional.of(true);
+    }
+    ParsedFile target = parsedHead.get(path);
+    if (target == null) {
+      return Optional.of(false);
+    }
+    String namedSpec = target.imports.bindings.get(symbolName);
+    if (namedSpec != null
+        && moduleHoldsChangedName(
+                path, namedSpec, symbolName, parsedHead, changedNamesByPath, visited)
+            .orElse(false)) {
+      return Optional.of(true);
+    }
+    for (String star : target.imports.starExports) {
+      if (moduleHoldsChangedName(path, star, symbolName, parsedHead, changedNamesByPath, visited)
+          .orElse(false)) {
+        return Optional.of(true);
+      }
+    }
+    return Optional.of(false);
+  }
+
   static Imports extractImports(String source) {
     Map<String, String> bindings = new LinkedHashMap<>();
     Set<String> modules = new LinkedHashSet<>();
+    Set<String> starExports = new LinkedHashSet<>();
     Matcher named = IMPORT_NAMED.matcher(source);
     while (named.find()) {
       String spec = named.group(2);
@@ -802,7 +848,12 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       modules.add(req.group(2));
       bindings.put(req.group(1), req.group(2));
     }
-    return new Imports(bindings, modules);
+    Matcher exportStar = EXPORT_STAR.matcher(source);
+    while (exportStar.find()) {
+      starExports.add(exportStar.group(1));
+      modules.add(exportStar.group(1));
+    }
+    return new Imports(bindings, modules, starExports);
   }
 
   private static List<ImpactFinding> publicApiFindings(List<ChangedSymbol> changedSymbols) {
@@ -925,7 +976,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       Imports imports,
       Map<String, List<String>> supers) {}
 
-  record Imports(Map<String, String> bindings, Set<String> modules) {}
+  record Imports(Map<String, String> bindings, Set<String> modules, Set<String> starExports) {}
 
   private record Decl(
       String kind,
