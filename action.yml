@@ -1,4 +1,4 @@
-name: ChangeRadar
+name: ChangeRadar Impact Analysis
 description: Download a ChangeRadar release JAR and analyze a Git base..head diff.
 author: AnikethTS
 branding:
