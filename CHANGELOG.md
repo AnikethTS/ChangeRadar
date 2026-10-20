@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Marketplace `name` is `ChangeRadar Impact Analysis`. GitHub rejected
+  `ChangeRadar` because it matches an existing user (`changeradar`).
+  `uses: AnikethTS/ChangeRadar@…` is unchanged.
+
 ## [0.2.0] - 2026-10-20
 
 Distributable CLI (`changeradar.jar`) and a composite GitHub Action.
