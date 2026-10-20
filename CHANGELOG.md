@@ -7,6 +7,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- TypeScript, Python, and PHP structural edges: overrides (`OVERRIDE`),
+  field/property reads (`FIELD_ACCESS`), decorator/attribute uses
+  (`ANNOTATION_USE`), and typed fields (`FIELD_TYPE` / `INJECTION`).
+  Matched through imports against HEAD files, not tsc/CPython/php-parser.
 - Java structural edges: overrides/implementations (`OVERRIDE`), reads of
   changed fields (`FIELD_ACCESS`), uses of a changed annotation type
   (`ANNOTATION_USE`), and inject-style fields (`INJECTION` /

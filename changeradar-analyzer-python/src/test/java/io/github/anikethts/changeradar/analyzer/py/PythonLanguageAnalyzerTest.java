@@ -117,6 +117,66 @@ class PythonLanguageAnalyzerTest {
   }
 
   @Test
+  void overrideAndFieldAndDecoratorAreReported() {
+    String api =
+        """
+        class Api:
+            def n(self):
+                return 1
+
+        class Flag:
+            pass
+
+        class Demo:
+            timeout = 1
+        """;
+    String impl =
+        """
+        from api import Api, Flag, Demo
+
+        class Impl(Api):
+            def n(self):
+                return 2
+
+        class Worker:
+            @Flag
+            demo: Demo
+
+            def read(self, d):
+                return d.timeout
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "api.py",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(2, 3), new LineRange(5, 6), new LineRange(9, 9)))),
+            Map.of("api.py", api, "impl.py", impl),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "OVERRIDE".equals(finding.type())
+                        && finding.location().path().contains("impl.py")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "FIELD_ACCESS".equals(finding.type())
+                        && finding.location().path().contains("impl.py")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "ANNOTATION_USE".equals(finding.type())
+                        && finding.location().path().contains("impl.py")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "PY_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
   void unclosedStringIsParseFailure() {
     AnalysisResult result =
         analyzer.analyze(

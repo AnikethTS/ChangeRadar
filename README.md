@@ -86,7 +86,8 @@ the same place you already review the change.
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
   HEURISTIC. Java callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style
-  fields.
+  fields. TypeScript, Python, and PHP report the same when an import
+  maps to the change.
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, and **JSON** reports with a stable
   schema version.

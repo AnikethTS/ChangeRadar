@@ -53,7 +53,7 @@ plus tests against the shared model.
 | 0 Foundation | Gradle, CLI skeleton, docs, CI | Clean checkout builds and tests. **Current.** |
 | 1 Git diff | Base/head, changed files | Additions, edits, deletions, invalid refs. **Current.** |
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
-| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, call chains, overrides, fields, annotations. TS/Python/PHP: import/require/`use` against HEAD files. **Partial.** |
+| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, call chains, overrides, fields, annotations. TS/Python/PHP: import/require/`use`, plus overrides, fields, and decorators/attributes. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
 | 5 Reports | Richer terminal/Markdown/JSON | Stable ordering, limitations. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
