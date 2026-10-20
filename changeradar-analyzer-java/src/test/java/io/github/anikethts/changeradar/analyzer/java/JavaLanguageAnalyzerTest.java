@@ -3,14 +3,18 @@ package io.github.anikethts.changeradar.analyzer.java;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.anikethts.changeradar.core.AnalysisOptions;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.LineRange;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class JavaLanguageAnalyzerTest {
 
@@ -75,6 +79,31 @@ class JavaLanguageAnalyzerTest {
     assertTrue(
         result.tests().stream()
             .anyMatch(recommendation -> recommendation.name().equals("DemoTest")));
+  }
+
+  @Test
+  void recordsClasspathLimitationWhenJarsProvided(@TempDir Path tmp) throws Exception {
+    Path libs = tmp.resolve("libs");
+    Files.createDirectories(libs);
+    String demo =
+        """
+        package demo;
+        public class Demo {
+          public void n() {}
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Demo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 4)))),
+            Map.of("src/main/java/demo/Demo.java", demo),
+            Map.of(),
+            new AnalysisOptions(List.of(libs), true));
+    assertTrue(result.limitations().stream().anyMatch(l -> "JAVA_CLASSPATH".equals(l.code())));
   }
 
   @Test

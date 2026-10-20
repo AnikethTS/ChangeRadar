@@ -14,8 +14,9 @@ Implement `io.github.anikethts.changeradar.core.LanguageAnalyzer`:
 - Limitations when the adapter cannot complete work the CLI would otherwise
   imply succeeded.
 
-Later the interface will gain symbol extraction and relationship extraction.
-Keep Git, policies, and reporters out of the adapter.
+`analyze(..., AnalysisOptions)` is optional; the default delegates to the
+three-argument form. Java uses `options.classpath()` for already-built
+jars. Keep Git, policies, and reporters out of the adapter.
 
 ## Suggested steps
 

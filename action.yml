@@ -1,0 +1,98 @@
+name: ChangeRadar
+description: Download a ChangeRadar release JAR and analyze a Git base..head diff.
+author: AnikethTS
+branding:
+  icon: activity
+  color: purple
+inputs:
+  base:
+    description: Base Git SHA
+    required: true
+  head:
+    description: Head Git SHA
+    required: true
+  version:
+    description: Release tag to download when jar is empty (for example v0.2.0)
+    required: false
+    default: latest
+  jar:
+    description: Local changeradar.jar path. If set, the Action does not download a release.
+    required: false
+    default: ""
+  output:
+    description: Report directory
+    required: false
+    default: build/changeradar
+  format:
+    description: Comma-separated formats
+    required: false
+    default: compact,markdown,json,sarif
+  policy:
+    description: Optional comma-separated --policy names
+    required: false
+    default: ""
+  policy-file:
+    description: Optional --policy-file path
+    required: false
+    default: ""
+  classpath:
+    description: Optional --classpath of already-built jars
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      with:
+        distribution: temurin
+        java-version: "21"
+
+    - name: Resolve ChangeRadar JAR
+      shell: bash
+      env:
+        INPUT_JAR: ${{ inputs.jar }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${{ github.action_path }}/.changeradar-dist"
+        DEST="${{ github.action_path }}/.changeradar-dist/changeradar.jar"
+        if [ -n "${INPUT_JAR}" ]; then
+          if [ -f "${INPUT_JAR}" ]; then
+            cp "${INPUT_JAR}" "${DEST}"
+          elif [ -f "${GITHUB_WORKSPACE}/${INPUT_JAR}" ]; then
+            cp "${GITHUB_WORKSPACE}/${INPUT_JAR}" "${DEST}"
+          else
+            echo "changeradar: jar not found: ${INPUT_JAR}" >&2
+            exit 2
+          fi
+        elif [ "${INPUT_VERSION}" = "latest" ]; then
+          curl -fsSL -o "${DEST}" \
+            "https://github.com/AnikethTS/ChangeRadar/releases/latest/download/changeradar.jar"
+        else
+          curl -fsSL -o "${DEST}" \
+            "https://github.com/AnikethTS/ChangeRadar/releases/download/${INPUT_VERSION}/changeradar.jar"
+        fi
+        test -s "${DEST}"
+        echo "CHANGERADAR_JAR=${DEST}" >> "${GITHUB_ENV}"
+
+    - name: Analyze
+      shell: bash
+      run: |
+        set -euo pipefail
+        ARGS=(
+          analyze
+          --base "${{ inputs.base }}"
+          --head "${{ inputs.head }}"
+          --format "${{ inputs.format }}"
+          --output "${{ inputs.output }}"
+        )
+        if [ -n "${{ inputs.policy }}" ]; then
+          ARGS+=(--policy "${{ inputs.policy }}")
+        fi
+        if [ -n "${{ inputs.policy-file }}" ]; then
+          ARGS+=(--policy-file "${{ inputs.policy-file }}")
+        fi
+        if [ -n "${{ inputs.classpath }}" ]; then
+          ARGS+=(--classpath "${{ inputs.classpath }}")
+        fi
+        java -jar "${CHANGERADAR_JAR}" "${ARGS[@]}"

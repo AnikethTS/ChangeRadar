@@ -23,8 +23,10 @@ import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import io.github.anikethts.changeradar.core.AnalysisOptions;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.CallChains;
 import io.github.anikethts.changeradar.core.ChangeType;
@@ -90,6 +92,15 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       List<ChangedFile> changedFiles,
       Map<String, String> headJavaFiles,
       Map<String, String> baseJavaFiles) {
+    return analyze(changedFiles, headJavaFiles, baseJavaFiles, AnalysisOptions.defaults());
+  }
+
+  @Override
+  public AnalysisResult analyze(
+      List<ChangedFile> changedFiles,
+      Map<String, String> headJavaFiles,
+      Map<String, String> baseJavaFiles,
+      AnalysisOptions options) {
     List<Limitation> limitations = new ArrayList<>();
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
@@ -98,13 +109,27 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     if (!headJavaFiles.isEmpty()) {
       try {
         solverRoot = materializeSources(headJavaFiles);
-        headParser = parserWithSolver(solverRoot, headJavaFiles);
+        headParser = parserWithSolver(solverRoot, headJavaFiles, options.classpath());
+        if (!options.classpath().isEmpty()) {
+          limitations.add(
+              new Limitation(
+                  "JAVA_CLASSPATH",
+                  "Java callers also resolve types from "
+                      + options.classpath().size()
+                      + " provided jar/directory entries. ChangeRadar did not run the target"
+                      + " build."));
+        }
+        String solverScope =
+            options.classpath().isEmpty()
+                ? "HEAD sources and the JRE. Types that exist only in compiled dependencies are"
+                    + " not on the path"
+                : "HEAD sources, the JRE, and --classpath jars. Types still missing from that path";
         limitations.add(
             new Limitation(
                 "JAVA_SYMBOL_SOLVER",
-                "Java callers are type-resolved against HEAD sources and the JRE. Types that exist"
-                    + " only in compiled dependencies are not on the path; those call sites fall"
-                    + " back to name matching (HEURISTIC)."));
+                "Java callers are type-resolved against "
+                    + solverScope
+                    + "; those call sites fall back to name matching (HEURISTIC)."));
         limitations.add(
             new Limitation(
                 "JAVA_CALL_CHAINS",
@@ -887,11 +912,47 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     }
   }
 
-  private static JavaParser parserWithSolver(Path solverRoot, Map<String, String> headJavaFiles) {
+  private static void addClasspath(CombinedTypeSolver types, List<Path> classpath) {
+    if (classpath == null) {
+      return;
+    }
+    for (Path entry : classpath) {
+      if (entry == null) {
+        continue;
+      }
+      Path abs = entry.toAbsolutePath().normalize();
+      try {
+        if (Files.isRegularFile(abs)
+            && abs.getFileName() != null
+            && abs.getFileName().toString().endsWith(".jar")) {
+          types.add(new JarTypeSolver(abs));
+        } else if (Files.isDirectory(abs)) {
+          try (var stream = Files.list(abs)) {
+            List<Path> jars =
+                stream
+                    .filter(
+                        path ->
+                            path.getFileName() != null
+                                && path.getFileName().toString().endsWith(".jar"))
+                    .toList();
+            for (Path jar : jars) {
+              types.add(new JarTypeSolver(jar));
+            }
+          }
+        }
+      } catch (IOException ignored) {
+        // Unreadable jars stay off the solver path; those sites remain HEURISTIC.
+      }
+    }
+  }
+
+  private static JavaParser parserWithSolver(
+      Path solverRoot, Map<String, String> headJavaFiles, List<Path> classpath) {
     ParserConfiguration language =
         new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
     CombinedTypeSolver types = new CombinedTypeSolver();
     types.add(new ReflectionTypeSolver(true));
+    addClasspath(types, classpath);
     for (String root : sourceRoots(headJavaFiles)) {
       Path dir = root.isEmpty() ? solverRoot : solverRoot.resolve(root);
       if (Files.isDirectory(dir)) {

@@ -18,4 +18,12 @@ public interface LanguageAnalyzer {
 
   AnalysisResult analyze(
       List<ChangedFile> changedFiles, Map<String, String> headFiles, Map<String, String> baseFiles);
+
+  default AnalysisResult analyze(
+      List<ChangedFile> changedFiles,
+      Map<String, String> headFiles,
+      Map<String, String> baseFiles,
+      AnalysisOptions options) {
+    return analyze(changedFiles, headFiles, baseFiles);
+  }
 }

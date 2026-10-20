@@ -7,6 +7,22 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Distributable `changeradar.jar` (`./gradlew :changeradar-cli:shadowJar`) and a
+  composite GitHub Action that downloads a tagged release (or a local jar)
+  and runs `java -jar … analyze`. Pin the Action to a commit SHA. A
+  `Release JAR` workflow uploads the fat JAR onto published GitHub Releases.
+- Compact Markdown (`--format compact` → `report.compact.md`), GitHub Actions
+  job summary, and SARIF 2.1 (`report.sarif`) so PR comments stay short and
+  findings land on the diff. Findings are grouped by file and carry a stable
+  `id` (`type|symbolId|path:line`).
+- `changeradar policies` (`list-policies`) lists named rules. `--policy-file`
+  YAML plus `--baseline` / `--write-baseline` so teams can enable rules
+  without failing on pre-existing public API. DELETE+ADD pairs become
+  `RENAME` (new path) or signature `MODIFY` (same path).
+- Optional Java `--classpath` of already-built jars (does not run the target
+  build). Parsers default to changed files plus importers (and same-directory
+  Java neighbors); `--full-index` parses every HEAD source file.
+
 - TypeScript, Python, and PHP structural edges: overrides (`OVERRIDE`),
   field/property reads (`FIELD_ACCESS`), decorator/attribute uses
   (`ANNOTATION_USE`), and typed fields (`FIELD_TYPE` / `INJECTION`).
@@ -27,7 +43,7 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   name matching (`HEURISTIC`), but unscoped calls (`parseBase()`) only
   match the enclosing type so other classes with the same method name are
   not reported. Compiled Maven/Gradle dependencies are not on the type
-  path.
+  path unless `--classpath` of already-built jars is passed.
 
 ## [0.1.0] - 2026-10-17
 

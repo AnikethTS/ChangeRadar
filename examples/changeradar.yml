@@ -1,0 +1,13 @@
+# Commit this in a consuming repository and pass --policy-file changeradar.yml
+# (or the Action input policy-file). Nothing is enabled until listed here or
+# passed as --policy. Seed a baseline once so pre-existing public API does
+# not fail the first run:
+#   java -jar changeradar.jar analyze --base "$BASE" --head "$HEAD" \
+#     --policy-file changeradar.yml --write-baseline .changeradar/baseline.txt
+policies:
+  - breaking-public-java-api
+  # - breaking-public-export
+  # - breaking-public-python
+  # - breaking-public-php
+  # - analysis-unavailable
+baseline: .changeradar/baseline.txt

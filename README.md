@@ -24,25 +24,39 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.1.0` — Java, TypeScript/JavaScript, Python, and PHP impact
-reports, optional `--policy`, and a GitHub Actions example that uploads
-artifacts and comments on same-repo PRs. Limitations stay in the report
-instead of implying a complete graph.
+**Status:** `0.2.0-SNAPSHOT` — Java, TypeScript/JavaScript, Python, and PHP
+impact reports, a published fat JAR / GitHub Action, compact PR comments,
+SARIF, and optional policies with a committed `--policy-file` and baseline.
+Limitations stay in the report instead of implying a complete graph.
 
 ## Quick start
+
+From a **consuming** repository (JDK 21+), after a ChangeRadar release that
+ships `changeradar.jar`:
+
+```bash
+java -jar changeradar.jar analyze \
+  --base "$BASE_SHA" \
+  --head "$HEAD_SHA" \
+  --format compact,markdown,json,sarif \
+  --output build/changeradar
+```
+
+GitHub Actions: pin this repository's composite Action to a **commit SHA**
+(the same way you pin `actions/checkout`), and set `version` to a release
+tag whose assets include `changeradar.jar`. Copy
+[`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
+
+Developing ChangeRadar itself:
 
 ```bash
 git clone https://github.com/AnikethTS/ChangeRadar.git && cd ChangeRadar
 ./run.sh analyze --base HEAD~1 --head HEAD --format terminal,markdown,json --output build/changeradar
 ```
 
-That builds the CLI with the Gradle Wrapper (JDK 21+), compares two
-revisions of the current repo, prints a terminal summary, and writes
-`build/changeradar/report.md` plus `report.json`.
-
-Machine not ready yet? You need Git and a JDK 21 or newer. Then
-`./gradlew check` should pass on a clean checkout. See
-[Development](docs/development.md) for the full layout.
+That builds the CLI with the Gradle Wrapper (JDK 21+). `./gradlew
+:changeradar-cli:shadowJar` writes `changeradar-cli/build/libs/changeradar.jar`.
+See [Development](docs/development.md).
 
 ## Sample report
 
@@ -117,10 +131,10 @@ The CLI is the interface. Provider integrations wrap it; they should not
 reimplement analysis.
 
 ```bash
-./run.sh analyze \
+java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format markdown,json \
+  --format compact,markdown,json,sarif \
   --output build/changeradar
 ```
 
@@ -135,10 +149,11 @@ enables that policy. A failed analysis is not the same as a detected risk.
 
 A least-privilege GitHub Actions example lives in
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
-This repository runs the same workflow and posts (or updates) one PR
-comment with `report.md` on same-repo pull requests. Fork PRs skip the
-comment job. Comments come from github-actions[bot]; the ChangeRadar logo
-is in the comment body. Details: [CI integration](docs/ci-integration.md).
+Pin `uses: AnikethTS/ChangeRadar@<sha>`. This repository dogfoods the
+Action with a locally built fat JAR. Same-repo PRs get a **compact**
+sticky comment, a job summary, and SARIF on the diff; the full Markdown /
+JSON stay on the artifact. Fork PRs skip the comment and SARIF upload.
+Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
 

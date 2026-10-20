@@ -133,6 +133,65 @@ class PolicyEngineTest {
   }
 
   @Test
+  void baselineOmitsKnownViolation() {
+    AnalysisResult analysis =
+        new AnalysisResult(List.of(deletedPublicMethod()), List.of(), List.of(), List.of());
+    String key =
+        PolicyEngine.evaluate(List.of(PolicyEngine.BREAKING_PUBLIC_JAVA_API), analysis, List.of())
+            .violations()
+            .get(0);
+    PolicyResult filtered =
+        PolicyEngine.evaluate(
+            List.of(PolicyEngine.BREAKING_PUBLIC_JAVA_API),
+            analysis,
+            List.of(),
+            java.util.Set.of(key),
+            List.of());
+    assertFalse(filtered.blocking());
+  }
+
+  @Test
+  void renameIsNotARemoval() {
+    ChangedSymbol renamed =
+        new ChangedSymbol(
+            "id",
+            "method",
+            "n",
+            "Api",
+            new SourceLocation("src/New.java", 2, 3),
+            ChangeType.RENAME,
+            true);
+    AnalysisResult analysis = new AnalysisResult(List.of(renamed), List.of(), List.of(), List.of());
+    PolicyResult result =
+        PolicyEngine.evaluate(List.of(PolicyEngine.BREAKING_PUBLIC_JAVA_API), analysis, List.of());
+    assertFalse(result.blocking());
+  }
+
+  @Test
+  void signatureChangeBlocksWhenPublicApiPolicyEnabled() {
+    ChangedSymbol modified =
+        new ChangedSymbol(
+            "id",
+            "method",
+            "n",
+            "Api",
+            new SourceLocation("src/Api.java", 2, 3),
+            ChangeType.MODIFY,
+            true);
+    AnalysisResult analysis =
+        new AnalysisResult(List.of(modified), List.of(), List.of(), List.of());
+    PolicyResult result =
+        PolicyEngine.evaluate(
+            List.of(PolicyEngine.BREAKING_PUBLIC_JAVA_API),
+            analysis,
+            List.of(),
+            java.util.Set.of(),
+            List.of(modified));
+    assertTrue(result.blocking());
+    assertTrue(result.violations().stream().anyMatch(v -> v.contains("signature changed")));
+  }
+
+  @Test
   void parseEnabledAcceptsCommaSeparatedNames() {
     assertEquals(
         2,
