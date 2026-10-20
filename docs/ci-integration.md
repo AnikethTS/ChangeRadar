@@ -63,7 +63,7 @@ There are two version knobs:
 | `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21, download, report). | Pin a SHA, same as `actions/checkout`. |
 | `version` | Which `changeradar.jar` to download. | **`latest`** — GitHub’s latest published release. Omit the input. |
 
-Pin a specific analyzer with `version: v0.2.2`. Pass `jar:` only when the fat
+Pin a specific analyzer with `version: v0.2.3`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
@@ -82,7 +82,7 @@ jobs:
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.2
+          # version: v0.2.3
 ```
 
 This repository builds the JAR and runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).

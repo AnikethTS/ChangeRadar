@@ -47,6 +47,6 @@ jobs:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           classpath: build/libs
-          # version: v0.2.2
+          # version: v0.2.3
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt

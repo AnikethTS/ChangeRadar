@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-21
+
+Analyzer JAR is the `v0.2.3` release asset. Omit `version` for latest;
+set `version: v0.2.3` to pin this JAR.
+
 ### Added
 
 - TypeScript/JavaScript callers through `export * from` and named
@@ -21,15 +26,6 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - PHP callers of callers walk use/require-resolved function edges (depth
   1 DIRECT, deeper INDIRECT, max depth 3). Heuristic name matches are not
   chained.
-
-### Changed
-
-- PR comments use a cropped 280×97 lockup (radar + name) instead of the
-  full-bleed README banner or a 36px icon, plus GitHub alert callouts for
-  policy and a one-row counts table.
-
-### Added
-
 - CI `check` and CLI smoke also run on the previous GitHub-hosted images
   (`ubuntu-24.04`, `ubuntu-22.04`, `windows-2022`, `macos-15`) with JDK 21.
   GitHub does not offer a Windows 10 runner; `windows-2022` is the prior
@@ -37,6 +33,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - CLI smoke analyzes with `java -jar changeradar.jar` (the consumer path)
   and validates `report.json` against `schemas/report-v1.schema.json`.
   actionlint covers `action.yml`; shellcheck covers the Action scripts.
+
+### Changed
+
+- PR comments use a cropped 280×97 lockup (radar + name) instead of the
+  full-bleed README banner or a 36px icon, plus GitHub alert callouts for
+  policy and a one-row counts table.
 
 ## [0.2.2] - 2026-10-20
 
@@ -176,7 +178,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.3
 [0.2.2]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.2
 [0.2.1]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.1
 [0.2.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.0
