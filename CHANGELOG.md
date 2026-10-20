@@ -11,6 +11,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   (`ubuntu-24.04`, `ubuntu-22.04`, `windows-2022`, `macos-15`) with JDK 21.
   GitHub does not offer a Windows 10 runner; `windows-2022` is the prior
   Windows Server image (NT 10.0).
+- CLI smoke analyzes with `java -jar changeradar.jar` (the consumer path)
+  and validates `report.json` against `schemas/report-v1.schema.json`.
+  actionlint covers `action.yml`; shellcheck covers the Action scripts.
 
 ## [0.2.2] - 2026-10-20
 

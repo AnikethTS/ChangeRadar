@@ -54,6 +54,9 @@ GitHub Actions runs `./gradlew check` and a CLI smoke job on current
 plus previous hosted images `ubuntu-24.04`, `ubuntu-22.04`,
 `windows-2022`, and `macos-15` (JDK 21). GitHub does not host Windows 10;
 `windows-2022` covers that NT 10.0 family. The Gradle Wrapper is
-validated, workflows are linted with actionlint, and a `CI` gate job
-fails unless every required job succeeded. Third-party actions in this
-repo's workflows are pinned to commit SHAs.
+validated, workflows and `action.yml` are linted with actionlint, Action
+scripts are linted with shellcheck, CLI smoke runs `java -jar
+changeradar.jar` and checks `report.json` against
+`schemas/report-v1.schema.json`, and a `CI` gate job fails unless every
+required job succeeded. Third-party actions in this repo's workflows are
+pinned to commit SHAs.

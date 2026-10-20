@@ -17,7 +17,7 @@ jobs:
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -29,8 +29,25 @@ jobs:
           tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
           sudo mv /tmp/actionlint /usr/local/bin/actionlint
 
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
       - name: Lint workflow YAML
-        run: actionlint -color
+        run: actionlint -color -shellcheck shellcheck
+
+      - name: Lint Action scripts
+        run: |
+          shellcheck -x \
+            .github/scripts/changeradar-annotate.sh \
+            .github/scripts/changeradar-comment.sh
+
+      - name: Lint action.yml
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/action-schema"
+          "${RUNNER_TEMP}/action-schema/bin/pip" install --quiet check-jsonschema
+          "${RUNNER_TEMP}/action-schema/bin/check-jsonschema" \
+            --schemafile https://json.schemastore.org/github-action.json \
+            action.yml
 
   wrapper-validation:
     name: Gradle Wrapper
@@ -120,19 +137,23 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      - name: Help and version
+      - name: Help and version (Gradle and fat JAR)
         run: |
           ./run.sh --help
           ./run.sh --version
+          ./gradlew :changeradar-cli:shadowJar --quiet --no-daemon
+          test -s changeradar-cli/build/libs/changeradar.jar
+          java -jar changeradar-cli/build/libs/changeradar.jar --help
+          java -jar changeradar-cli/build/libs/changeradar.jar --version
 
-      - name: Analyze this repository
+      - name: Analyze this repository with the fat JAR
         run: |
           if git rev-parse --verify --quiet HEAD~1 >/dev/null; then
             BASE=HEAD~1
           else
             BASE=HEAD
           fi
-          ./run.sh analyze \
+          java -jar changeradar-cli/build/libs/changeradar.jar analyze \
             --base "${BASE}" \
             --head HEAD \
             --format terminal,markdown,json,compact,sarif,github \
@@ -142,8 +163,15 @@ jobs:
           test -s build/changeradar/report.compact.md
           test -s build/changeradar/report.sarif
           test -s build/changeradar/report.github.json
-          ./gradlew :changeradar-cli:shadowJar --quiet --no-daemon
-          test -s changeradar-cli/build/libs/changeradar.jar
+          if command -v python3 >/dev/null; then PY=python3; else PY=python; fi
+          "${PY}" -m venv "${RUNNER_TEMP}/schema-venv"
+          if [ -x "${RUNNER_TEMP}/schema-venv/bin/python" ]; then
+            VPY="${RUNNER_TEMP}/schema-venv/bin/python"
+          else
+            VPY="${RUNNER_TEMP}/schema-venv/Scripts/python"
+          fi
+          "${VPY}" -m pip install --quiet jsonschema
+          "${VPY}" .github/scripts/validate-report-schema.py
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -153,7 +181,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Required check context on main is still "CLI smoke" (Protect main ruleset).
+  # Stable names for Protect main required checks (matrix cells change).
+  check-required:
+    name: Check
+    if: always()
+    needs: [check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Check cell to succeed
+        run: test "${{ needs.check.result }}" = success
+
   cli-smoke-required:
     name: CLI smoke
     if: always()
