@@ -16,7 +16,7 @@ invoke the same CLI.
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |
 | PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests. Not php-parser. |
 | Impact / policy / report (`changeradar-core`) | Typed findings, confidence, evidence, optional policies. Policies stay independent of severity guesses. |
-| Reporters | Terminal, Markdown, JSON. GitHub Actions (and later GitLab/Jenkins) are thin wrappers around the CLI. |
+| Reporters | Terminal, Markdown, JSON, compact Markdown, SARIF. GitHub Actions downloads `changeradar.jar` (or uses a local fat JAR) and runs the CLI. |
 
 Flow:
 
@@ -55,10 +55,10 @@ plus tests against the shared model.
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
 | 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, call chains, overrides, fields, annotations. TS/Python/PHP: import/require/`use`, plus overrides, fields, and decorators/attributes. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
-| 5 Reports | Richer terminal/Markdown/JSON | Stable ordering, limitations. **Current.** |
+| 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
-| 7 GitHub Actions | Example + artifacts / optional PR comment | Example, artifacts, and a fork-safe PR comment job. **Current.** |
-| 8 Policies | Optional blocking rules | Only explicit rules block; tool failure stays `2`. **Current.** |
+| 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action, compact comment, job summary, SARIF upload. **Current.** |
+| 8 Policies | Optional blocking rules | `--policy-file`, `policies` command, baseline, rename/signature. **Current.** |
 | 9 More analyzers | TypeScript, then Python | TS/JS, Python, and PHP current. |
 
 ## MVP non-goals

@@ -1,11 +1,13 @@
 package io.github.anikethts.changeradar.cli;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
+import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.PolicyResult;
@@ -16,7 +18,11 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 final class ReportWriters {
 
@@ -70,19 +76,24 @@ final class ReportWriters {
     if (report.findings().isEmpty()) {
       out.println("  (none)");
     } else {
-      for (ImpactFinding finding : report.findings()) {
-        out.println(
-            "  ["
-                + finding.confidence()
-                + "] "
-                + finding.type()
-                + "  "
-                + finding.summary()
-                + "  "
-                + finding.location().path()
-                + ":"
-                + finding.location().startLine());
-      }
+      groupedFindings(report.findings())
+          .forEach(
+              (path, findings) -> {
+                out.println("  " + path);
+                for (ImpactFinding finding : findings) {
+                  out.println(
+                      "    ["
+                          + finding.confidence()
+                          + "] "
+                          + finding.type()
+                          + "  "
+                          + finding.summary()
+                          + "  :"
+                          + finding.location().startLine()
+                          + "  "
+                          + finding.id());
+                }
+              });
     }
     out.println();
     out.println("Tests to consider (" + report.tests().size() + ")");
@@ -149,21 +160,26 @@ final class ReportWriters {
     if (report.findings().isEmpty()) {
       md.append("_None resolved._ This is not proof of no impact.\n\n");
     } else {
-      md.append("| Confidence | Type | Summary | Location |\n|---|---|---|---|\n");
-      for (ImpactFinding finding : report.findings()) {
-        md.append("| `")
-            .append(finding.confidence())
-            .append("` | `")
-            .append(finding.type())
-            .append("` | ")
-            .append(finding.summary())
-            .append(" | `")
-            .append(finding.location().path())
-            .append(":")
-            .append(finding.location().startLine())
-            .append("` |\n");
-      }
-      md.append('\n');
+      groupedFindings(report.findings())
+          .forEach(
+              (path, findings) -> {
+                md.append("### `").append(path).append("`\n\n");
+                md.append("| ID | Confidence | Type | Summary | Line |\n|---|---|---|---|---|\n");
+                for (ImpactFinding finding : findings) {
+                  md.append("| `")
+                      .append(finding.id())
+                      .append("` | `")
+                      .append(finding.confidence())
+                      .append("` | `")
+                      .append(finding.type())
+                      .append("` | ")
+                      .append(finding.summary())
+                      .append(" | ")
+                      .append(finding.location().startLine())
+                      .append(" |\n");
+                }
+                md.append('\n');
+              });
     }
     md.append("## Tests to consider\n\n");
     if (report.tests().isEmpty()) {
@@ -209,6 +225,121 @@ final class ReportWriters {
     Files.writeString(file, md.toString());
   }
 
+  void writeCompact(Report report, Path file) throws IOException {
+    Files.writeString(file, compactMarkdown(report));
+  }
+
+  String compactMarkdown(Report report) {
+    StringBuilder md = new StringBuilder();
+    md.append("## ChangeRadar\n\n");
+    if (report.policy().blocking()) {
+      md.append("**Policy: blocking** (exit 1)\n\n");
+      for (String violation : report.policy().violations()) {
+        md.append("- ").append(violation).append('\n');
+      }
+      md.append('\n');
+    } else {
+      md.append(
+          "**Policy: none blocking.** Exit 0 means analysis completed, not that the change is"
+              + " safe.\n\n");
+    }
+    md.append("| | Count |\n|---|---|\n");
+    md.append("| Changed files | ").append(report.changedFiles().size()).append(" |\n");
+    md.append("| Changed symbols | ").append(report.changedSymbols().size()).append(" |\n");
+    md.append("| Findings | ").append(report.findings().size()).append(" |\n");
+    md.append("| Tests to consider | ").append(report.tests().size()).append(" |\n\n");
+    List<ImpactFinding> direct =
+        report.findings().stream()
+            .filter(finding -> finding.confidence() == Confidence.DIRECT)
+            .sorted(
+                Comparator.comparing((ImpactFinding f) -> f.location().path())
+                    .thenComparing(f -> f.location().startLine()))
+            .limit(8)
+            .toList();
+    long indirect =
+        report.findings().stream().filter(f -> f.confidence() == Confidence.INDIRECT).count();
+    long heuristic =
+        report.findings().stream().filter(f -> f.confidence() == Confidence.HEURISTIC).count();
+    md.append("### Top DIRECT findings\n\n");
+    if (direct.isEmpty()) {
+      md.append("_None._\n\n");
+    } else {
+      for (ImpactFinding finding : direct) {
+        md.append("- `")
+            .append(finding.location().path())
+            .append(":")
+            .append(finding.location().startLine())
+            .append("` ")
+            .append(finding.summary())
+            .append(" (`")
+            .append(finding.id())
+            .append("`)\n");
+      }
+      md.append('\n');
+    }
+    md.append("_Indirect: ")
+        .append(indirect)
+        .append(". Heuristic: ")
+        .append(heuristic)
+        .append("._\n\n");
+    md.append("### Tests\n\n");
+    if (report.tests().isEmpty()) {
+      md.append("_None selected._\n\n");
+    } else {
+      report.tests().stream()
+          .limit(5)
+          .forEach(
+              test ->
+                  md.append("- **")
+                      .append(test.name())
+                      .append("** (`")
+                      .append(test.path())
+                      .append("`)\n"));
+      md.append('\n');
+    }
+    md.append(
+        "Download the full Markdown, JSON, and SARIF from the workflow artifact. Absence of a"
+            + " finding is not proof of no impact.\n");
+    return md.toString();
+  }
+
+  void writeSarif(Report report, Path file) throws IOException {
+    Map<String, SarifRule> rules = new LinkedHashMap<>();
+    List<SarifResult> results = new ArrayList<>();
+    for (ImpactFinding finding : report.findings()) {
+      rules.putIfAbsent(
+          finding.type(),
+          new SarifRule(finding.type(), new SarifMessage(finding.type() + " impact finding")));
+      String level = finding.confidence() == Confidence.DIRECT ? "warning" : "note";
+      results.add(
+          new SarifResult(
+              finding.type(),
+              level,
+              new SarifMessage(finding.summary() + " [" + finding.confidence() + "]"),
+              List.of(
+                  new SarifResultLocation(
+                      new SarifPhysicalLocation(
+                          new SarifArtifact(finding.location().path().replace('\\', '/')),
+                          new SarifRegion(finding.location().startLine())))),
+              Map.of("changeradar/id", finding.id()),
+              Map.of("id", finding.id(), "confidence", finding.confidence().name())));
+    }
+    SarifLog log =
+        new SarifLog(
+            "2.1.0",
+            "https://json.schemastore.org/sarif-2.1.0.json",
+            List.of(
+                new SarifRun(
+                    new SarifTool(
+                        new SarifDriver(
+                            "ChangeRadar",
+                            report.toolVersion(),
+                            "https://github.com/AnikethTS/ChangeRadar",
+                            List.copyOf(rules.values()))),
+                    results)));
+    mapper.writeValue(file.toFile(), log);
+  }
+
   void writeJson(Report report, Path file) throws IOException {
     JsonReport body =
         new JsonReport(
@@ -243,6 +374,19 @@ final class ReportWriters {
     out.println("Exit 0 means analysis completed, not that the change is safe.");
   }
 
+  private static Map<String, List<ImpactFinding>> groupedFindings(List<ImpactFinding> findings) {
+    Map<String, List<ImpactFinding>> grouped = new LinkedHashMap<>();
+    List<ImpactFinding> sorted = new ArrayList<>(findings);
+    sorted.sort(
+        Comparator.comparing((ImpactFinding f) -> f.location().path())
+            .thenComparing(f -> f.location().startLine())
+            .thenComparing(ImpactFinding::id));
+    for (ImpactFinding finding : sorted) {
+      grouped.computeIfAbsent(finding.location().path(), key -> new ArrayList<>()).add(finding);
+    }
+    return grouped;
+  }
+
   private static String displayName(ChangedSymbol symbol) {
     if ("type".equals(symbol.kind()) || symbol.owner().isEmpty()) {
       return symbol.name();
@@ -264,4 +408,32 @@ final class ReportWriters {
       List<Limitation> limitations,
       boolean policyBlocking,
       List<String> policyViolations) {}
+
+  record SarifLog(String version, @JsonProperty("$schema") String schemaUrl, List<SarifRun> runs) {}
+
+  record SarifRun(SarifTool tool, List<SarifResult> results) {}
+
+  record SarifTool(SarifDriver driver) {}
+
+  record SarifDriver(String name, String version, String informationUri, List<SarifRule> rules) {}
+
+  record SarifRule(String id, SarifMessage shortDescription) {}
+
+  record SarifResult(
+      String ruleId,
+      String level,
+      SarifMessage message,
+      List<SarifResultLocation> locations,
+      Map<String, String> partialFingerprints,
+      Map<String, String> properties) {}
+
+  record SarifMessage(String text) {}
+
+  record SarifResultLocation(SarifPhysicalLocation physicalLocation) {}
+
+  record SarifPhysicalLocation(SarifArtifact artifactLocation, SarifRegion region) {}
+
+  record SarifArtifact(String uri) {}
+
+  record SarifRegion(int startLine) {}
 }

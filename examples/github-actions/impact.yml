@@ -1,7 +1,7 @@
-# Copy into a consuming repository (or call ChangeRadar from this
-# repository's own CI). Least privilege: contents: read is enough to
-# analyze. The comment job is optional: it needs pull-requests: write and
-# is skipped on fork PRs. Pin third-party actions to SHAs in production.
+# Copy into a consuming repository. Pin this Action to a commit SHA the same
+# way you pin actions/checkout. `version` is a ChangeRadar *release tag* whose
+# assets include changeradar.jar. Do not run Gradle of this project in
+# consumer CI.
 name: ChangeRadar
 
 on:
@@ -19,6 +19,9 @@ jobs:
     name: Impact report
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,26 +33,17 @@ jobs:
             "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}"
 
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      # Pin to a SHA of AnikethTS/ChangeRadar that contains action.yml, not a moving tag.
+      - uses: AnikethTS/ChangeRadar@2fcffb7ae933a6d7086417f5597e9b25ad616a64
         with:
-          distribution: temurin
-          java-version: "21"
-
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-
-      - name: Analyze base..head
-        run: |
-          ./run.sh analyze \
-            --base "${{ github.event.pull_request.base.sha }}" \
-            --head "${{ github.event.pull_request.head.sha }}" \
-            --format markdown,json \
-            --output build/changeradar
-          # Opt in to blocking, for example:
-          #   --policy breaking-public-java-api
-          #   --policy breaking-public-export
-          #   --policy breaking-public-python
-          #   --policy breaking-public-php
-          #   --policy analysis-unavailable
+          version: latest
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          format: compact,markdown,json,sarif
+          output: build/changeradar
+          # policy: breaking-public-java-api,analysis-unavailable
+          # policy-file: changeradar.yml
+          # classpath: build/libs
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -59,8 +53,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # Optional. Does not change analyze exit codes. Not a required check.
-  # Fork PRs skip this job so an untrusted workflow cannot write comments.
+      - uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository && hashFiles('build/changeradar/report.sarif') != ''
+        with:
+          sarif_file: build/changeradar/report.sarif
+          wait-for-processing: false
+
   comment:
     name: Comment report
     needs: impact
@@ -77,7 +75,7 @@ jobs:
           name: changeradar-report
           path: build/changeradar
 
-      - name: Post or update report comment
+      - name: Post or update compact report comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -86,7 +84,7 @@ jobs:
           LOGO_URL: https://raw.githubusercontent.com/AnikethTS/ChangeRadar/main/.github/logo.png
         run: |
           set -euo pipefail
-          test -s build/changeradar/report.md
+          test -s build/changeradar/report.compact.md
           python3 - "$RUN_URL" "$LOGO_URL" <<'PY'
           import json
           import pathlib
@@ -95,28 +93,19 @@ jobs:
           run_url = sys.argv[1]
           logo_url = sys.argv[2]
           marker = "<!-- changeradar-report -->"
-          report = pathlib.Path("build/changeradar/report.md").read_text()
+          report = pathlib.Path("build/changeradar/report.compact.md").read_text()
           header = (
               marker
               + "\n\n"
               + '<img src="'
               + logo_url
               + '" alt="ChangeRadar" width="220" />\n\n'
-              + "Full Markdown and JSON: "
+              + "Full Markdown, JSON, and SARIF: "
               + run_url
               + "\n\n"
           )
-          # GitHub issue-comment bodies max out at 65536 characters.
-          limit = 65000 - len(header)
-          body = header + report
-          if len(body) > 65000:
-              body = (
-                  header
-                  + report[: max(0, limit - 80)]
-                  + "\n\n_Report truncated. Download the `changeradar-report` artifact._\n"
-              )
           pathlib.Path("/tmp/changeradar-comment.json").write_text(
-              json.dumps({"body": body})
+              json.dumps({"body": header + report})
           )
           PY
           COMMENT_ID="$(

@@ -115,10 +115,14 @@ jobs:
           ./run.sh analyze \
             --base "${BASE}" \
             --head HEAD \
-            --format terminal,markdown,json \
+            --format terminal,markdown,json,compact,sarif \
             --output build/changeradar
           test -s build/changeradar/report.json
           test -s build/changeradar/report.md
+          test -s build/changeradar/report.compact.md
+          test -s build/changeradar/report.sarif
+          ./gradlew :changeradar-cli:shadowJar --quiet --no-daemon
+          test -s changeradar-cli/build/libs/changeradar.jar
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

@@ -1,5 +1,6 @@
 plugins {
   application
+  alias(libs.plugins.shadow)
 }
 
 application {
@@ -26,4 +27,12 @@ tasks.named<JavaExec>("run") {
 
 tasks.processResources {
   from(rootProject.layout.projectDirectory.file("VERSION"))
+}
+
+tasks.shadowJar {
+  archiveFileName.set("changeradar.jar")
+  mergeServiceFiles()
+  manifest {
+    attributes["Main-Class"] = "io.github.anikethts.changeradar.cli.ChangeRadarApp"
+  }
 }

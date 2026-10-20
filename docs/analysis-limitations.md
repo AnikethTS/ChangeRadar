@@ -23,7 +23,14 @@ does not run tests).
 Today the tool records:
 
 - `JAVA_SYMBOL_SOLVER` when Java callers are type-resolved against HEAD
-  sources and the JRE (not compiled dependencies).
+  sources and the JRE (and `--classpath` jars when provided).
+- `JAVA_CLASSPATH` when `--classpath` of already-built jars was passed
+  (ChangeRadar does not run the target build).
+- `SCOPED_SOURCES` when parsers skipped HEAD files that were neither
+  changed, same-directory Java neighbors, nor import/require/`use`
+  importers (`--full-index` disables this).
+- `POLICY_BASELINE` when `--baseline` / `--policy-file` baseline keys are
+  ignored.
 - `JAVA_CALL_CHAINS` when indirect Java callers walk resolved method and
   constructor edges (depth 1 `DIRECT`, deeper `INDIRECT`, max depth 3).
   Heuristic name matches are not chained.

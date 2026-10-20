@@ -6,10 +6,13 @@ shell/runner examples come after the CLI contract is stable.
 A provider integration is:
 
 1. A documented snippet that checks out enough Git history.
-2. A call to `changeradar analyze --base … --head …` with explicit SHAs.
-3. Artifact upload of Markdown and JSON.
-4. Optional comment/summary **using extra permissions the user opts into.**
+2. A call to `java -jar changeradar.jar analyze --base … --head …` with
+   explicit SHAs (do not clone ChangeRadar and run Gradle in consumer CI).
+3. Artifact upload of compact Markdown, full Markdown, JSON, and SARIF.
+4. Optional compact comment / `$GITHUB_STEP_SUMMARY` / SARIF upload
+   **using extra permissions the user opts into.**
 5. Preservation of exit codes `0` / `1` / `2`.
+6. Pin the wrapper (Action, orb, plugin) to an immutable SHA or digest.
 
 It is not a second impact engine.
 

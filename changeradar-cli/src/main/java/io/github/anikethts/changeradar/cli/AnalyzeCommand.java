@@ -4,21 +4,26 @@ import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
+import io.github.anikethts.changeradar.core.AnalysisOptions;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
 import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
+import io.github.anikethts.changeradar.core.ChangedSymbols;
 import io.github.anikethts.changeradar.core.ExitCode;
 import io.github.anikethts.changeradar.core.GitAccessException;
 import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.PolicyEngine;
+import io.github.anikethts.changeradar.core.PolicyFile;
 import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
+import io.github.anikethts.changeradar.core.SourceScope;
 import io.github.anikethts.changeradar.core.Version;
 import io.github.anikethts.changeradar.git.JGitRepository;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,6 +43,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       List.of(
           ".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi",
           ".php");
+
+  private static final Set<String> FORMATS =
+      Set.of("terminal", "markdown", "json", "sarif", "compact");
 
   @Option(
       names = "--base",
@@ -61,22 +69,52 @@ public final class AnalyzeCommand implements Callable<Integer> {
       names = "--format",
       defaultValue = "terminal",
       split = ",",
-      description = "Comma-separated formats: terminal, markdown, json. Default: terminal.")
+      description =
+          "Comma-separated formats: terminal, markdown, json, compact, sarif. Default: terminal.")
   List<String> formats;
 
-  @Option(
-      names = "--output",
-      description = "Directory for markdown/json report files. Created if missing.")
+  @Option(names = "--output", description = "Directory for report files. Created if missing.")
   Path output;
 
   @Option(
       names = "--policy",
       split = ",",
       description =
-          "Named blocking policies to enable (off by default): breaking-public-java-api,"
-              + " breaking-public-export, breaking-public-python, breaking-public-php,"
-              + " analysis-unavailable. Repeatable or comma-separated.")
+          "Named blocking policies to enable (off by default). Repeatable or comma-separated."
+              + " See `changeradar policies`.")
   List<String> policies;
+
+  @Option(
+      names = "--policy-file",
+      description = "YAML file of enabled policies and an optional baseline path.")
+  Path policyFile;
+
+  @Option(
+      names = "--baseline",
+      description =
+          "Existing policy baseline (one violation key per line). Overrides baseline in"
+              + " --policy-file.")
+  Path baseline;
+
+  @Option(
+      names = "--write-baseline",
+      description =
+          "Write current policy violation keys to this file and do not fail the job for those"
+              + " keys this run.")
+  Path writeBaseline;
+
+  @Option(
+      names = "--classpath",
+      description =
+          "Already-built jars or directories of jars for Java type resolution. Does not run the"
+              + " target build. Repeatable. Each value may be a "
+              + "path-separator-separated list.")
+  List<String> classpath;
+
+  @Option(
+      names = "--full-index",
+      description = "Parse every HEAD source file instead of changed files plus importers.")
+  boolean fullIndex;
 
   private final Clock clock;
   private final ReportWriters writers;
@@ -96,7 +134,17 @@ public final class AnalyzeCommand implements Callable<Integer> {
     if (!Files.isDirectory(repository)) {
       throw new GitAccessException("Repository path is not a directory: " + repository);
     }
-    Set<String> enabledPolicies = PolicyEngine.parseEnabled(policies);
+    Set<String> enabledPolicies = new LinkedHashSet<>();
+    Path baselinePath = baseline;
+    if (policyFile != null) {
+      Path resolvedPolicy = repository.resolve(policyFile).normalize();
+      PolicyFile.Document document = PolicyFile.load(resolvedPolicy);
+      enabledPolicies.addAll(document.policies());
+      if (baselinePath == null && document.baseline() != null) {
+        baselinePath = repository.resolve(document.baseline()).normalize();
+      }
+    }
+    enabledPolicies.addAll(PolicyEngine.parseEnabled(policies));
 
     Report report;
     try (var git = JGitRepository.open(repository)) {
@@ -115,6 +163,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
           git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
         }
       }
+      boolean scoped = !fullIndex;
+      Map<String, String> parsedHead =
+          scoped ? SourceScope.subset(changed, headSources) : headSources;
       Map<String, String> baseSources = new LinkedHashMap<>();
       for (ChangedFile file : changed) {
         if (file.isJavaSource()
@@ -128,23 +179,61 @@ public final class AnalyzeCommand implements Callable<Integer> {
           }
         }
       }
+      AnalysisOptions options = new AnalysisOptions(parseClasspath(repository), scoped);
       List<AnalysisResult> parts = new ArrayList<>();
       for (LanguageAnalyzer analyzer : analyzers) {
         parts.add(
             analyzer.analyze(
                 changed,
-                filterSources(headSources, analyzer),
-                filterSources(baseSources, analyzer)));
+                filterSources(parsedHead, analyzer),
+                filterSources(baseSources, analyzer),
+                options));
       }
-      AnalysisResult analysis = AnalysisResult.merge(parts);
-      PolicyResult policy = PolicyEngine.evaluate(enabledPolicies, analysis, changed);
+      AnalysisResult merged = AnalysisResult.merge(parts);
+      ChangedSymbols.Result coalesced = ChangedSymbols.coalesce(merged.changedSymbols());
+      AnalysisResult analysis =
+          new AnalysisResult(
+              coalesced.symbols(), merged.findings(), merged.tests(), merged.limitations());
+      Set<String> baselineKeys =
+          baselinePath == null ? Set.of() : PolicyFile.readBaseline(baselinePath);
+      PolicyResult raw =
+          PolicyEngine.evaluate(
+              enabledPolicies, analysis, changed, Set.of(), coalesced.signatureChanges());
+      if (writeBaseline != null) {
+        Path dest = repository.resolve(writeBaseline).normalize();
+        PolicyFile.writeBaseline(dest, raw.violations());
+      }
+      PolicyResult policy =
+          PolicyEngine.evaluate(
+              enabledPolicies, analysis, changed, baselineKeys, coalesced.signatureChanges());
+      if (writeBaseline != null) {
+        policy = PolicyResult.none();
+      }
       List<Limitation> limitations = new ArrayList<>(analysis.limitations());
+      if (scoped && parsedHead.size() < headSources.size()) {
+        limitations.add(
+            new Limitation(
+                "SCOPED_SOURCES",
+                "Parsers ran on "
+                    + parsedHead.size()
+                    + " of "
+                    + headSources.size()
+                    + " HEAD source files (changed paths, same-directory Java neighbors, and"
+                    + " import/require/use importers). Pass --full-index to parse everything."));
+      }
       if (enabledPolicies.isEmpty()) {
         limitations.add(
             new Limitation(
                 "POLICIES_DISABLED",
                 "No blocking policies were enabled. Exit 0 means analysis completed, not that the"
-                    + " change is safe. Pass --policy to opt in."));
+                    + " change is safe. Pass --policy or --policy-file to opt in."));
+      } else if (baselinePath != null && Files.isRegularFile(baselinePath)) {
+        limitations.add(
+            new Limitation(
+                "POLICY_BASELINE",
+                "Policy violations listed in "
+                    + baselinePath
+                    + " are ignored. Re-run with --write-baseline to refresh."));
       }
       limitations.add(
           new Limitation(
@@ -170,8 +259,13 @@ public final class AnalyzeCommand implements Callable<Integer> {
     if (selected.contains("terminal")) {
       writers.writeTerminal(report, System.out);
     }
-    if (selected.contains("markdown") || selected.contains("json")) {
-      Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
+    boolean files =
+        selected.contains("markdown")
+            || selected.contains("json")
+            || selected.contains("sarif")
+            || selected.contains("compact");
+    Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
+    if (files) {
       Files.createDirectories(dest);
       if (selected.contains("markdown")) {
         writers.writeMarkdown(report, dest.resolve("report.md"));
@@ -179,6 +273,21 @@ public final class AnalyzeCommand implements Callable<Integer> {
       if (selected.contains("json")) {
         writers.writeJson(report, dest.resolve("report.json"));
       }
+      if (selected.contains("compact")) {
+        writers.writeCompact(report, dest.resolve("report.compact.md"));
+      }
+      if (selected.contains("sarif")) {
+        writers.writeSarif(report, dest.resolve("report.sarif"));
+      }
+    }
+    String summary = System.getenv("GITHUB_STEP_SUMMARY");
+    if (summary != null && !summary.isBlank()) {
+      Path summaryPath = Path.of(summary);
+      Files.writeString(
+          summaryPath,
+          writers.compactMarkdown(report),
+          StandardOpenOption.CREATE,
+          StandardOpenOption.APPEND);
     }
     return report.policy().blocking() ? ExitCode.POLICY_VIOLATION.code() : ExitCode.SUCCESS.code();
   }
@@ -194,11 +303,31 @@ public final class AnalyzeCommand implements Callable<Integer> {
     return filtered;
   }
 
+  private List<Path> parseClasspath(Path repository) {
+    List<Path> jars = new ArrayList<>();
+    if (classpath == null) {
+      return jars;
+    }
+    for (String raw : classpath) {
+      if (raw == null || raw.isBlank()) {
+        continue;
+      }
+      for (String part : raw.split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
+        if (part.isBlank()) {
+          continue;
+        }
+        Path path = Path.of(part);
+        jars.add(path.isAbsolute() ? path : repository.resolve(path));
+      }
+    }
+    return jars;
+  }
+
   private Set<String> selectedFormats() {
     Set<String> selected = new LinkedHashSet<>();
     for (String format : formats) {
       String normalized = format.trim().toLowerCase();
-      if (!Set.of("terminal", "markdown", "json").contains(normalized)) {
+      if (!FORMATS.contains(normalized)) {
         throw new GitAccessException("Unsupported --format value: " + format);
       }
       selected.add(normalized);

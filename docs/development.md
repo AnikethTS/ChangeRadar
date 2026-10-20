@@ -8,8 +8,10 @@
 
 ```bash
 ./gradlew check
+./gradlew :changeradar-cli:shadowJar
 ./run.sh --help
 ./run.sh analyze --base HEAD --head HEAD
+java -jar changeradar-cli/build/libs/changeradar.jar analyze --base HEAD --head HEAD
 ```
 
 ## Tests and formatting
@@ -38,7 +40,8 @@ changeradar-analyzer-python/     Python adapter
 changeradar-analyzer-php/        PHP adapter
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
-examples/github-actions/      copy-paste workflow
+examples/github-actions/      consumer workflow (download release JAR)
+action.yml                    composite Action: java -jar changeradar.jar
 fixtures/                     later: tiny demo repos + expected reports
 schemas/                      JSON report schema
 .github/                      CI, issue and PR templates

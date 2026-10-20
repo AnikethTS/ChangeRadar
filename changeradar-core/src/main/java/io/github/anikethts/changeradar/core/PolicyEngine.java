@@ -2,9 +2,11 @@ package io.github.anikethts.changeradar.core;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -27,7 +29,30 @@ public final class PolicyEngine {
           BREAKING_PUBLIC_PHP,
           ANALYSIS_UNAVAILABLE);
 
+  public static final Map<String, String> DESCRIPTIONS = descriptions();
+
   private PolicyEngine() {}
+
+  private static Map<String, String> descriptions() {
+    Map<String, String> map = new LinkedHashMap<>();
+    map.put(
+        BREAKING_PUBLIC_JAVA_API,
+        "Public Java type/method/field was removed or its signature changed (renames are not"
+            + " removals).");
+    map.put(
+        BREAKING_PUBLIC_EXPORT,
+        "Exported TS/JS symbol was removed or its signature changed (renames are not removals).");
+    map.put(
+        BREAKING_PUBLIC_PYTHON,
+        "Public Python class/function was removed or its signature changed (renames are not"
+            + " removals).");
+    map.put(
+        BREAKING_PUBLIC_PHP,
+        "Public PHP class/function was removed or its signature changed (renames are not"
+            + " removals).");
+    map.put(ANALYSIS_UNAVAILABLE, "A changed source file could not be parsed.");
+    return Map.copyOf(map);
+  }
 
   public static Set<String> parseEnabled(Collection<String> raw) {
     Set<String> enabled = new LinkedHashSet<>();
@@ -58,27 +83,47 @@ public final class PolicyEngine {
 
   public static PolicyResult evaluate(
       Collection<String> enabled, AnalysisResult analysis, List<ChangedFile> changedFiles) {
+    return evaluate(enabled, analysis, changedFiles, Set.of(), List.of());
+  }
+
+  public static PolicyResult evaluate(
+      Collection<String> enabled,
+      AnalysisResult analysis,
+      List<ChangedFile> changedFiles,
+      Set<String> baseline,
+      List<ChangedSymbol> signatureChanges) {
     Set<String> rules = enabled == null ? Set.of() : Set.copyOf(enabled);
     if (rules.isEmpty()) {
       return PolicyResult.none();
     }
+    Set<String> ignore = baseline == null ? Set.of() : Set.copyOf(baseline);
     List<String> violations = new ArrayList<>();
     if (rules.contains(BREAKING_PUBLIC_JAVA_API)) {
       violations.addAll(breakingPublicApi(analysis, true));
+      violations.addAll(signatureViolations(signatureChanges, true, false, false, false));
     }
     if (rules.contains(BREAKING_PUBLIC_EXPORT)) {
       violations.addAll(breakingPublicApi(analysis, false));
+      violations.addAll(signatureViolations(signatureChanges, false, true, false, false));
     }
     if (rules.contains(BREAKING_PUBLIC_PYTHON)) {
       violations.addAll(breakingPublicPython(analysis));
+      violations.addAll(signatureViolations(signatureChanges, false, false, true, false));
     }
     if (rules.contains(BREAKING_PUBLIC_PHP)) {
       violations.addAll(breakingPublicPhp(analysis));
+      violations.addAll(signatureViolations(signatureChanges, false, false, false, true));
     }
     if (rules.contains(ANALYSIS_UNAVAILABLE)) {
       violations.addAll(analysisUnavailable(analysis, changedFiles));
     }
-    return new PolicyResult(!violations.isEmpty(), List.copyOf(violations));
+    List<String> fresh = new ArrayList<>();
+    for (String violation : violations) {
+      if (!ignore.contains(violation)) {
+        fresh.add(violation);
+      }
+    }
+    return new PolicyResult(!fresh.isEmpty(), List.copyOf(fresh));
   }
 
   private static List<String> breakingPublicApi(AnalysisResult analysis, boolean java) {
@@ -156,6 +201,45 @@ public final class PolicyEngine {
               + label
               + " was removed from "
               + path);
+    }
+    return violations;
+  }
+
+  private static List<String> signatureViolations(
+      List<ChangedSymbol> signatureChanges,
+      boolean java,
+      boolean export,
+      boolean python,
+      boolean php) {
+    if (signatureChanges == null || signatureChanges.isEmpty()) {
+      return List.of();
+    }
+    List<String> violations = new ArrayList<>();
+    for (ChangedSymbol symbol : signatureChanges) {
+      if (!symbol.publiclyVisible() || isTestPath(symbol.location().path())) {
+        continue;
+      }
+      String path = symbol.location().path();
+      boolean match =
+          java && path.endsWith(".java")
+              || export && new ChangedFile(path, ChangeType.MODIFY, null).isEcmaSource()
+              || python && new ChangedFile(path, ChangeType.MODIFY, null).isPythonSource()
+              || php && new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource();
+      if (!match) {
+        continue;
+      }
+      String rule =
+          java
+              ? BREAKING_PUBLIC_JAVA_API
+              : export
+                  ? BREAKING_PUBLIC_EXPORT
+                  : python ? BREAKING_PUBLIC_PYTHON : BREAKING_PUBLIC_PHP;
+      String label =
+          "type".equals(symbol.kind()) || symbol.owner().isEmpty()
+              ? symbol.name()
+              : symbol.owner() + "#" + symbol.name();
+      violations.add(
+          rule + ": public " + symbol.kind() + " " + label + " signature changed in " + path);
     }
     return violations;
   }

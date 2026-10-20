@@ -45,6 +45,10 @@ CLI_JAVA="$(pick_java 21)" || {
   exit 2
 }
 
+if [[ -n "${CHANGERADAR_JAR:-}" ]]; then
+  exec "${CLI_JAVA}" -jar "${CHANGERADAR_JAR}" "$@"
+fi
+
 ./gradlew --quiet :changeradar-cli:installDist
 
 export JAVA_HOME="$(cd "$(dirname "${CLI_JAVA}")/.." && pwd)"

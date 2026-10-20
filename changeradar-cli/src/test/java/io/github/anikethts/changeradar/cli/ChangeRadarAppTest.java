@@ -17,6 +17,13 @@ class ChangeRadarAppTest {
   @TempDir Path tmp;
 
   @Test
+  void policiesCommandListsKnownRules() {
+    CommandLine cmd = command();
+    int code = cmd.execute("policies");
+    assertEquals(0, code);
+  }
+
+  @Test
   void missingArgsIsFailure() {
     CommandLine cmd = command();
     int code = cmd.execute("analyze");
@@ -37,7 +44,7 @@ class ChangeRadarAppTest {
             "--repo",
             tmp.toString(),
             "--format",
-            "sarif");
+            "xml");
     assertEquals(2, code);
   }
 
@@ -67,6 +74,76 @@ class ChangeRadarAppTest {
     assertTrue(json.contains("changedSymbols"));
     assertTrue(json.contains("src/Demo.java"));
     assertTrue(markdown.contains("Changed symbols"));
+  }
+
+  @Test
+  void analyzeWritesCompactAndSarif() throws Exception {
+    seedRepo();
+    Path out = tmp.resolve("reports2");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "compact,sarif",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String compact = Files.readString(out.resolve("report.compact.md"));
+    String sarif = Files.readString(out.resolve("report.sarif"));
+    assertTrue(compact.contains("ChangeRadar"));
+    assertTrue(sarif.contains("\"version\""));
+    assertTrue(sarif.contains("2.1.0"));
+  }
+
+  @Test
+  void policyFileAndBaselineSuppressExistingViolation() throws Exception {
+    seedPublicRemoval();
+    Path policy = tmp.resolve("changeradar.yml");
+    Path baseline = tmp.resolve("baseline.txt");
+    Files.writeString(
+        policy,
+        """
+        policies:
+          - breaking-public-java-api
+        """);
+    int first =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy-file",
+                policy.toString(),
+                "--write-baseline",
+                baseline.toString());
+    assertEquals(0, first);
+    assertTrue(Files.readString(baseline).contains("breaking-public-java-api"));
+    int second =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy-file",
+                policy.toString(),
+                "--baseline",
+                baseline.toString());
+    assertEquals(0, second);
   }
 
   @Test
@@ -266,6 +343,42 @@ class ChangeRadarAppTest {
   }
 
   @Test
+  void movedPublicTypeDoesNotBlockJavaApiPolicy() throws Exception {
+    seedPublicMove();
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api");
+    assertEquals(0, code);
+  }
+
+  @Test
+  void publicSignatureChangeBlocksJavaApiPolicy() throws Exception {
+    seedPublicSignatureChange();
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api");
+    assertEquals(1, code);
+  }
+
+  @Test
   void unreadableChangedJavaBlocksWhenAnalysisUnavailableEnabled() throws Exception {
     seedUnparseableJava();
     int code =
@@ -309,6 +422,59 @@ class ChangeRadarAppTest {
       git.add().addFilepattern(".").call();
       commit(git, "base");
       Files.writeString(src, "class Demo { void n() { int x = 1; } }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPublicMove() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Path dest = tmp.resolve("src/moved/Api.java");
+      Files.createDirectories(dest.getParent());
+      Files.writeString(
+          dest,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.rm().addFilepattern("src/Api.java").call();
+      git.add().addFilepattern("src/moved").call();
+      commit(git, "head");
+    }
+  }
+
+  private void seedPublicSignatureChange() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n(int x) {}
+          }
+          """);
       git.add().addFilepattern(".").call();
       commit(git, "head");
     }
