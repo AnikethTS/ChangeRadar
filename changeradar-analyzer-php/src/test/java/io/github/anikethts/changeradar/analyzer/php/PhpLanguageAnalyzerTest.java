@@ -1,5 +1,6 @@
 package io.github.anikethts.changeradar.analyzer.php;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -179,6 +180,104 @@ class PhpLanguageAnalyzerTest {
                         && finding.location().path().contains("impl.php")));
     assertTrue(
         result.limitations().stream().anyMatch(l -> "PHP_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
+  void requireResolvedCallerOfCallerIsIndirect() {
+    String api =
+        """
+        <?php
+        function n() {
+          return 1;
+        }
+        """;
+    String caller =
+        """
+        <?php
+        require 'api.php';
+        function run() {
+          return n();
+        }
+        """;
+    String main =
+        """
+        <?php
+        require 'caller.php';
+        function main() {
+          return run();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.php", ChangeType.MODIFY, null, List.of(new LineRange(2, 4)))),
+            Map.of("api.php", api, "caller.php", caller, "main.php", main),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.php")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.INDIRECT
+                        && finding.location().path().contains("main.php")
+                        && finding.summary().contains("caller.php#run")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "PHP_CALL_CHAINS".equals(l.code())));
+  }
+
+  @Test
+  void heuristicCallersAreNotChained() {
+    String api =
+        """
+        <?php
+        function n() {
+          return 1;
+        }
+        """;
+    String caller =
+        """
+        <?php
+        use mystery\\n;
+        function run() {
+          return n();
+        }
+        """;
+    String main =
+        """
+        <?php
+        require 'caller.php';
+        function main() {
+          return run();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.php", ChangeType.MODIFY, null, List.of(new LineRange(2, 4)))),
+            Map.of("api.php", api, "caller.php", caller, "main.php", main),
+            Map.of());
+    assertEquals(
+        Confidence.HEURISTIC,
+        result.findings().stream()
+            .filter(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("caller.php"))
+            .findFirst()
+            .orElseThrow()
+            .confidence());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("main.php")));
   }
 
   @Test

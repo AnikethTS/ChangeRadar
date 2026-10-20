@@ -18,6 +18,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - Python callers of callers walk import-resolved function edges (depth 1
   DIRECT, deeper INDIRECT, max depth 3). Heuristic name matches are not
   chained.
+- PHP callers of callers walk use/require-resolved function edges (depth
+  1 DIRECT, deeper INDIRECT, max depth 3). Heuristic name matches are not
+  chained.
 
 ### Changed
 
