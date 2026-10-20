@@ -15,6 +15,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   (JSONC allowed; `extends` and multi-star mappings are ignored).
 - Java resolved callers and call chains match a specific overload
   signature (`n(int)` vs `n(String)`), not every method of the same name.
+- Python callers of callers walk import-resolved function edges (depth 1
+  DIRECT, deeper INDIRECT, max depth 3). Heuristic name matches are not
+  chained.
 
 ### Changed
 

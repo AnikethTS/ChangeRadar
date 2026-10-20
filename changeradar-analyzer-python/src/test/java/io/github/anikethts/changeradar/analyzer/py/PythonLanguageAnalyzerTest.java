@@ -1,5 +1,6 @@
 package io.github.anikethts.changeradar.analyzer.py;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -174,6 +175,96 @@ class PythonLanguageAnalyzerTest {
                     "ANNOTATION_USE".equals(finding.type())
                         && finding.location().path().contains("impl.py")));
     assertTrue(result.limitations().stream().anyMatch(l -> "PY_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
+  void importResolvedCallerOfCallerIsIndirect() {
+    String api =
+        """
+        def n():
+            return 1
+        """;
+    String caller =
+        """
+        from api import n
+
+        def run():
+            return n()
+        """;
+    String main =
+        """
+        from caller import run
+
+        def main():
+            return run()
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.py", ChangeType.MODIFY, null, List.of(new LineRange(1, 2)))),
+            Map.of("api.py", api, "caller.py", caller, "main.py", main),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.py")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.INDIRECT
+                        && finding.location().path().contains("main.py")
+                        && finding.summary().contains("caller.py#run")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "PY_CALL_CHAINS".equals(l.code())));
+  }
+
+  @Test
+  void heuristicCallersAreNotChained() {
+    String api =
+        """
+        def n():
+            return 1
+        """;
+    String caller =
+        """
+        from mystery import n
+
+        def run():
+            return n()
+        """;
+    String main =
+        """
+        from caller import run
+
+        def main():
+            return run(None)
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.py", ChangeType.MODIFY, null, List.of(new LineRange(1, 2)))),
+            Map.of("api.py", api, "caller.py", caller, "main.py", main),
+            Map.of());
+    assertEquals(
+        Confidence.HEURISTIC,
+        result.findings().stream()
+            .filter(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("caller.py"))
+            .findFirst()
+            .orElseThrow()
+            .confidence());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("main.py")));
   }
 
   @Test

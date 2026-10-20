@@ -39,6 +39,10 @@ Today the tool records:
   constructor edges (depth 1 `DIRECT`, deeper `INDIRECT`, max depth 3).
   Heuristic name matches are not chained.
 - `JAVA_CALL_CHAIN_CAP` when indirect findings hit the cap of 40.
+- `PY_CALL_CHAINS` when indirect Python callers walk import-resolved
+  function and method edges (depth 1 `DIRECT`, deeper `INDIRECT`, max
+  depth 3). Heuristic name matches are not chained.
+- `PY_CALL_CHAIN_CAP` when those indirect findings hit the cap of 40.
 - `JAVA_STRUCTURAL_EDGES` when Java overrides, field access, annotation
   uses, and inject-style fields are resolved against HEAD sources (not a
   Spring/Jakarta container).
