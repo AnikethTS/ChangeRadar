@@ -52,7 +52,7 @@ Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
 the Action).
 
 ```yaml
-- uses: AnikethTS/ChangeRadar@7fca92785f11ad72059c294676c89fa20b4a15d7 # wrapper on main
+- uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade # wrapper on main
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}

@@ -21,7 +21,7 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 - `VERSION` is `0.2.2-SNAPSHOT` after the `v0.2.1` tag. README status and
   sample report match the current CLI (`0.2.2-SNAPSHOT`, limitations,
-  policies). Consumer example pins wrapper SHA `7fca927`.
+  policies). Consumer example pins wrapper SHA `b825408`.
 - Consumer Action defaults the analyzer JAR to GitHub’s latest release
   (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
   Still pin `uses:` to a wrapper SHA.

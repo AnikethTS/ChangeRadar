@@ -72,7 +72,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: AnikethTS/ChangeRadar@7fca92785f11ad72059c294676c89fa20b4a15d7
+      - uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
@@ -110,7 +110,7 @@ the target Maven/Gradle build.
 
 ```yaml
 - run: ./gradlew assemble --no-daemon
-- uses: AnikethTS/ChangeRadar@7fca92785f11ad72059c294676c89fa20b4a15d7
+- uses: AnikethTS/ChangeRadar@b8254081360d2fb7eddb086dc8b6f07a76f78ade
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
