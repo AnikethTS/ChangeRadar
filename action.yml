@@ -38,7 +38,10 @@ inputs:
     required: false
     default: ""
   classpath:
-    description: Optional --classpath of already-built jars
+    description: >
+      Already-built jars or directories of jars for Java type resolution
+      (path-separator-separated). From a previous compile step in this
+      workflow. ChangeRadar does not run the target build.
     required: false
     default: ""
 runs:

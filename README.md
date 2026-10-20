@@ -181,7 +181,8 @@ Action with a locally built fat JAR. Same-repo PRs get a **compact**
 sticky comment, a job summary, and notice annotations on the Files changed
 tab; the full Markdown / JSON / SARIF stay on the artifact. Fork PRs skip
 the comment and annotations. Do not upload ChangeRadar SARIF to Code
-Scanning.
+Scanning. Java repos compile in the workflow and pass `classpath:` of those
+jars so typed callers can be `DIRECT`.
 Details: [CI integration](docs/ci-integration.md).
 
 ## Docs

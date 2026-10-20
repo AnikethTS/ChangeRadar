@@ -7,6 +7,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Consumer GitHub Actions example compiles with the project’s own Gradle
+  (or Maven) step, then passes `classpath:` of those jars so Java callers
+  can resolve as `DIRECT`. This repo’s impact workflow does the same with
+  module `build/libs`. ChangeRadar still does not run the target build.
+
 - `VERSION` is `0.2.2-SNAPSHOT` after the `v0.2.1` tag. README status and
   sample report match the current CLI (`0.2.2-SNAPSHOT`, limitations,
   policies). Consumer example pins wrapper SHA `60797d6`.
