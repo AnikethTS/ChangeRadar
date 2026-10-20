@@ -7,6 +7,18 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- CodeQL `Analyze (java)` forces a real javac (`--no-parallel --no-build-cache
+  --rerun-tasks`). Parallel compile under the tracer failed with no output;
+  Gradle’s build cache then skipped compile so CodeQL saw no Java.
+
+### Changed
+
+- Consumer Action defaults the analyzer JAR to GitHub’s latest release
+  (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
+  Still pin `uses:` to a wrapper SHA.
+
+### Fixed
+
 - Marketplace `name` is `ChangeRadar Impact Analysis`. GitHub rejected
   `ChangeRadar` because it matches an existing user (`changeradar`).
   `uses: AnikethTS/ChangeRadar@…` is unchanged.

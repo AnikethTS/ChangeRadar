@@ -12,7 +12,9 @@ inputs:
     description: Head Git SHA
     required: true
   version:
-    description: Release tag to download when jar is empty (for example v0.2.0)
+    description: >
+      Analyzer JAR to download when jar is empty. Default latest uses GitHub's
+      latest published release. Set a tag (v0.2.1) to pin a specific JAR.
     required: false
     default: latest
   jar:
@@ -65,10 +67,12 @@ runs:
             echo "changeradar: jar not found: ${INPUT_JAR}" >&2
             exit 2
           fi
-        elif [ "${INPUT_VERSION}" = "latest" ]; then
+        elif [ -z "${INPUT_VERSION}" ] || [ "${INPUT_VERSION}" = "latest" ]; then
+          echo "changeradar: downloading latest changeradar.jar"
           curl -fsSL -o "${DEST}" \
             "https://github.com/AnikethTS/ChangeRadar/releases/latest/download/changeradar.jar"
         else
+          echo "changeradar: downloading changeradar.jar from ${INPUT_VERSION}"
           curl -fsSL -o "${DEST}" \
             "https://github.com/AnikethTS/ChangeRadar/releases/download/${INPUT_VERSION}/changeradar.jar"
         fi

@@ -44,12 +44,32 @@ The CLI itself still returns `2` for tool failure.
 ## GitHub Actions
 
 Consumers copy
-[`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml)
-and pin **this repository's composite Action to a commit SHA**, the same
-way they pin `actions/checkout`. The `version` input is a ChangeRadar
-*release tag* whose assets include `changeradar.jar` (or `latest`). Pass
-`jar:` only when the fat JAR is already on disk (this repo's dogfood
-workflow).
+[`examples/github-actions/impact.yml`](../examples/github-actions/impact.yml).
+
+There are two version knobs:
+
+| Knob | What it is | Default for other repos |
+| --- | --- | --- |
+| `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21 + download). | Pin a SHA, same as `actions/checkout`. |
+| `version` | Which `changeradar.jar` to download. | **`latest`** — GitHub’s latest published release. Omit the input. |
+
+Pin a specific analyzer with `version: v0.2.1`. Pass `jar:` only when the fat
+JAR is already on disk (this repo’s dogfood workflow).
+
+```yaml
+# Latest JAR (default)
+- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1
+  with:
+    base: ${{ github.event.pull_request.base.sha }}
+    head: ${{ github.event.pull_request.head.sha }}
+
+# Pinned JAR
+- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1
+  with:
+    version: v0.2.1
+    base: ${{ github.event.pull_request.base.sha }}
+    head: ${{ github.event.pull_request.head.sha }}
+```
 
 This repository builds the JAR and runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
 Publishing a GitHub Release triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml)
@@ -71,8 +91,9 @@ Requirements:
   comment needs `pull-requests: write`. Annotating the Files changed tab
   needs `checks: write`. Forked PRs from untrusted repos should not run
   privileged comment or check-run jobs.
-- Pin third-party actions **and** `AnikethTS/ChangeRadar` to immutable
-  commit SHAs.
+- Pin third-party actions **and** the ChangeRadar **wrapper**
+  (`uses: AnikethTS/ChangeRadar@<sha>`) to immutable commit SHAs. The
+  analyzer JAR still defaults to latest unless `version` is set.
 - Upload `build/changeradar/` as an artifact.
 
 Optional Java type resolution: pass `--classpath` (or the Action `classpath`
