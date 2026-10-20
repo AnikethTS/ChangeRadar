@@ -5,17 +5,25 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- `VERSION` is `0.2.2-SNAPSHOT` after the `v0.2.1` tag. README status and
+  sample report match the current CLI (`0.2.2-SNAPSHOT`, limitations,
+  policies). Consumer example pins wrapper SHA `60797d6`.
+- Consumer Action defaults the analyzer JAR to GitHub’s latest release
+  (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
+  Still pin `uses:` to a wrapper SHA.
+
 ### Fixed
 
 - CodeQL `Analyze (java)` forces a real javac (`--no-parallel --no-build-cache
   --rerun-tasks`). Parallel compile under the tracer failed with no output;
   Gradle’s build cache then skipped compile so CodeQL saw no Java.
 
-### Changed
+## [0.2.1] - 2026-10-20
 
-- Consumer Action defaults the analyzer JAR to GitHub’s latest release
-  (`version` omitted or `latest`). Set `version: v0.2.1` to pin a JAR.
-  Still pin `uses:` to a wrapper SHA.
+GitHub Actions Marketplace listing (display name **ChangeRadar Impact
+Analysis**). Analyzer JAR is the `v0.2.1` release asset.
 
 ### Fixed
 
@@ -118,6 +126,7 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.1
 [0.2.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.1.0
