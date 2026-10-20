@@ -23,19 +23,13 @@ if body.startswith("## ChangeRadar"):
     body = body.split("\n", 1)[-1].lstrip()
 header = (
     marker
-    + "\n"
-    + "<table><tr>"
-    + '<td width="44" valign="middle">'
+    + "\n\n"
     + '<img src="'
     + logo_url
-    + '" width="36" height="36" alt="ChangeRadar" />'
-    + "</td>"
-    + '<td valign="middle">\n\n'
-    + "**ChangeRadar** · impact report  \n"
+    + '" width="280" height="97" alt="ChangeRadar" />\n\n'
     + "[Full Markdown, JSON, and SARIF]("
     + run_url
     + ")\n\n"
-    + "</td></tr></table>\n\n"
 )
 pathlib.Path("/tmp/changeradar-comment.json").write_text(
     json.dumps({"body": header + body})

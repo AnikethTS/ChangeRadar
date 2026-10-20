@@ -159,7 +159,7 @@ runs:
       run: |
         REPO="${ACTION_REPO:-${{ github.repository }}}"
         REF="${ACTION_REF:-${{ github.sha }}}"
-        LOGO="https://raw.githubusercontent.com/${REPO}/${REF}/.github/logo-mark.png"
+        LOGO="https://raw.githubusercontent.com/${REPO}/${REF}/.github/logo-comment.png"
         bash "${{ github.action_path }}/.github/scripts/changeradar-comment.sh" \
           "${{ inputs.output }}" \
           "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
