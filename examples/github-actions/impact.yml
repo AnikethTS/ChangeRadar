@@ -36,7 +36,7 @@ jobs:
       # Pin to a SHA of AnikethTS/ChangeRadar that contains action.yml, not a moving tag.
       - uses: AnikethTS/ChangeRadar@2fcffb7ae933a6d7086417f5597e9b25ad616a64
         with:
-          version: latest
+          version: v0.2.0
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           format: compact,markdown,json,sarif,github

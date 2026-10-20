@@ -24,7 +24,7 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.0-SNAPSHOT` — Java, TypeScript/JavaScript, Python, and PHP
+**Status:** `0.2.0` — Java, TypeScript/JavaScript, Python, and PHP
 impact reports, a published fat JAR / GitHub Action, compact PR comments,
 SARIF, and optional policies with a committed `--policy-file` and baseline.
 Limitations stay in the report instead of implying a complete graph.

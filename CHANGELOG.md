@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
+Distributable CLI (`changeradar.jar`) and a composite GitHub Action.
+Consumers pin the Action to a commit SHA and download a tagged JAR; they
+do not clone this repo and run Gradle.
+
 ### Fixed
 
 - Stop uploading ChangeRadar SARIF to GitHub Code Scanning. That setup
@@ -94,5 +100,6 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.1.0
