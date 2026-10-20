@@ -13,6 +13,8 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - TypeScript/JavaScript `compilerOptions.paths` / `baseUrl` from the
   nearest HEAD `tsconfig.json` or `jsconfig.json` resolve import aliases
   (JSONC allowed; `extends` and multi-star mappings are ignored).
+- Java resolved callers and call chains match a specific overload
+  signature (`n(int)` vs `n(String)`), not every method of the same name.
 
 ### Changed
 

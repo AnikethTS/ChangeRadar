@@ -82,6 +82,71 @@ class JavaLanguageAnalyzerTest {
   }
 
   @Test
+  void resolvedCallerMatchesOnlyTheChangedOverload() {
+    String demo =
+        """
+        package demo;
+        public class Demo {
+          public void n(int x) {}
+          public void n(String s) {}
+        }
+        """;
+    String intCaller =
+        """
+        package demo;
+        public class IntCaller {
+          void run() {
+            new Demo().n(1);
+          }
+        }
+        """;
+    String stringCaller =
+        """
+        package demo;
+        public class StringCaller {
+          void run() {
+            new Demo().n("x");
+          }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/main/java/demo/Demo.java",
+                    ChangeType.MODIFY,
+                    null,
+                    List.of(new LineRange(3, 3)))),
+            Map.of(
+                "src/main/java/demo/Demo.java", demo,
+                "src/main/java/demo/IntCaller.java", intCaller,
+                "src/main/java/demo/StringCaller.java", stringCaller),
+            Map.of());
+    assertTrue(
+        result.changedSymbols().stream()
+            .anyMatch(
+                symbol ->
+                    "n".equals(symbol.name())
+                        && "method".equals(symbol.kind())
+                        && symbol.signature().contains("int")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("IntCaller.java")
+                        && finding.symbolId().contains("n(int)")));
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("StringCaller.java")
+                        && finding.symbolId().contains("#n")));
+  }
+
+  @Test
   void recordsClasspathLimitationWhenJarsProvided(@TempDir Path tmp) throws Exception {
     Path libs = tmp.resolve("libs");
     Files.createDirectories(libs);

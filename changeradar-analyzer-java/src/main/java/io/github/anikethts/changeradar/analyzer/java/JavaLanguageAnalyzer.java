@@ -129,7 +129,8 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                 "JAVA_SYMBOL_SOLVER",
                 "Java callers are type-resolved against "
                     + solverScope
-                    + "; those call sites fall back to name matching (HEURISTIC)."));
+                    + "; resolved sites match a specific overload signature. Unresolved sites"
+                    + " fall back to name matching (HEURISTIC)."));
         limitations.add(
             new Limitation(
                 "JAVA_CALL_CHAINS",
@@ -318,7 +319,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                       kind,
                       name,
                       owner,
-                      parameterSignature(callable),
+                      callableKey(callable),
                       isPublic,
                       isTestPath(path) || isTestName(owner),
                       path,
@@ -357,12 +358,13 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     Set<String> seeds = new LinkedHashSet<>();
     for (ChangedSymbol symbol : changedSymbols) {
       if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
-        String id = symbol.owner() + "#" + symbol.name();
+        String id = symbol.methodKey();
         changedMethods.add(id);
         seeds.add(id);
         String simpleOwner = simpleName(symbol.owner());
         if (!simpleOwner.isEmpty()) {
-          changedMethods.add(simpleOwner + "#" + symbol.name());
+          String rest = id.substring(id.indexOf('#') + 1);
+          changedMethods.add(simpleOwner + "#" + rest);
         }
       }
       if ("field".equals(symbol.kind())) {
@@ -468,7 +470,9 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             .filter(NameExpr.class::isInstance)
             .map(scope -> ((NameExpr) scope).getNameAsString());
     Optional<String> enclosing = enclosingType(call);
-    if (enclosing.isPresent() && changedMethods.contains(enclosing.get() + "#" + methodName)) {
+    if (enclosing.isPresent()
+        && changedMethods.stream()
+            .anyMatch(key -> methodKeyMatches(key, enclosing.get(), methodName))) {
       boolean insideChanged =
           call.getRange()
               .map(
@@ -485,24 +489,24 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         return;
       }
     }
-    final Confidence confidence;
+    final Confidence confidence = Confidence.HEURISTIC;
     final String matchedOwner;
-    if (scopeType.isPresent() && changedMethods.contains(scopeType.get() + "#" + methodName)) {
-      confidence = Confidence.DIRECT;
+    if (scopeType.isPresent()
+        && changedMethods.stream()
+            .anyMatch(key -> methodKeyMatches(key, scopeType.get(), methodName))) {
       matchedOwner = scopeType.get();
     } else if (scopeType.isEmpty()
         && enclosing.isPresent()
-        && changedMethods.contains(enclosing.get() + "#" + methodName)) {
+        && changedMethods.stream()
+            .anyMatch(key -> methodKeyMatches(key, enclosing.get(), methodName))) {
       // Unresolved this/static call: only the enclosing type, not every parseBase() in the
       // repo.
-      confidence = Confidence.HEURISTIC;
       matchedOwner = enclosing.get();
     } else if (scopeType.isPresent()
-        && changedMethods.stream().anyMatch(id -> id.endsWith("#" + methodName))) {
-      confidence = Confidence.HEURISTIC;
+        && changedMethods.stream().anyMatch(id -> methodKeyNamed(id, methodName))) {
       matchedOwner =
           changedMethods.stream()
-              .filter(id -> id.endsWith("#" + methodName))
+              .filter(id -> methodKeyNamed(id, methodName))
               .map(id -> id.substring(0, id.indexOf('#')))
               .findFirst()
               .orElse("");
@@ -579,8 +583,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         if (location.isEmpty()) {
           continue;
         }
-        String childId =
-            qualify(pkg, enclosingType(method).orElse("")) + "#" + method.getNameAsString();
+        String childId = qualify(pkg, enclosingType(method).orElse("")) + "#" + callableKey(method);
         for (String parentId : ancestorMethodIds(method)) {
           boolean parentChanged = changedMethods.contains(parentId);
           boolean childChanged = changedMethods.contains(childId);
@@ -823,7 +826,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     try {
       ResolvedMethodDeclaration resolved = call.resolve();
       return Optional.of(
-          new ResolvedCall(resolved.declaringType().getQualifiedName(), resolved.getName()));
+          new ResolvedCall(resolved.declaringType().getQualifiedName(), resolved.getSignature()));
     } catch (RuntimeException e) {
       return Optional.empty();
     }
@@ -858,7 +861,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                     if (parentType.equals(childType) || "java.lang.Object".equals(parentType)) {
                       continue;
                     }
-                    String id = parentType + "#" + candidate.getName();
+                    String id = parentType + "#" + candidate.getSignature();
                     if (seen.add(id)) {
                       ids.add(id);
                     }
@@ -1038,11 +1041,36 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     return String.join(",", types);
   }
 
+  private static String callableKey(CallableDeclaration<?> callable) {
+    try {
+      if (callable instanceof MethodDeclaration method) {
+        return method.resolve().getSignature();
+      }
+      if (callable instanceof ConstructorDeclaration ctor) {
+        return ctor.resolve().getSignature();
+      }
+    } catch (RuntimeException ignored) {
+      // Fall back to source-level parameter types.
+    }
+    return callable.getNameAsString() + "(" + parameterSignature(callable) + ")";
+  }
+
+  private static boolean methodKeyMatches(String key, String owner, String methodName) {
+    String prefix = owner + "#" + methodName;
+    return key.equals(prefix) || key.startsWith(prefix + "(");
+  }
+
+  private static boolean methodKeyNamed(String key, String methodName) {
+    int hash = key.indexOf('#');
+    String rest = hash < 0 ? key : key.substring(hash + 1);
+    return rest.equals(methodName) || rest.startsWith(methodName + "(");
+  }
+
   private static String publicApiSummary(ChangedSymbol symbol) {
     String label =
         "type".equals(symbol.kind()) || symbol.owner().isEmpty()
             ? symbol.name()
-            : symbol.owner() + "#" + symbol.name();
+            : symbol.methodKey();
     if (symbol.changeType() == ChangeType.DELETE) {
       return "Public " + symbol.kind() + " " + label + " was removed";
     }
@@ -1099,11 +1127,11 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     while (current != null) {
       if (current instanceof MethodDeclaration method) {
         String owner = qualify(pkg, enclosingType(method).orElse(""));
-        return Optional.of(owner + "#" + method.getNameAsString());
+        return Optional.of(owner + "#" + callableKey(method));
       }
       if (current instanceof ConstructorDeclaration ctor) {
         String owner = qualify(pkg, enclosingType(ctor).orElse(""));
-        return Optional.of(owner + "#" + ctor.getNameAsString());
+        return Optional.of(owner + "#" + callableKey(ctor));
       }
       current = current.getParentNode().orElse(null);
     }
@@ -1150,11 +1178,16 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       if ("type".equals(kind)) {
         return "type:" + owner;
       }
-      return kind + ":" + owner + "#" + name + "(" + signature + ")";
+      if ("field".equals(kind)) {
+        return kind + ":" + owner + "#" + name + "(" + signature + ")";
+      }
+      return kind + ":" + owner + "#" + signature;
     }
 
     ChangedSymbol toSymbol(ChangeType changeType) {
       String id = path + ":" + identity() + "@" + startLine;
+      String reportedSignature =
+          "method".equals(kind) || "constructor".equals(kind) ? signature : "";
       return new ChangedSymbol(
           id,
           kind,
@@ -1162,7 +1195,8 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
           owner,
           new SourceLocation(path, startLine, endLine),
           changeType,
-          isPublic);
+          isPublic,
+          reportedSignature);
     }
   }
 }

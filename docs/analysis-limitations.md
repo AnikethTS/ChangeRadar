@@ -23,7 +23,8 @@ does not run tests).
 Today the tool records:
 
 - `JAVA_SYMBOL_SOLVER` when Java callers are type-resolved against HEAD
-  sources and the JRE (and `--classpath` jars when provided).
+  sources and the JRE (and `--classpath` jars when provided). Resolved
+  sites match one overload signature; unresolved sites stay HEURISTIC.
 - `JAVA_CLASSPATH` when `--classpath` of already-built jars was passed
   (ChangeRadar does not run the target build).
 - `SCOPED_SOURCES` when parsers skipped HEAD files that were neither
