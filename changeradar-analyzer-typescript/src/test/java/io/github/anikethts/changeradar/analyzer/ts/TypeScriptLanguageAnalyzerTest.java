@@ -179,6 +179,112 @@ class TypeScriptLanguageAnalyzerTest {
   }
 
   @Test
+  void followsExportStarBarrelToTheImplementation() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String barrel = "export * from \"./api\";\n";
+    String caller =
+        """
+        import { n } from "./index";
+        export function run() {
+          return n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts", api,
+                "src/index.ts", barrel,
+                "src/caller.ts", caller),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.ts")));
+  }
+
+  @Test
+  void followsNamedReexportBarrelToTheImplementation() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String barrel = "export { n } from \"./api\";\n";
+    String caller =
+        """
+        import { n } from "./index";
+        export function run() {
+          return n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts", api,
+                "src/index.ts", barrel,
+                "src/caller.ts", caller),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.ts")));
+  }
+
+  @Test
+  void exportStarCyclesDoNotHang() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts",
+                api,
+                "src/a.ts",
+                "export * from \"./b\";\n",
+                "src/b.ts",
+                "export * from \"./a\";\n",
+                "src/caller.ts",
+                """
+                import { n } from "./a";
+                export function run() {
+                  return n();
+                }
+                """),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .noneMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.location().path().contains("caller.ts")));
+  }
+
+  @Test
   void unmatchedBracesAreParseFailures() {
     AnalysisResult result =
         analyzer.analyze(

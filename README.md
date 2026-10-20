@@ -132,7 +132,8 @@ the same place you already review the change.
   HEURISTIC. Java callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style
   fields. TypeScript, Python, and PHP report the same when an import
-  maps to the change.
+  maps to the change. TypeScript also follows `export * from` and named
+  `export { … } from` barrels (still not tsc).
 - Flags public Java members and exported TS/JS symbols on changed lines.
 - Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**, and
   **github** (Checks annotations) reports with a stable schema version.

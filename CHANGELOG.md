@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- TypeScript/JavaScript callers through `export * from` and named
+  `export { … } from` barrels are DIRECT when the specifier chain lands
+  on the changed HEAD module (cycles are ignored; not tsc).
+
 ### Changed
 
 - PR comments use a cropped 280×97 lockup (radar + name) instead of the
