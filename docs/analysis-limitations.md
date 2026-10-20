@@ -24,6 +24,10 @@ Today the tool records:
 
 - `JAVA_SYMBOL_SOLVER` when Java callers are type-resolved against HEAD
   sources and the JRE (not compiled dependencies).
+- `JAVA_CALL_CHAINS` when indirect Java callers walk resolved method and
+  constructor edges (depth 1 `DIRECT`, deeper `INDIRECT`, max depth 3).
+  Heuristic name matches are not chained.
+- `JAVA_CALL_CHAIN_CAP` when indirect findings hit the cap of 40.
 - `NAME_BASED_DISPATCH` when a Java call site could not be resolved and
   fell back to method-name matching (`HEURISTIC`).
 - `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched

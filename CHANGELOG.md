@@ -7,6 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Java call chains: type-resolved callers of callers are reported as
+  `INDIRECT` (max depth 3, max 40 indirect sites). Heuristic name matches
+  are not chained.
 - TypeScript, Python, and PHP callers use import/require/`use` specifiers
   against HEAD files (`DIRECT` when the binding maps to the changed
   symbol). Same-named functions in files that never imported the change
