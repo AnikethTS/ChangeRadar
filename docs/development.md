@@ -63,11 +63,20 @@ pinned to commit SHAs.
 
 ## Releasing
 
-Ship from `main`. A push to `main` fast-forwards `release`. A push to
-`release` creates GitHub Release `v$(cat VERSION)` only when that tag is
-new. `Release JAR` then attaches `changeradar.jar`.
+Ship from protected `main`. Tags are the release record (`v0.2.3`), not
+a long-lived `release` branch.
 
-Bump `VERSION` and fold `CHANGELOG.md` on a PR, merge to `main`, and the
-tag plus release follow. Feature merges that do not change `VERSION` only
-move `release`; they do not cut a new JAR. Do not commit directly on
-`release`.
+1. Open a PR that sets `VERSION`, folds the Unreleased notes into
+   `CHANGELOG.md` (`## [x.y.z] - YYYY-MM-DD`), and updates pin comments.
+2. Merge after required checks. Do not push tags by hand.
+3. **Publish release** compares `VERSION` to the previous `main` tip. If
+   it changed and `vX.Y.Z` does not exist, it creates an annotated tag
+   and a GitHub Release from the changelog section. The job uses the
+   `production` environment so reviewers or a wait timer can be added
+   later.
+4. **Release JAR** builds `changeradar.jar` at that tag and uploads it.
+
+Feature merges that do not change `VERSION` do not cut a JAR. If a tag
+must be created without a `VERSION` bump (recovery), run **Publish
+release** with `workflow_dispatch` on `main`. The changelog section for
+that version is required.
