@@ -24,9 +24,10 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.0` — Java, TypeScript/JavaScript, Python, and PHP
-impact reports, a published fat JAR / GitHub Action, compact PR comments,
-SARIF, and optional policies with a committed `--policy-file` and baseline.
+**Status:** `0.2.1` — Java, TypeScript/JavaScript, Python, and PHP
+impact reports, a published fat JAR / GitHub Action (Marketplace:
+ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
+and optional policies (`changeradar policies`, `--policy-file`, baseline).
 Limitations stay in the report instead of implying a complete graph.
 
 ## Quick start
@@ -48,7 +49,7 @@ Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
 [`examples/github-actions/impact.yml`](examples/github-actions/impact.yml).
 
 ```yaml
-- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1 # v0.2.1 wrapper
+- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3 # wrapper on main
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
@@ -69,21 +70,38 @@ See [Development](docs/development.md).
 ## Sample report
 
 ```text
-ChangeRadar 0.1.0
+ChangeRadar 0.2.2-SNAPSHOT
 schema 1.0.0
 base   HEAD~1
 head   HEAD
+repo   /path/to/repo
 
-Changed files (1)
-  MODIFY  src/Demo.java
+Changed files (6)
+  MODIFY  .github/workflows/codeql.yml
+  MODIFY  README.md
+  …
 
-Changed symbols (1)
-  MODIFY  method  Demo#n  src/Demo.java:1
+Changed symbols (0)
+  (none)
+
+Potentially affected (0)
+  (none)
+
+Tests to consider (0)
+  (none)
+
+Limitations
+  [SCOPED_SOURCES] Parsers ran on 0 of 52 HEAD source files …
+  [POLICIES_DISABLED] No blocking policies were enabled. …
+  [STATIC_ANALYSIS_LIMITS] Reflection, dynamic dispatch, …
 
 Policy  none blocking
 
 Exit 0 means analysis completed, not that the change is safe.
 ```
+
+Findings, when present, are grouped by file and include a stable `id`.
+`changeradar policies` lists blocking rule names (`list-policies`).
 
 A suggested test will never be phrased as “this test failed” unless
 ChangeRadar actually ran it — and the MVP does not run tests.
@@ -111,8 +129,9 @@ the same place you already review the change.
   fields. TypeScript, Python, and PHP report the same when an import
   maps to the change.
 - Flags public Java members and exported TS/JS symbols on changed lines.
-- Writes **terminal**, **Markdown**, and **JSON** reports with a stable
-  schema version.
+- Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**, and
+  **github** (Checks annotations) reports with a stable schema version.
+- Lists named policies with `changeradar policies` (alias `list-policies`).
 - Distinguishes a completed analysis (`0`), a configured policy violation
   (`1`, only with `--policy`), and a tool/input failure (`2`).
 - Records limitations in the report instead of pretending the graph is

@@ -58,13 +58,13 @@ JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
 # Latest JAR (default)
-- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1
+- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
 
 # Pinned JAR
-- uses: AnikethTS/ChangeRadar@dc61539e4bb07574d0da6cc6b66c0f6ea0f556e1
+- uses: AnikethTS/ChangeRadar@60797d65a6d59723477c5b2cc964adbd6d4c53d3
   with:
     version: v0.2.1
     base: ${{ github.event.pull_request.base.sha }}
