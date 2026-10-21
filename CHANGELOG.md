@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Language analyzers are split into parse, callers, recommendations, and
+  a small facade. Behavior is unchanged; no file is 800+ lines.
+
 ### Added
 
 - Push to protected `main` that changes `VERSION` publishes GitHub
