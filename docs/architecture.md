@@ -11,7 +11,7 @@ invoke the same CLI.
 | CLI (`changeradar-cli`) | Parse arguments, validate refs, choose output formats, map exceptions to exit codes. |
 | Git adapter (`changeradar-git`) | Repository state, base/head resolution, changed files. JGit, hidden behind `GitRepository`. |
 | Language analyzer API (`changeradar-core`) | Parsing and relationship extraction behind `LanguageAnalyzer`. |
-| Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy and removals. |
+| Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy, removals, and binary signature (params, return, throws, fields). |
 | TypeScript analyzer (`changeradar-analyzer-typescript`) | TS/JS classes, functions, exports, name-based callers, related tests. Not tsc. |
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |
 | PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests. Not php-parser. |

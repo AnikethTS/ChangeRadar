@@ -7,6 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `breaking-public-java-api` treats return-type, declared `throws`, field
+  type, overload removal, and public-to-non-public as breaking (still not
+  japicmp). Parameter-list edits and true removals were already covered.
 - This repository's Impact workflow runs tests, copies JaCoCo XML and
   JUnit XML into `build/test-evidence/`, and passes them to the Action.
 

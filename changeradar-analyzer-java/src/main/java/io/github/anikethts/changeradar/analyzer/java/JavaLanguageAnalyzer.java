@@ -140,29 +140,42 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         if (file == null) {
           continue;
         }
+        ParsedFile baseFile = null;
+        if (changed.changeType() == ChangeType.MODIFY
+            || changed.changeType() == ChangeType.RENAME) {
+          baseFile =
+              JavaParsing.parseBase(
+                  changed.previousPath() != null ? changed.previousPath() : changed.path(),
+                  baseJavaFiles,
+                  limitations);
+        }
+        Set<String> baseKeys = new LinkedHashSet<>();
+        if (baseFile != null) {
+          for (Decl decl : baseFile.decls()) {
+            baseKeys.add(decl.identity());
+          }
+        }
         List<LineRange> hunks = changed.headLineRanges();
         boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
         Set<String> headKeys = new LinkedHashSet<>();
         for (Decl decl : file.decls()) {
           headKeys.add(decl.identity());
           if (wholeFile || JavaSupport.overlaps(hunks, decl.startLine(), decl.endLine())) {
-            ChangeType type =
-                changed.changeType() == ChangeType.ADD ? ChangeType.ADD : ChangeType.MODIFY;
+            ChangeType type;
+            if (changed.changeType() == ChangeType.ADD) {
+              type = ChangeType.ADD;
+            } else if (baseFile != null && !baseKeys.contains(decl.identity())) {
+              type = ChangeType.ADD;
+            } else {
+              type = ChangeType.MODIFY;
+            }
             changedSymbols.add(decl.toSymbol(type));
           }
         }
-        if (changed.changeType() == ChangeType.MODIFY
-            || changed.changeType() == ChangeType.RENAME) {
-          ParsedFile baseFile =
-              JavaParsing.parseBase(
-                  changed.previousPath() != null ? changed.previousPath() : changed.path(),
-                  baseJavaFiles,
-                  limitations);
-          if (baseFile != null) {
-            for (Decl decl : baseFile.decls()) {
-              if (!headKeys.contains(decl.identity())) {
-                changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
-              }
+        if (baseFile != null) {
+          for (Decl decl : baseFile.decls()) {
+            if (!headKeys.contains(decl.identity())) {
+              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
             }
           }
         }

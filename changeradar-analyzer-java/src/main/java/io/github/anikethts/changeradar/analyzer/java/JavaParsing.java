@@ -1,5 +1,6 @@
 package io.github.anikethts.changeradar.analyzer.java;
 
+import static io.github.anikethts.changeradar.analyzer.java.JavaSupport.callableAbi;
 import static io.github.anikethts.changeradar.analyzer.java.JavaSupport.callableKey;
 import static io.github.anikethts.changeradar.analyzer.java.JavaSupport.enclosingType;
 import static io.github.anikethts.changeradar.analyzer.java.JavaSupport.isTestName;
@@ -73,6 +74,7 @@ final class JavaParsing {
                             "type",
                             type.getNameAsString(),
                             qualify(pkg, typeName(type)),
+                            "",
                             "",
                             type.isPublic(),
                             isTestPath(path) || isTestName(type.getNameAsString()),
@@ -203,6 +205,7 @@ final class JavaParsing {
                       name,
                       owner,
                       callableKey(callable),
+                      callableAbi(callable),
                       isPublic,
                       isTestPath(path) || isTestName(owner),
                       path,
@@ -224,6 +227,7 @@ final class JavaParsing {
                           variable.getNameAsString(),
                           owner,
                           variable.getType().asString(),
+                          "",
                           field.isPublic(),
                           isTestPath(path) || isTestName(owner),
                           path,

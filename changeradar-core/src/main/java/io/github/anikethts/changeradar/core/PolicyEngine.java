@@ -37,8 +37,8 @@ public final class PolicyEngine {
     Map<String, String> map = new LinkedHashMap<>();
     map.put(
         BREAKING_PUBLIC_JAVA_API,
-        "Public Java type/method/field was removed or its signature changed (renames are not"
-            + " removals).");
+        "Public Java type/method/field was removed, narrowed, or its binary signature changed"
+            + " (renames are not removals).");
     map.put(
         BREAKING_PUBLIC_EXPORT,
         "Exported TS/JS symbol was removed or its signature changed (renames are not removals).");

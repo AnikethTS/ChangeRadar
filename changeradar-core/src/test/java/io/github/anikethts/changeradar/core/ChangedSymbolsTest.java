@@ -58,4 +58,31 @@ class ChangedSymbolsTest {
     assertEquals(ChangeType.MODIFY, result.symbols().get(0).changeType());
     assertEquals(1, result.signatureChanges().size());
   }
+
+  @Test
+  void publicToNonPublicIsKeptAsRemoval() {
+    ChangedSymbol gone =
+        new ChangedSymbol(
+            "old",
+            "method",
+            "n",
+            "Api",
+            new SourceLocation("src/Api.java", 2, 2),
+            ChangeType.DELETE,
+            true);
+    ChangedSymbol added =
+        new ChangedSymbol(
+            "new",
+            "method",
+            "n",
+            "Api",
+            new SourceLocation("src/Api.java", 2, 2),
+            ChangeType.ADD,
+            false);
+    ChangedSymbols.Result result = ChangedSymbols.coalesce(List.of(gone, added));
+    assertTrue(
+        result.symbols().stream()
+            .anyMatch(s -> s.changeType() == ChangeType.DELETE && s.publiclyVisible()));
+    assertTrue(result.signatureChanges().isEmpty());
+  }
 }

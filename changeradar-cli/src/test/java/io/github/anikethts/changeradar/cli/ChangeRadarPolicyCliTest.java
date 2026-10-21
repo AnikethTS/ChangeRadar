@@ -179,6 +179,78 @@ class ChangeRadarPolicyCliTest extends CliGitHarness {
   }
 
   @Test
+  void publicReturnTypeChangeBlocksJavaApiPolicy() throws Exception {
+    seedPublicReturnTypeChange();
+    assertEquals(
+        1,
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api"));
+  }
+
+  @Test
+  void publicThrowsChangeBlocksJavaApiPolicy() throws Exception {
+    seedPublicThrowsChange();
+    assertEquals(
+        1,
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api"));
+  }
+
+  @Test
+  void publicFieldTypeChangeBlocksJavaApiPolicy() throws Exception {
+    seedPublicFieldTypeChange();
+    assertEquals(
+        1,
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api"));
+  }
+
+  @Test
+  void publicOverloadRemovalBlocksJavaApiPolicy() throws Exception {
+    seedPublicOverloadRemoval();
+    assertEquals(
+        1,
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--policy",
+                "breaking-public-java-api"));
+  }
+
+  @Test
   void publicSignatureChangeBlocksJavaApiPolicy() throws Exception {
     seedPublicSignatureChange();
     int code =

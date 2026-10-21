@@ -73,6 +73,9 @@ Today the tool records:
   was not coverage data.
 - `JUNIT_INGEST` when `--junit` XML annotated pass/fail.
   `JUNIT_PARSE_FAILED` when a file was not JUnit XML.
+- Public Java ABI checks compare source-level parameter types, return
+  type, declared `throws`, field type, and `public` vs not. They are not
+  japicmp (`final`/`static`, constant inlining, and erasure are omitted).
 - `STATIC_ANALYSIS_LIMITS` as a standing reminder.
 
 The number of changed files is not a risk score. A one-line public API
