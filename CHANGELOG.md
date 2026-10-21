@@ -9,6 +9,8 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 - Language analyzers are split into parse, callers, recommendations, and
   a small facade. Behavior is unchanged; no file is 800+ lines.
+- Report writers are split by format (text, JSON, SARIF, GitHub). CLI and
+  Java analyzer tests are split by scenario, with shared Git fixtures.
 
 ### Added
 
