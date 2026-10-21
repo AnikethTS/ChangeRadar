@@ -1,0 +1,116 @@
+# On protected main: if VERSION changed and vX.Y.Z is new, tag and
+# publish a GitHub Release. Release JAR then uploads changeradar.jar.
+name: Publish release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Inspect VERSION
+    if: github.ref == 'refs/heads/main' && github.event.repository.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_publish: ${{ steps.inspect.outputs.should_publish }}
+      version: ${{ steps.inspect.outputs.version }}
+      tag: ${{ steps.inspect.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - id: inspect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -eu
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "changeradar: VERSION is not x.y.z: ${VERSION}"
+              exit 1
+              ;;
+          esac
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null; then
+            echo "changeradar: ${TAG} already exists; skip"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ZERO=0000000000000000000000000000000000000000
+          if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "$ZERO" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OLD="$(git show "${BEFORE}:VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+          if [ "$OLD" = "$VERSION" ]; then
+            echo "changeradar: VERSION unchanged (${VERSION}); skip"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "changeradar: VERSION ${OLD:-none} -> ${VERSION}"
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Tag and GitHub Release
+    needs: inspect
+    if: needs.inspect.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Create annotated tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.inspect.outputs.version }}
+          TAG: ${{ needs.inspect.outputs.tag }}
+        run: |
+          set -eu
+          NOTES="$(mktemp)"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" {p=1; next}
+            p && /^## \[/ {exit}
+            p {print}
+          ' CHANGELOG.md > "$NOTES"
+          if [ ! -s "$NOTES" ]; then
+            echo "changeradar: CHANGELOG.md has no ## [${VERSION}] section"
+            exit 1
+          fi
+          GIT_COMMITTER_NAME="github-actions[bot]" \
+          GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+          git tag -a "$TAG" -m "ChangeRadar ${VERSION}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${TAG}"
+          gh release create "$TAG" \
+            --title "ChangeRadar ${VERSION}" \
+            --verify-tag \
+            --notes-file "$NOTES"

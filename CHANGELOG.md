@@ -7,9 +7,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
-- Push to `main` fast-forwards the `release` branch. Push to `release`
-  publishes GitHub Release `v` plus `VERSION` when that tag does not
-  exist; `Release JAR` still uploads `changeradar.jar`.
+- Push to protected `main` that changes `VERSION` publishes GitHub
+  Release `v` plus that version (annotated tag, changelog notes) when
+  the tag is new. `Release JAR` still uploads `changeradar.jar`. Manual
+  retry is `workflow_dispatch` on Publish release.
 
 ## [0.2.3] - 2026-10-21
 
