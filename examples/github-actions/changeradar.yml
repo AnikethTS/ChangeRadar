@@ -39,7 +39,7 @@ jobs:
           fetch-depth: 0
 
       # Pin to a SHA of AnikethTS/ChangeRadar that includes report posting.
-      - uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
+      - uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}

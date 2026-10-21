@@ -5,6 +5,16 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- This repository's Impact workflow runs tests, copies JaCoCo XML and
+  JUnit XML into `build/test-evidence/`, and passes them to the Action.
+
+### Changed
+
+- Consumer examples pin the Action wrapper to a SHA that includes
+  `coverage` / `junit` inputs.
+
 ### Fixed
 
 - Publish release uploads `changeradar.jar` in the same workflow. A

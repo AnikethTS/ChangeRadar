@@ -54,7 +54,7 @@ copy [`changeradar-java.yml`](examples/github-actions/changeradar-java.yml)
 instead.
 
 ```yaml
-- uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6 # wrapper on main
+- uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c # wrapper on main
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
