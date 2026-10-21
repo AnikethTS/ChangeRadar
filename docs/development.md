@@ -58,8 +58,9 @@ validated, workflows and `action.yml` are linted with actionlint, Action
 scripts are linted with shellcheck, CLI smoke runs `java -jar
 changeradar.jar` and checks `report.json` against
 `schemas/report-v1.schema.json`, and a `CI` gate job fails unless every
-required job succeeded. Third-party actions in this repo's workflows are
-pinned to commit SHAs.
+required job succeeded. The Impact workflow runs `collectTestEvidence`
+(JaCoCo XML + JUnit XML) and passes those directories to the Action.
+Third-party actions in this repo's workflows are pinned to commit SHAs.
 
 ## Releasing
 

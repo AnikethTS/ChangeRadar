@@ -82,14 +82,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
+      - uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           # version: v0.2.4
 ```
 
-This repository builds the JAR and runs [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
+This repository builds the JAR, runs tests, and passes JaCoCo XML plus
+JUnit XML into [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
 Publishing a GitHub Release triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 which uploads `changeradar.jar`.
 
@@ -128,12 +129,14 @@ come from **your** test job via `coverage:` / `junit:` (CLI `--coverage`
 tests.
 
 ```yaml
-- run: ./gradlew assemble --no-daemon
-- uses: AnikethTS/ChangeRadar@5c888d9c6f8a1e2bc08228b56cdff04891f8f8b6
+- run: ./gradlew assemble test jacocoTestReport --no-daemon
+- uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
     classpath: build/libs
+    coverage: build/reports/jacoco/test/jacocoTestReport.xml
+    junit: build/test-results/test
 ```
 
 Maven: `mvn -B -DskipTests package` and `classpath: target`. Skip compile
