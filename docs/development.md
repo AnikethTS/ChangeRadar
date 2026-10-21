@@ -71,10 +71,13 @@ a long-lived `release` branch.
 2. Merge after required checks. Do not push tags by hand.
 3. **Publish release** compares `VERSION` to the previous `main` tip. If
    it changed and `vX.Y.Z` does not exist, it creates an annotated tag
-   and a GitHub Release from the changelog section. The job uses the
-   `production` environment so reviewers or a wait timer can be added
-   later.
-4. **Release JAR** builds `changeradar.jar` at that tag and uploads it.
+   and a GitHub Release from the changelog section, then builds and
+   uploads `changeradar.jar` in the same workflow. `GITHUB_TOKEN` cannot
+   start **Release JAR** (`release: published` from another workflow is
+   skipped). The tag job uses the `production` environment so reviewers
+   or a wait timer can be added later.
+4. **Release JAR** still uploads the JAR when a human publishes a
+   GitHub Release from the UI, or via `workflow_dispatch` with a tag.
 
 Feature merges that do not change `VERSION` do not cut a JAR. If a tag
 must be created without a `VERSION` bump (recovery), run **Publish
