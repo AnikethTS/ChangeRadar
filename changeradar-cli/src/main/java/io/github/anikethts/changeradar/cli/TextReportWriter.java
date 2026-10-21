@@ -6,6 +6,7 @@ import static io.github.anikethts.changeradar.cli.ReportSupport.groupedFindings;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.Confidence;
+import io.github.anikethts.changeradar.core.ExecutionStatus;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.PolicyResult;
@@ -86,7 +87,16 @@ final class TextReportWriter {
       out.println("  (none)");
     } else {
       for (TestRecommendation test : report.tests()) {
-        out.println("  [" + test.confidence() + "] " + test.name() + "  " + test.path());
+        String label = testLabel(test);
+        out.println(
+            "  ["
+                + test.confidence()
+                + "]"
+                + (label.isEmpty() ? "" : " " + label)
+                + "  "
+                + test.name()
+                + "  "
+                + test.path());
         out.println("           " + test.reason());
       }
     }
@@ -171,13 +181,12 @@ final class TextReportWriter {
       md.append("_None selected._\n\n");
     } else {
       for (TestRecommendation test : report.tests()) {
-        md.append("- **")
-            .append(test.name())
-            .append("** (`")
-            .append(test.path())
-            .append("`) — ")
-            .append(test.reason())
-            .append('\n');
+        String label = testLabel(test);
+        md.append("- **").append(test.name()).append("** (`").append(test.path()).append("`)");
+        if (!label.isEmpty()) {
+          md.append(' ').append(label);
+        }
+        md.append(" — ").append(test.reason()).append('\n');
       }
       md.append('\n');
     }
@@ -281,16 +290,31 @@ final class TextReportWriter {
       report.tests().stream()
           .limit(5)
           .forEach(
-              test ->
-                  md.append("- **")
-                      .append(test.name())
-                      .append("** (`")
-                      .append(test.path())
-                      .append("`)\n"));
+              test -> {
+                String label = testLabel(test);
+                md.append("- **")
+                    .append(test.name())
+                    .append("** (`")
+                    .append(test.path())
+                    .append("`)");
+                if (!label.isEmpty()) {
+                  md.append(' ').append(label);
+                }
+                md.append('\n');
+              });
       md.append('\n');
     }
     md.append("_Absence of a finding is not proof of no impact._\n");
     return md.toString();
+  }
+
+  private static String testLabel(TestRecommendation test) {
+    boolean known = test.execution() != null && test.execution() != ExecutionStatus.UNKNOWN;
+    String execution = known ? test.execution().name() : "";
+    if (test.coversChangedLines()) {
+      return execution.isEmpty() ? "coverage-hit" : execution + " coverage-hit";
+    }
+    return execution;
   }
 
   static void writePolicyTerminal(PolicyResult policy, PrintStream out) {

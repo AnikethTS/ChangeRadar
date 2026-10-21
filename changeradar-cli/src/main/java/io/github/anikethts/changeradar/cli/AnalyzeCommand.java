@@ -21,6 +21,8 @@ import io.github.anikethts.changeradar.core.PolicyFile;
 import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
 import io.github.anikethts.changeradar.core.SourceScope;
+import io.github.anikethts.changeradar.core.TestEvidence;
+import io.github.anikethts.changeradar.core.TestRecommendation;
 import io.github.anikethts.changeradar.core.TsConfigPaths;
 import io.github.anikethts.changeradar.core.Version;
 import io.github.anikethts.changeradar.git.JGitRepository;
@@ -128,6 +130,20 @@ public final class AnalyzeCommand implements Callable<Integer> {
               + " target build. Repeatable. Each value may be a "
               + "path-separator-separated list.")
   List<String> classpath;
+
+  @Option(
+      names = "--coverage",
+      description =
+          "JaCoCo XML or LCOV file, or a directory of those files. Suite-wide coverage is"
+              + " intersected with changed lines. Does not run tests. Repeatable.")
+  List<String> coverage;
+
+  @Option(
+      names = "--junit",
+      description =
+          "JUnit XML file (Surefire/Gradle/pytest/jest-junit) or a directory of TEST-*.xml."
+              + " Annotates recommended tests with pass/fail. Does not run tests. Repeatable.")
+  List<String> junit;
 
   @Option(
       names = "--full-index",
@@ -288,6 +304,15 @@ public final class AnalyzeCommand implements Callable<Integer> {
               "Reflection, dynamic dispatch, generated code, dependency injection, and external"
                   + " services are not fully resolvable. Absence of a finding is not proof of no"
                   + " impact."));
+      List<TestRecommendation> tests = analysis.tests();
+      List<Path> coverageFiles = TestEvidence.expand(repository, coverage, "coverage");
+      List<Path> junitFiles = TestEvidence.expand(repository, junit, "junit");
+      if (!coverageFiles.isEmpty() || !junitFiles.isEmpty()) {
+        TestEvidence.Result evidence =
+            TestEvidence.apply(tests, changed, coverageFiles, junitFiles);
+        tests = evidence.tests();
+        limitations.addAll(evidence.limitations());
+      }
       report =
           new Report(
               Report.SCHEMA_VERSION,
@@ -297,7 +322,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               changed,
               analysis.changedSymbols(),
               findings,
-              analysis.tests(),
+              tests,
               List.copyOf(limitations),
               policy);
     }

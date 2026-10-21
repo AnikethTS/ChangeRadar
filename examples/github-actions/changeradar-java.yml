@@ -50,3 +50,6 @@ jobs:
           # version: v0.2.3
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt
+          # After YOUR test job (ChangeRadar does not run tests):
+          # coverage: build/reports/jacoco/test/jacocoTestReport.xml
+          # junit: build/test-results/test

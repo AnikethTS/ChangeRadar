@@ -14,6 +14,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Optional `--coverage` (JaCoCo XML or LCOV) intersects suite coverage with
+  changed lines. Optional `--junit` annotates recommended tests with
+  pass/fail from XML the consumer already produced. ChangeRadar still does
+  not run the target build or tests.
 - Push to protected `main` that changes `VERSION` publishes GitHub
   Release `v` plus that version (annotated tag, changelog notes) when
   the tag is new. `Release JAR` still uploads `changeradar.jar`. Manual

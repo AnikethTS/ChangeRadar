@@ -63,6 +63,10 @@ There are two version knobs:
 | `uses: AnikethTS/ChangeRadar@<sha>` | The Action wrapper (`action.yml`: Java 21, download, report). | Pin a SHA, same as `actions/checkout`. |
 | `version` | Which `changeradar.jar` to download. | **`latest`** — GitHub’s latest published release. Omit the input. |
 
+After a test job, pass `coverage:` (JaCoCo XML or LCOV) and/or `junit:`
+(JUnit XML). ChangeRadar does not run tests; it annotates the report with
+changed-line hits and pass/fail. CLI flags are `--coverage` and `--junit`.
+
 Pin a specific analyzer with `version: v0.2.3`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
@@ -118,8 +122,10 @@ Requirements:
 - The Action uploads `build/changeradar/` as artifact `changeradar-report`.
 
 Java type resolution: compile **in this workflow**, then pass `--classpath`
-(or the Action `classpath` input) at those jars. ChangeRadar does not run
-the target Maven/Gradle build.
+(or the Action `classpath` input) at those jars. Coverage and JUnit XML
+come from **your** test job via `coverage:` / `junit:` (CLI `--coverage`
+/ `--junit`). ChangeRadar does not run the target Maven/Gradle build or
+tests.
 
 ```yaml
 - run: ./gradlew assemble --no-daemon

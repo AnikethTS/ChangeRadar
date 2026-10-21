@@ -45,6 +45,8 @@ plus tests against the shared model.
   An LLM can never be required to produce a report.
 - **Do not execute the project's build.** Source is untrusted input. Analysis
   reads files; it does not run Maven/Gradle/npm from the target repo.
+  Optional `--coverage` / `--junit` ingest reports the consumer already
+  wrote.
 
 ## Roadmap
 
