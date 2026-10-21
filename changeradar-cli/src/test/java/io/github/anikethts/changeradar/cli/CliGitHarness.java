@@ -128,6 +128,107 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedPublicReturnTypeChange() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public int n() { return 1; }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public String n() { return "1"; }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  void seedPublicThrowsChange() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() throws java.io.IOException {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  void seedPublicFieldTypeChange() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public int x;
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public String x;
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  void seedPublicOverloadRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+            public void n(int x) {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   void seedPublicRemoval() throws Exception {
     try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
       Path src = tmp.resolve("src/Api.java");

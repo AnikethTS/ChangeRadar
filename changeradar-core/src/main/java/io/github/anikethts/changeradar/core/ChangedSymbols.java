@@ -46,18 +46,25 @@ public final class ChangedSymbols {
         ChangedSymbol from = del.get(0);
         ChangedSymbol to = add.get(0);
         if (from.location().path().equals(to.location().path())) {
-          ChangedSymbol modified =
-              new ChangedSymbol(
-                  to.id(),
-                  to.kind(),
-                  to.name(),
-                  to.owner(),
-                  to.location(),
-                  ChangeType.MODIFY,
-                  to.publiclyVisible(),
-                  to.signature());
-          out.add(modified);
-          signatureChanges.add(modified);
+          if (from.publiclyVisible() && !to.publiclyVisible()) {
+            out.add(from);
+            out.add(to);
+          } else {
+            ChangedSymbol modified =
+                new ChangedSymbol(
+                    to.id(),
+                    to.kind(),
+                    to.name(),
+                    to.owner(),
+                    to.location(),
+                    ChangeType.MODIFY,
+                    to.publiclyVisible(),
+                    to.signature());
+            out.add(modified);
+            if (from.publiclyVisible() && to.publiclyVisible()) {
+              signatureChanges.add(modified);
+            }
+          }
         } else {
           out.add(
               new ChangedSymbol(

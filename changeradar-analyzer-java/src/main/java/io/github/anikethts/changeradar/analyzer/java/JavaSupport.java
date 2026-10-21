@@ -6,6 +6,8 @@ import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.nodeTypes.NodeWithThrownExceptions;
+import com.github.javaparser.ast.type.Type;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.LineRange;
@@ -68,6 +70,23 @@ final class JavaSupport {
     List<String> types = new ArrayList<>();
     callable.getParameters().forEach(parameter -> types.add(parameter.getType().asString()));
     return String.join(",", types);
+  }
+
+  static String thrownSignature(NodeWithThrownExceptions<?> node) {
+    List<String> types = new ArrayList<>();
+    for (Type thrown : node.getThrownExceptions()) {
+      types.add(thrown.asString());
+    }
+    types.sort(String::compareTo);
+    return String.join(",", types);
+  }
+
+  static String callableAbi(CallableDeclaration<?> callable) {
+    String thrown = thrownSignature(callable);
+    if (callable instanceof MethodDeclaration method) {
+      return method.getType().asString() + ":" + thrown;
+    }
+    return thrown;
   }
 
   static String callableKey(CallableDeclaration<?> callable) {

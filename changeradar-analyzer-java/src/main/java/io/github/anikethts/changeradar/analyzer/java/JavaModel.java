@@ -18,6 +18,7 @@ record Decl(
     String name,
     String owner,
     String signature,
+    String abi,
     boolean isPublic,
     boolean test,
     String path,
@@ -25,13 +26,14 @@ record Decl(
     int endLine) {
 
   String identity() {
+    String vis = isPublic ? "pub" : "npub";
     if ("type".equals(kind)) {
-      return "type:" + owner;
+      return "type:" + owner + "|" + vis;
     }
     if ("field".equals(kind)) {
-      return kind + ":" + owner + "#" + name + "(" + signature + ")";
+      return kind + ":" + owner + "#" + name + "(" + signature + ")|" + vis;
     }
-    return kind + ":" + owner + "#" + signature;
+    return kind + ":" + owner + "#" + signature + ":" + abi + "|" + vis;
   }
 
   ChangedSymbol toSymbol(ChangeType changeType) {

@@ -94,11 +94,13 @@ True removals (no matching ADD) still trip the breaking-public-* rules.
 
 ## Built-in rules (off by default)
 
-- `breaking-public-java-api` — a public Java type or method/constructor was
-  **removed** or its **signature changed**. File moves of the same member
-  are `RENAME`, not removals. Body edits of public methods do not trip this
-  rule. Test sources are ignored. Overloads are distinguished by pairing
-  the same simple name; this is not a full binary-compatibility checker.
+- `breaking-public-java-api` — a public Java type, method/constructor, or
+  field was **removed**, had its **visibility narrowed**, or its
+  **binary signature changed** (parameter types, return type, declared
+  `throws`, field type). File moves of the same member are `RENAME`, not
+  removals. Body edits of public methods do not trip this rule. Test
+  sources are ignored. This is still not japicmp: generics erasure,
+  `final`/`static` flips, and constant inlining are not modeled.
 - `breaking-public-export` — an exported TypeScript/JavaScript function,
   class, or type was **removed** or its signature changed. Body edits do
   not trip this rule. Test sources are ignored. This is not a full semver /

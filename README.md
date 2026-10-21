@@ -144,8 +144,9 @@ the same place you already review the change.
 - Records limitations in the report instead of pretending the graph is
   complete.
 
-Still to come: richer binary-compatibility checks. See the
-[roadmap](docs/architecture.md#roadmap).
+Public Java binary breaks (return type, `throws`, field type, overload
+removal, narrowed visibility) trip `breaking-public-java-api` when that
+policy is enabled. See the [roadmap](docs/architecture.md#roadmap).
 
 Curious how the pieces fit? [Architecture](docs/architecture.md) and
 [How analysis is limited](docs/analysis-limitations.md).
