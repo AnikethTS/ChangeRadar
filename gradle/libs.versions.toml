@@ -4,7 +4,7 @@ picocli = "4.7.7"
 jgit = "7.8.0.202609011348-r"
 jackson = "2.19.2"
 javaparser = "3.28.2"
-spotless = "7.2.1"
+spotless = "8.10.4"
 shadow = "9.6.1"
 
 [libraries]
