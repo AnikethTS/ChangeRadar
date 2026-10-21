@@ -5,6 +5,13 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Publish release uploads `changeradar.jar` in the same workflow. A
+  `GITHUB_TOKEN` `gh release create` does not start Release JAR, so
+  `releases/latest/download/changeradar.jar` 404ed on v0.2.4 until the
+  asset was attached.
+
 ## [0.2.4] - 2026-10-21
 
 Analyzer JAR is the `v0.2.4` release asset. Omit `version` for latest;

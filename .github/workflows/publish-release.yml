@@ -114,3 +114,36 @@ jobs:
             --title "ChangeRadar ${VERSION}" \
             --verify-tag \
             --notes-file "$NOTES"
+
+  jar:
+    name: Upload changeradar.jar
+    needs: [inspect, publish]
+    if: needs.inspect.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.inspect.outputs.tag }}
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Build fat JAR
+        run: ./gradlew :changeradar-cli:shadowJar --no-daemon
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.inspect.outputs.tag }}
+        run: |
+          test -s changeradar-cli/build/libs/changeradar.jar
+          gh release upload "$TAG" \
+            changeradar-cli/build/libs/changeradar.jar \
+            --clobber
