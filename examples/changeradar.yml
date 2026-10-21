@@ -13,5 +13,6 @@ policies:
   # - breaking-public-python
   # - breaking-public-php
   # - analysis-unavailable
+  # - failed-related-tests   # requires --junit / Action junit:
 baseline: .changeradar/baseline.txt
 suppressions: .changeradar/suppress.txt

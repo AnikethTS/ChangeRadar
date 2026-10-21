@@ -192,6 +192,34 @@ class PolicyEngineTest {
   }
 
   @Test
+  void failedRelatedTestsBlocksOnlyWhenJunitMarksFailure() {
+    TestRecommendation failed =
+        new TestRecommendation(
+            "DemoTest#coversN",
+            "src/test/java/demo/DemoTest.java",
+            Confidence.DIRECT,
+            "Failed in the provided JUnit report.",
+            true,
+            ExecutionStatus.FAILED);
+    TestRecommendation unknown =
+        new TestRecommendation(
+            "DemoTest",
+            "src/test/java/demo/DemoTest.java",
+            Confidence.HEURISTIC,
+            "Suggestion only; the test was not executed.");
+    AnalysisResult withFailure =
+        new AnalysisResult(List.of(), List.of(), List.of(failed), List.of());
+    AnalysisResult withoutJunit =
+        new AnalysisResult(List.of(), List.of(), List.of(unknown), List.of());
+    assertTrue(
+        PolicyEngine.evaluate(List.of(PolicyEngine.FAILED_RELATED_TESTS), withFailure, List.of())
+            .blocking());
+    assertFalse(
+        PolicyEngine.evaluate(List.of(PolicyEngine.FAILED_RELATED_TESTS), withoutJunit, List.of())
+            .blocking());
+  }
+
+  @Test
   void parseEnabledAcceptsCommaSeparatedNames() {
     assertEquals(
         2,

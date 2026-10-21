@@ -52,7 +52,7 @@ jobs:
           # classpath: build/libs
 
           # Optional policies and finding-id suppressions (commit those files):
-          # policy: breaking-public-java-api,analysis-unavailable
+          # policy: breaking-public-java-api,analysis-unavailable,failed-related-tests
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt
 

@@ -20,6 +20,7 @@ public final class PolicyEngine {
   public static final String BREAKING_PUBLIC_PYTHON = "breaking-public-python";
   public static final String BREAKING_PUBLIC_PHP = "breaking-public-php";
   public static final String ANALYSIS_UNAVAILABLE = "analysis-unavailable";
+  public static final String FAILED_RELATED_TESTS = "failed-related-tests";
 
   public static final Set<String> KNOWN =
       Set.of(
@@ -27,7 +28,8 @@ public final class PolicyEngine {
           BREAKING_PUBLIC_EXPORT,
           BREAKING_PUBLIC_PYTHON,
           BREAKING_PUBLIC_PHP,
-          ANALYSIS_UNAVAILABLE);
+          ANALYSIS_UNAVAILABLE,
+          FAILED_RELATED_TESTS);
 
   public static final Map<String, String> DESCRIPTIONS = descriptions();
 
@@ -51,6 +53,9 @@ public final class PolicyEngine {
         "Public PHP class/function was removed or its signature changed (renames are not"
             + " removals).");
     map.put(ANALYSIS_UNAVAILABLE, "A changed source file could not be parsed.");
+    map.put(
+        FAILED_RELATED_TESTS,
+        "A recommended or related test FAILED or ERROR in provided JUnit XML (requires --junit).");
     return Map.copyOf(map);
   }
 
@@ -116,6 +121,9 @@ public final class PolicyEngine {
     }
     if (rules.contains(ANALYSIS_UNAVAILABLE)) {
       violations.addAll(analysisUnavailable(analysis, changedFiles));
+    }
+    if (rules.contains(FAILED_RELATED_TESTS)) {
+      violations.addAll(failedRelatedTests(analysis));
     }
     List<String> fresh = new ArrayList<>();
     for (String violation : violations) {
@@ -240,6 +248,24 @@ public final class PolicyEngine {
               : symbol.owner() + "#" + symbol.name();
       violations.add(
           rule + ": public " + symbol.kind() + " " + label + " signature changed in " + path);
+    }
+    return violations;
+  }
+
+  private static List<String> failedRelatedTests(AnalysisResult analysis) {
+    List<String> violations = new ArrayList<>();
+    for (TestRecommendation test : analysis.tests()) {
+      if (test.execution() != ExecutionStatus.FAILED && test.execution() != ExecutionStatus.ERROR) {
+        continue;
+      }
+      violations.add(
+          FAILED_RELATED_TESTS
+              + ": "
+              + test.name()
+              + " "
+              + test.execution().name()
+              + " in "
+              + test.path());
     }
     return violations;
   }

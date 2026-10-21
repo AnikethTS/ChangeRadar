@@ -7,6 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Optional `--policy failed-related-tests` fails when provided JUnit XML
+  marks a recommended or related test as FAILED or ERROR. Requires
+  `--junit`. ChangeRadar still does not run tests.
 - `breaking-public-java-api` treats return-type, declared `throws`, field
   type, overload removal, and public-to-non-public as breaking (still not
   japicmp). Parameter-list edits and true removals were already covered.
