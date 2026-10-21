@@ -47,7 +47,7 @@ jobs:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           classpath: build/libs
-          # version: v0.2.3
+          # version: v0.2.4
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt
           # After YOUR test job (ChangeRadar does not run tests):

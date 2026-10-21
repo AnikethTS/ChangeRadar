@@ -63,7 +63,7 @@ pinned to commit SHAs.
 
 ## Releasing
 
-Ship from protected `main`. Tags are the release record (`v0.2.3`), not
+Ship from protected `main`. Tags are the release record (`v0.2.4`), not
 a long-lived `release` branch.
 
 1. Open a PR that sets `VERSION`, folds the Unreleased notes into

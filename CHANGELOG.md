@@ -5,12 +5,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
-### Changed
+## [0.2.4] - 2026-10-21
 
-- Language analyzers are split into parse, callers, recommendations, and
-  a small facade. Behavior is unchanged; no file is 800+ lines.
-- Report writers are split by format (text, JSON, SARIF, GitHub). CLI and
-  Java analyzer tests are split by scenario, with shared Git fixtures.
+Analyzer JAR is the `v0.2.4` release asset. Omit `version` for latest;
+set `version: v0.2.4` to pin this JAR.
 
 ### Added
 
@@ -22,6 +20,13 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   Release `v` plus that version (annotated tag, changelog notes) when
   the tag is new. `Release JAR` still uploads `changeradar.jar`. Manual
   retry is `workflow_dispatch` on Publish release.
+
+### Changed
+
+- Language analyzers are split into parse, callers, recommendations, and
+  a small facade. Behavior is unchanged; no file is 800+ lines.
+- Report writers are split by format (text, JSON, SARIF, GitHub). CLI and
+  Java analyzer tests are split by scenario, with shared Git fixtures.
 
 ## [0.2.3] - 2026-10-21
 
@@ -196,7 +201,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.4
 [0.2.3]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.3
 [0.2.2]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.2
 [0.2.1]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.1
