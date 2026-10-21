@@ -142,7 +142,7 @@ public final class PolicyEngine {
         continue;
       }
       String path = symbol.location().path();
-      if (isTestPath(path)) {
+      if (SourcePaths.isTestSource(path)) {
         continue;
       }
       if (java != path.endsWith(".java")) {
@@ -168,7 +168,8 @@ public final class PolicyEngine {
         continue;
       }
       String path = symbol.location().path();
-      if (isTestPath(path) || !new ChangedFile(path, ChangeType.MODIFY, null).isPythonSource()) {
+      if (SourcePaths.isTestSource(path)
+          || !new ChangedFile(path, ChangeType.MODIFY, null).isPythonSource()) {
         continue;
       }
       String label =
@@ -194,7 +195,8 @@ public final class PolicyEngine {
         continue;
       }
       String path = symbol.location().path();
-      if (isTestPath(path) || !new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource()) {
+      if (SourcePaths.isTestSource(path)
+          || !new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource()) {
         continue;
       }
       String label =
@@ -224,7 +226,7 @@ public final class PolicyEngine {
     }
     List<String> violations = new ArrayList<>();
     for (ChangedSymbol symbol : signatureChanges) {
-      if (!symbol.publiclyVisible() || isTestPath(symbol.location().path())) {
+      if (!symbol.publiclyVisible() || SourcePaths.isTestSource(symbol.location().path())) {
         continue;
       }
       String path = symbol.location().path();
@@ -292,16 +294,5 @@ public final class PolicyEngine {
       }
     }
     return violations;
-  }
-
-  private static boolean isTestPath(String path) {
-    String n = path.replace('\\', '/').toLowerCase();
-    String file = n.substring(n.lastIndexOf('/') + 1);
-    return n.contains("/test/")
-        || n.contains("/tests/")
-        || n.contains("/src/test")
-        || file.startsWith("test_")
-        || file.endsWith("_test.py")
-        || file.endsWith("test.php");
   }
 }

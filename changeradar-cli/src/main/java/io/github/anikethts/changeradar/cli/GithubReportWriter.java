@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Report;
+import io.github.anikethts.changeradar.core.SourcePaths;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -29,6 +30,9 @@ final class GithubReportWriter {
             .thenComparing(ImpactFinding::id));
     for (ImpactFinding finding : ordered) {
       if (finding.confidence() == Confidence.HEURISTIC) {
+        continue;
+      }
+      if (SourcePaths.isTestSource(finding.location().path())) {
         continue;
       }
       if (annotations.size() >= 50) {

@@ -18,6 +18,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Checks notices skip findings in test sources so Files changed is not
+  covered with `CALLER` on unit tests. The Markdown/JSON reports still
+  include those callers.
 - Consumer examples pin the Action wrapper to a SHA that includes
   `coverage` / `junit` inputs.
 
