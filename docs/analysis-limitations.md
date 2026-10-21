@@ -15,8 +15,8 @@ silence means safety.
 | Unknown | Reflection or unresolved dispatch | State the limitation; never imply no impact. |
 
 “Potentially affected” is not “will break.” A suggested test is not proof
-that the test passed or failed unless ChangeRadar actually ran it (the MVP
-does not run tests).
+that the test passed or failed. Optional `--coverage` / `--junit` ingest
+reports the consumer already wrote; ChangeRadar still does not run tests.
 
 ## Current implementation
 
@@ -68,6 +68,11 @@ Today the tool records:
   import of the changed symbol (`HEURISTIC`, including many tests).
 - `POLICIES_DISABLED` when no `--policy` flags were passed.
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
+- `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read
+  (suite-wide hits, not per-test). `COVERAGE_PARSE_FAILED` when a file
+  was not coverage data.
+- `JUNIT_INGEST` when `--junit` XML annotated pass/fail.
+  `JUNIT_PARSE_FAILED` when a file was not JUnit XML.
 - `STATIC_ANALYSIS_LIMITS` as a standing reminder.
 
 The number of changed files is not a risk score. A one-line public API

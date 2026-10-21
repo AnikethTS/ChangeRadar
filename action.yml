@@ -48,6 +48,18 @@ inputs:
     description: Optional --suppress-file path (one finding id per line)
     required: false
     default: ""
+  coverage:
+    description: >
+      JaCoCo XML or LCOV file, or a directory of those files. Intersects
+      suite coverage with changed lines. ChangeRadar does not run tests.
+    required: false
+    default: ""
+  junit:
+    description: >
+      JUnit XML file or directory of TEST-*.xml. Annotates recommended
+      tests with pass/fail. ChangeRadar does not run tests.
+    required: false
+    default: ""
   comment:
     description: Post or update a sticky PR comment (same-repo pull requests only)
     required: false
@@ -126,6 +138,12 @@ runs:
         fi
         if [ -n "${{ inputs.suppress-file }}" ]; then
           ARGS+=(--suppress-file "${{ inputs.suppress-file }}")
+        fi
+        if [ -n "${{ inputs.coverage }}" ]; then
+          ARGS+=(--coverage "${{ inputs.coverage }}")
+        fi
+        if [ -n "${{ inputs.junit }}" ]; then
+          ARGS+=(--junit "${{ inputs.junit }}")
         fi
         java -jar "${CHANGERADAR_JAR}" "${ARGS[@]}"
 

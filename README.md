@@ -191,6 +191,8 @@ tab from inside the Action; the full Markdown / JSON / SARIF stay on the
 artifact. Fork PRs skip the comment and annotations. Do not upload
 ChangeRadar SARIF to Code Scanning. Java repos may compile in the workflow
 and pass `classpath:` of those jars so typed callers can be `DIRECT`.
+After your own test job, pass `coverage:` (JaCoCo/LCOV) and `junit:`
+(JUnit XML); ChangeRadar does not run those tests.
 Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
