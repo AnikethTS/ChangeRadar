@@ -117,3 +117,6 @@ True removals (no matching ADD) still trip the breaking-public-* rules.
   `.py`, or `.php` file could not be parsed (`JAVA_PARSE_FAILED`,
   `TS_PARSE_FAILED`, `PY_PARSE_FAILED`, or `PHP_PARSE_FAILED`). Distinct
   from “we found risk.”
+- `failed-related-tests` — a recommended or related test is `FAILED` or
+  `ERROR` in **provided** JUnit XML (`--junit`). ChangeRadar does not run
+  tests. Without `--junit` the rule does not fire (`FAILED_RELATED_TESTS_NO_JUNIT`).

@@ -62,6 +62,49 @@ class ChangeRadarEvidenceCliTest extends CliGitHarness {
   }
 
   @Test
+  void failedRelatedTestsPolicyBlocksWhenJunitFailed() throws Exception {
+    seedCallerRepo();
+    Path junit = tmp.resolve("TEST-DemoTest.xml");
+    Files.writeString(
+        junit,
+        """
+        <testsuite>
+          <testcase classname="demo.DemoTest" name="coversN">
+            <failure message="boom"/>
+          </testcase>
+        </testsuite>
+        """);
+    int off =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--junit",
+                junit.toString());
+    assertEquals(0, off);
+    int on =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--junit",
+                junit.toString(),
+                "--policy",
+                "failed-related-tests");
+    assertEquals(1, on);
+  }
+
+  @Test
   void missingCoveragePathIsExitTwo() throws Exception {
     seedCallerRepo();
     int code =

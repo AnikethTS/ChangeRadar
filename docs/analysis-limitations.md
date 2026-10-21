@@ -68,6 +68,8 @@ Today the tool records:
   import of the changed symbol (`HEURISTIC`, including many tests).
 - `POLICIES_DISABLED` when no `--policy` flags were passed.
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
+- `FAILED_RELATED_TESTS_NO_JUNIT` when `failed-related-tests` is enabled
+  without `--junit`.
 - `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read
   (suite-wide hits, not per-test). `COVERAGE_PARSE_FAILED` when a file
   was not coverage data.

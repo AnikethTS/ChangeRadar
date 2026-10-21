@@ -234,9 +234,18 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       AnalysisResult merged = AnalysisResult.merge(parts);
       ChangedSymbols.Result coalesced = ChangedSymbols.coalesce(merged.changedSymbols());
+      List<Limitation> analysisLimitations = new ArrayList<>(merged.limitations());
+      List<TestRecommendation> tests = merged.tests();
+      List<Path> coverageFiles = TestEvidence.expand(repository, coverage, "coverage");
+      List<Path> junitFiles = TestEvidence.expand(repository, junit, "junit");
+      if (!coverageFiles.isEmpty() || !junitFiles.isEmpty()) {
+        TestEvidence.Result evidence =
+            TestEvidence.apply(tests, changed, coverageFiles, junitFiles);
+        tests = evidence.tests();
+        analysisLimitations.addAll(evidence.limitations());
+      }
       AnalysisResult analysis =
-          new AnalysisResult(
-              coalesced.symbols(), merged.findings(), merged.tests(), merged.limitations());
+          new AnalysisResult(coalesced.symbols(), merged.findings(), tests, analysisLimitations);
       Set<String> baselineKeys =
           baselinePath == null ? Set.of() : PolicyFile.readBaseline(baselinePath);
       PolicyResult raw =
@@ -298,21 +307,19 @@ public final class AnalyzeCommand implements Callable<Integer> {
                     + " are omitted from the report. Re-run with --write-suppressions to"
                     + " refresh. Line shifts can invalidate ids."));
       }
+      if (enabledPolicies.contains(PolicyEngine.FAILED_RELATED_TESTS) && junitFiles.isEmpty()) {
+        limitations.add(
+            new Limitation(
+                "FAILED_RELATED_TESTS_NO_JUNIT",
+                "Policy failed-related-tests is enabled but --junit was not passed. The rule did"
+                    + " not fire. Provide JUnit XML from a test job you already ran."));
+      }
       limitations.add(
           new Limitation(
               "STATIC_ANALYSIS_LIMITS",
               "Reflection, dynamic dispatch, generated code, dependency injection, and external"
                   + " services are not fully resolvable. Absence of a finding is not proof of no"
                   + " impact."));
-      List<TestRecommendation> tests = analysis.tests();
-      List<Path> coverageFiles = TestEvidence.expand(repository, coverage, "coverage");
-      List<Path> junitFiles = TestEvidence.expand(repository, junit, "junit");
-      if (!coverageFiles.isEmpty() || !junitFiles.isEmpty()) {
-        TestEvidence.Result evidence =
-            TestEvidence.apply(tests, changed, coverageFiles, junitFiles);
-        tests = evidence.tests();
-        limitations.addAll(evidence.limitations());
-      }
       report =
           new Report(
               Report.SCHEMA_VERSION,
@@ -322,7 +329,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               changed,
               analysis.changedSymbols(),
               findings,
-              tests,
+              analysis.tests(),
               List.copyOf(limitations),
               policy);
     }
