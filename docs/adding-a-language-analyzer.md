@@ -7,6 +7,10 @@ report schema.
 
 ## Contract
 
+Keep the adapter as a small facade. Put parse/index, callers/structural
+edges, and test recommendations in package-private types next to it so
+the public class stays under a few hundred lines.
+
 Implement `io.github.anikethts.changeradar.core.LanguageAnalyzer`:
 
 - `languageId()` — stable id (`java`, `typescript`, `python`).
