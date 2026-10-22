@@ -7,6 +7,7 @@
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
 hs_err_pid*
+.gradle-agent/
 
 # Reports generated locally
 /build/changeradar/

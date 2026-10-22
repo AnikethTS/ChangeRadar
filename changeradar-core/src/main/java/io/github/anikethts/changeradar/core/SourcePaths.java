@@ -4,12 +4,27 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /** Relative import/require path math. Language analyzers resolve specifiers against HEAD paths. */
 public final class SourcePaths {
 
   private SourcePaths() {}
+
+  public static boolean isTestSource(String path) {
+    if (path == null || path.isBlank()) {
+      return false;
+    }
+    String n = path.replace('\\', '/').toLowerCase(Locale.ROOT);
+    String file = n.substring(n.lastIndexOf('/') + 1);
+    return n.contains("/test/")
+        || n.contains("/tests/")
+        || n.contains("/src/test")
+        || file.startsWith("test_")
+        || file.endsWith("_test.py")
+        || file.endsWith("test.php");
+  }
 
   public static String normalize(String path) {
     String unix = path.replace('\\', '/');

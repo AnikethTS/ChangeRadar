@@ -180,7 +180,11 @@ problems.” Impact is not a vulnerability scan.
 `--format github` writes `report.github.json`. The Action posts that as a
 Checks API run (`annotation_level: notice`, DIRECT then INDIRECT, capped at
 50) so GitHub can show findings on the Files changed tab without opening
-the Security tab.
+the Security tab. GitHub may list that check next to CodeQL in the Files
+changed filter (`CodeQL / ChangeRadar annotations`); the `CALLER` text is
+still ChangeRadar. Notices skip HEURISTIC findings and test sources
+(`/test/`, `/tests/`, `src/test`). The full report still lists those
+callers.
 
 `--format sarif` still writes SARIF 2.1 as an artifact for tools that
 consume SARIF. Results use SARIF `note` (not `warning`/`error`). Leave it

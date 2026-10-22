@@ -1,6 +1,8 @@
 package io.github.anikethts.changeradar.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -8,6 +10,14 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SourcePathsTest {
+
+  @Test
+  void testSourceDetectsMavenAndPytestLayouts() {
+    assertTrue(
+        SourcePaths.isTestSource("changeradar-core/src/test/java/demo/PolicyEngineTest.java"));
+    assertTrue(SourcePaths.isTestSource("src/tests/test_api.py"));
+    assertFalse(SourcePaths.isTestSource("changeradar-core/src/main/java/demo/PolicyEngine.java"));
+  }
 
   @Test
   void resolvesTsRelativeImport() {
