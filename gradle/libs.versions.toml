@@ -2,7 +2,7 @@
 junit = "6.1.3"
 picocli = "4.7.7"
 jgit = "7.8.0.202609011348-r"
-jackson = "2.19.2"
+jackson = "2.22.4"
 javaparser = "3.28.2"
 spotless = "7.2.1"
 shadow = "9.6.1"
