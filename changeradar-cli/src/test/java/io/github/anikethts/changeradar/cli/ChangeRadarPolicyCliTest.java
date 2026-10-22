@@ -179,6 +179,30 @@ class ChangeRadarPolicyCliTest extends CliGitHarness {
   }
 
   @Test
+  void javaFormatOnlyDoesNotBlockJavaApiPolicy() throws Exception {
+    seedJavaFormatOnly();
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                tmp.resolve("fmt").toString(),
+                "--policy",
+                "breaking-public-java-api");
+    assertEquals(0, code);
+    String json = Files.readString(tmp.resolve("fmt/report.json"));
+    assertTrue(json.contains("FORMAT_ONLY_CHANGES"));
+  }
+
+  @Test
   void publicReturnTypeChangeBlocksJavaApiPolicy() throws Exception {
     seedPublicReturnTypeChange();
     assertEquals(

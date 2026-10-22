@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.analyzer.java;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisOptions;
@@ -168,6 +169,63 @@ class JavaLanguageAnalyzerTest {
                 finding ->
                     "PUBLIC_API".equals(finding.type())
                         && finding.summary().contains("was removed")));
+  }
+
+  @Test
+  void whitespaceAndCommentOnlyJavaIsFormatOnly() {
+    String base =
+        """
+        package demo;
+        public class Api {
+          public void n() {}
+        }
+        """;
+    String head =
+        """
+        package demo;
+        public class Api {
+            /** indent and comment */
+            public void n() {  }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/Api.java", ChangeType.MODIFY, null, List.of(new LineRange(1, 8)))),
+            Map.of("src/Api.java", head),
+            Map.of("src/Api.java", base));
+    assertTrue(result.limitations().stream().anyMatch(l -> "FORMAT_ONLY_CHANGES".equals(l.code())));
+    assertFalse(result.changedSymbols().stream().anyMatch(s -> "n".equals(s.name())));
+    assertFalse(result.findings().stream().anyMatch(f -> "PUBLIC_API".equals(f.type())));
+  }
+
+  @Test
+  void bodyTokenChangeIsNotFormatOnly() {
+    String base =
+        """
+        package demo;
+        public class Api {
+          public int n() { return 1; }
+        }
+        """;
+    String head =
+        """
+        package demo;
+        public class Api {
+          public int n() { return 2; }
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/Api.java", ChangeType.MODIFY, null, List.of(new LineRange(3, 3)))),
+            Map.of("src/Api.java", head),
+            Map.of("src/Api.java", base));
+    assertFalse(
+        result.limitations().stream().anyMatch(l -> "FORMAT_ONLY_CHANGES".equals(l.code())));
+    assertTrue(result.changedSymbols().stream().anyMatch(s -> "n".equals(s.name())));
   }
 
   @Test

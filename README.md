@@ -124,7 +124,8 @@ the same place you already review the change.
 - Compares explicit `--base` and `--head` Git refs (SHAs or branch names).
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
-  (JavaParser).
+  (JavaParser). Comment and whitespace-only Java diffs are
+  `FORMAT_ONLY_CHANGES`, not symbol occupancy.
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).
@@ -153,7 +154,8 @@ Curious how the pieces fit? [Architecture](docs/architecture.md) and
 
 ## What it is not
 
-- Not a diff viewer, generic dashboard, linter, or vulnerability scanner.
+- Not a diff viewer, generic dashboard, linter, formatter, or
+  vulnerability scanner.
 - Not a replacement for running tests, human review, or other static
   analysis.
 - Not a guarantee that a change will break something — or that it will not.

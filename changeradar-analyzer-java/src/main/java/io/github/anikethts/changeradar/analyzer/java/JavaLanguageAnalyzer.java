@@ -65,6 +65,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       AnalysisOptions options) {
     List<Limitation> limitations = new ArrayList<>();
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
+    List<String> formatOnly = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
     Path solverRoot = null;
     JavaParser headParser = JavaParsing.PARSER;
@@ -143,11 +144,15 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
         ParsedFile baseFile = null;
         if (changed.changeType() == ChangeType.MODIFY
             || changed.changeType() == ChangeType.RENAME) {
-          baseFile =
-              JavaParsing.parseBase(
-                  changed.previousPath() != null ? changed.previousPath() : changed.path(),
-                  baseJavaFiles,
-                  limitations);
+          String basePath =
+              changed.previousPath() != null ? changed.previousPath() : changed.path();
+          if (changed.changeType() == ChangeType.MODIFY
+              && JavaSupport.sameIgnoringTrivia(
+                  baseJavaFiles.get(basePath), headJavaFiles.get(changed.path()))) {
+            formatOnly.add(changed.path());
+            continue;
+          }
+          baseFile = JavaParsing.parseBase(basePath, baseJavaFiles, limitations);
         }
         Set<String> baseKeys = new LinkedHashSet<>();
         if (baseFile != null) {
@@ -179,6 +184,17 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
             }
           }
         }
+      }
+
+      if (!formatOnly.isEmpty()) {
+        limitations.add(
+            new Limitation(
+                "FORMAT_ONLY_CHANGES",
+                "Java files whose parse tree is unchanged except comments and whitespace: "
+                    + String.join(", ", formatOnly)
+                    + ". Listed as changed files, not as symbol occupancy. Import order and"
+                    + " identifier edits are not format-only. ChangeRadar does not format"
+                    + " source."));
       }
 
       changedSymbols.sort(

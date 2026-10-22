@@ -7,6 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Java diffs whose parse tree is unchanged except comments and whitespace
+  are `FORMAT_ONLY_CHANGES`: still listed as changed files, not as public
+  API occupancy or callers. ChangeRadar does not format code.
 - Optional `--policy failed-related-tests` fails when provided JUnit XML
   marks a recommended or related test as FAILED or ERROR. Requires
   `--junit`. ChangeRadar still does not run tests.

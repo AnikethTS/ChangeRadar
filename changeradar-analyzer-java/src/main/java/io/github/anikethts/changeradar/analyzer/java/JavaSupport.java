@@ -1,11 +1,13 @@
 package io.github.anikethts.changeradar.analyzer.java;
 
+import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.nodeTypes.NodeWithThrownExceptions;
 import com.github.javaparser.ast.type.Type;
 import io.github.anikethts.changeradar.core.ChangeType;
@@ -19,6 +21,27 @@ import java.util.Optional;
 final class JavaSupport {
 
   private JavaSupport() {}
+
+  static boolean sameIgnoringTrivia(String baseSource, String headSource) {
+    if (baseSource == null || headSource == null) {
+      return false;
+    }
+    String baseDump = astDump(baseSource);
+    String headDump = astDump(headSource);
+    return baseDump != null && baseDump.equals(headDump);
+  }
+
+  private static String astDump(String source) {
+    ParseResult<CompilationUnit> parsed = JavaParsing.PARSER.parse(source);
+    if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
+      return null;
+    }
+    CompilationUnit copy = parsed.getResult().get().clone();
+    for (Comment comment : new ArrayList<>(copy.getAllComments())) {
+      comment.remove();
+    }
+    return copy.toString();
+  }
 
   static boolean overlaps(List<LineRange> hunks, int start, int end) {
     for (LineRange hunk : hunks) {

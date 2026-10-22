@@ -128,6 +128,31 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedJavaFormatOnly() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/Api.java");
+      Files.createDirectories(src.getParent());
+      Files.writeString(
+          src,
+          """
+          public class Api {
+            public void n() {}
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          src,
+          """
+          public class Api {
+              public void n() {  }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   void seedPublicReturnTypeChange() throws Exception {
     try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
       Path src = tmp.resolve("src/Api.java");
