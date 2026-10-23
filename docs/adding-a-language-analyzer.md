@@ -1,7 +1,7 @@
 # Adding a language analyzer
 
-The core is language-neutral. Java, TypeScript/JavaScript, Python, and PHP
-are wired today. A new language is an adapter that maps that language's
+The core is language-neutral. Java, Kotlin, TypeScript/JavaScript, Python,
+and PHP are wired today. A new language is an adapter that maps that language's
 symbols and relationships into the shared model — not a fork of the CLI or
 report schema.
 

@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.analyzer.py;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -265,6 +266,20 @@ class PythonLanguageAnalyzerTest {
                 finding ->
                     "CALLER".equals(finding.type())
                         && finding.location().path().contains("main.py")));
+  }
+
+  @Test
+  void whitespaceAndCommentOnlyIsFormatOnly() {
+    String base = "def n():\n    return 1\n";
+    String head = "def n():\n    return  1  # pad\n";
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.py", ChangeType.MODIFY, null, List.of(new LineRange(1, 2)))),
+            Map.of("api.py", head),
+            Map.of("api.py", base));
+    assertTrue(result.limitations().stream().anyMatch(l -> "FORMAT_ONLY_CHANGES".equals(l.code())));
+    assertFalse(result.changedSymbols().stream().anyMatch(s -> "n".equals(s.name())));
   }
 
   @Test

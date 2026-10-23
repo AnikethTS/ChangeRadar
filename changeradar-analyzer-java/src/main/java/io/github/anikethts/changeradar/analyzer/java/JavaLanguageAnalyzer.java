@@ -8,6 +8,7 @@ import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.Confidence;
+import io.github.anikethts.changeradar.core.FormatOnly;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
@@ -187,14 +188,7 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
       }
 
       if (!formatOnly.isEmpty()) {
-        limitations.add(
-            new Limitation(
-                "FORMAT_ONLY_CHANGES",
-                "Java files whose parse tree is unchanged except comments and whitespace: "
-                    + String.join(", ", formatOnly)
-                    + ". Listed as changed files, not as symbol occupancy. Import order and"
-                    + " identifier edits are not format-only. ChangeRadar does not format"
-                    + " source."));
+        limitations.add(FormatOnly.limitation(formatOnly));
       }
 
       changedSymbols.sort(

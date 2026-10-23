@@ -124,14 +124,15 @@ the same place you already review the change.
 - Compares explicit `--base` and `--head` Git refs (SHAs or branch names).
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
-  (JavaParser). Comment and whitespace-only Java diffs are
-  `FORMAT_ONLY_CHANGES`, not symbol occupancy.
+  (JavaParser). Comment and whitespace-only Java, Kotlin, TypeScript,
+  Python, and PHP diffs are `FORMAT_ONLY_CHANGES`, not symbol occupancy.
+- Maps changed Kotlin lines to types and functions (not kotlinc).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).
 - Maps changed PHP lines to classes and functions (not php-parser).
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
-  HEURISTIC. Java, Python, and PHP callers of callers are INDIRECT (capped). Java also
+  HEURISTIC. Java, Kotlin, Python, and PHP callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style
   fields. TypeScript, Python, and PHP report the same when an import
   maps to the change. TypeScript also follows `export * from` barrels and

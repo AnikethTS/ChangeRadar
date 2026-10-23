@@ -35,6 +35,7 @@ git config core.hooksPath .githooks
 changeradar-core/             shared model, exit codes, analyzer API
 changeradar-git/              JGit adapter
 changeradar-analyzer-java/    Java adapter (parse, callers, recommendations)
+changeradar-analyzer-kotlin/     Kotlin adapter (same split)
 changeradar-analyzer-typescript/ TypeScript/JavaScript adapter (same split)
 changeradar-analyzer-python/     Python adapter (same split)
 changeradar-analyzer-php/        PHP adapter (same split)

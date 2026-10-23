@@ -1,5 +1,6 @@
 package io.github.anikethts.changeradar.analyzer.ts;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -326,6 +327,21 @@ class TypeScriptLanguageAnalyzerTest {
                         && finding.confidence() == Confidence.DIRECT
                         && finding.location().path().contains("caller.ts")));
     assertTrue(result.limitations().stream().anyMatch(l -> "TS_TSCONFIG_PATHS".equals(l.code())));
+  }
+
+  @Test
+  void whitespaceAndCommentOnlyIsFormatOnly() {
+    String base = "export function n(): number { return 1; }\n";
+    String head = "export function n(): number {  /* pad */ return 1; }\n";
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 1)))),
+            Map.of("src/api.ts", head),
+            Map.of("src/api.ts", base));
+    assertTrue(result.limitations().stream().anyMatch(l -> "FORMAT_ONLY_CHANGES".equals(l.code())));
+    assertFalse(result.changedSymbols().stream().anyMatch(s -> "n".equals(s.name())));
   }
 
   @Test

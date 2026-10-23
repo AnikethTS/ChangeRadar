@@ -16,7 +16,7 @@ Fixes #
 ## Checklist
 
 - [ ] Added/updated tests in the module I changed (`changeradar-core`,
-      `changeradar-git`, `changeradar-analyzer-java`,
+      `changeradar-git`,       `changeradar-analyzer-java`, `changeradar-analyzer-kotlin`,
       `changeradar-analyzer-typescript`, `changeradar-analyzer-python`,
       `changeradar-analyzer-php`, or `changeradar-cli`)
 - [ ] `./gradlew check` passes locally

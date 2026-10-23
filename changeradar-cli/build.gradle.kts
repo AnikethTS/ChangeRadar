@@ -12,6 +12,7 @@ dependencies {
   implementation(project(":changeradar-core"))
   implementation(project(":changeradar-git"))
   implementation(project(":changeradar-analyzer-java"))
+  implementation(project(":changeradar-analyzer-kotlin"))
   implementation(project(":changeradar-analyzer-typescript"))
   implementation(project(":changeradar-analyzer-python"))
   implementation(project(":changeradar-analyzer-php"))

@@ -86,7 +86,7 @@ True removals (no matching ADD) still trip the breaking-public-* rules.
 - Only an *explicitly enabled* rule can produce exit `1`.
 - Analyzer/tool failure is always exit `2`, never `1` — except when you
   enable `analysis-unavailable`, which treats a failed parse of a *changed*
-  Java, TypeScript/JavaScript, Python, or PHP file as a policy violation
+  Java, Kotlin, TypeScript/JavaScript, Python, or PHP file as a policy violation
   (`1`), not a tool crash.
 - Default is fail-open for uncertain findings: report them, do not fail.
 - Fail-closed for *tool* failure is a CI-workflow choice (for example
@@ -113,10 +113,15 @@ True removals (no matching ADD) still trip the breaking-public-* rules.
   or its signature changed. `private`/`protected` members and names
   starting with `_` (except dunders) do not count. Body edits do not trip
   this rule. This is not a full reflection / Composer ABI checker.
-- `analysis-unavailable` — a changed `.java`, `.ts`/`.tsx`, `.js`/`.jsx`,
-  `.py`, or `.php` file could not be parsed (`JAVA_PARSE_FAILED`,
-  `TS_PARSE_FAILED`, `PY_PARSE_FAILED`, or `PHP_PARSE_FAILED`). Distinct
-  from “we found risk.”
+- `breaking-public-kotlin` — a public Kotlin class or function was
+  **removed** or its signature changed. `private`/`internal` members do
+  not count. Body edits do not trip this rule. This is not kotlinc or
+  binary ABI.
+- `analysis-unavailable` — a changed `.java`, `.kt`/`.kts`, `.ts`/`.tsx`,
+  `.js`/`.jsx`, `.py`, or `.php` file could not be parsed
+  (`JAVA_PARSE_FAILED`, `KT_PARSE_FAILED`, `TS_PARSE_FAILED`,
+  `PY_PARSE_FAILED`, or `PHP_PARSE_FAILED`). Distinct from “we found
+  risk.”
 - `failed-related-tests` — a recommended or related test is `FAILED` or
   `ERROR` in **provided** JUnit XML (`--junit`). ChangeRadar does not run
   tests. Without `--junit` the rule does not fire (`FAILED_RELATED_TESTS_NO_JUNIT`).

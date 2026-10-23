@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.cli;
 
 import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.kt.KotlinLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
@@ -46,8 +47,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
 
   private static final List<String> SOURCE_SUFFIXES =
       List.of(
-          ".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi",
-          ".php");
+          ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+          ".py", ".pyi", ".php");
 
   private static final Set<String> FORMATS =
       Set.of("terminal", "markdown", "json", "sarif", "compact", "github");
@@ -192,6 +193,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
       List<LanguageAnalyzer> analyzers =
           List.of(
               new JavaLanguageAnalyzer(),
+              new KotlinLanguageAnalyzer(),
               new TypeScriptLanguageAnalyzer(),
               new PythonLanguageAnalyzer(),
               new PhpLanguageAnalyzer());
@@ -212,6 +214,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
       Map<String, String> baseSources = new LinkedHashMap<>();
       for (ChangedFile file : changed) {
         if (file.isJavaSource()
+            || file.isKotlinSource()
             || file.isEcmaSource()
             || file.isPythonSource()
             || file.isPhpSource()) {

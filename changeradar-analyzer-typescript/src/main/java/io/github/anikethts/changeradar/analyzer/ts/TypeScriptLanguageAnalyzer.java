@@ -5,6 +5,8 @@ import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.Confidence;
+import io.github.anikethts.changeradar.core.FormatOnly;
+import io.github.anikethts.changeradar.core.FormatTrivia;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
@@ -51,6 +53,7 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       Map<String, String> baseFiles) {
     List<Limitation> limitations = new ArrayList<>();
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
+    List<String> formatOnly = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
     TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headFiles);
 
@@ -78,6 +81,14 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
       if (file == null) {
         continue;
       }
+      if (changed.changeType() == ChangeType.MODIFY) {
+        String basePath = changed.previousPath() != null ? changed.previousPath() : changed.path();
+        if (FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.C_LIKE, baseFiles.get(basePath), headFiles.get(changed.path()))) {
+          formatOnly.add(changed.path());
+          continue;
+        }
+      }
       List<LineRange> hunks = changed.headLineRanges();
       boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
       Set<String> headKeys = new LinkedHashSet<>();
@@ -103,6 +114,10 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           }
         }
       }
+    }
+
+    if (!formatOnly.isEmpty()) {
+      limitations.add(FormatOnly.limitation(formatOnly));
     }
 
     changedSymbols.sort(

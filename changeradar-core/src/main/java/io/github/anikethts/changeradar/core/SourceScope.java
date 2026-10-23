@@ -10,8 +10,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Limits HEAD sources fed to parsers: changed files, same-directory Java neighbors, and files whose
- * import/require/{@code use} specifiers resolve to a changed path.
+ * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, and
+ * files whose import/require/{@code use} specifiers resolve to a changed path.
  */
 public final class SourceScope {
 
@@ -24,8 +24,8 @@ public final class SourceScope {
       Pattern.compile("(?m)^\\s*use\\s+(?:function\\s+|const\\s+)?([^;]+);");
   private static final List<String> SUFFIXES =
       List.of(
-          ".java", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".pyi",
-          ".php");
+          ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
+          ".py", ".pyi", ".php");
 
   private SourceScope() {}
 
@@ -55,7 +55,8 @@ public final class SourceScope {
         keep.add(path);
         continue;
       }
-      if (path.endsWith(".java") && seedDirs.contains(parentDir(path))) {
+      if ((path.endsWith(".java") || path.endsWith(".kt") || path.endsWith(".kts"))
+          && seedDirs.contains(parentDir(path))) {
         keep.add(path);
         continue;
       }
@@ -131,6 +132,7 @@ public final class SourceScope {
   private static boolean isSourcePath(String path) {
     ChangedFile file = new ChangedFile(path, ChangeType.MODIFY, null);
     return file.isJavaSource()
+        || file.isKotlinSource()
         || file.isEcmaSource()
         || file.isPythonSource()
         || file.isPhpSource();

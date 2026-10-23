@@ -1,6 +1,6 @@
 # Architecture
 
-ChangeRadar is a local CLI with a language-neutral core. Java,
+ChangeRadar is a local CLI with a language-neutral core. Java, Kotlin,
 TypeScript/JavaScript, Python, and PHP are the deep analyzers. CI systems
 invoke the same CLI.
 
@@ -12,6 +12,7 @@ invoke the same CLI.
 | Git adapter (`changeradar-git`) | Repository state, base/head resolution, changed files. JGit, hidden behind `GitRepository`. |
 | Language analyzer API (`changeradar-core`) | Parsing and relationship extraction behind `LanguageAnalyzer`. |
 | Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy, removals, and binary signature (params, return, throws, fields). |
+| Kotlin analyzer (`changeradar-analyzer-kotlin`) | Types and functions, import/same-directory callers, related tests. Not kotlinc. |
 | TypeScript analyzer (`changeradar-analyzer-typescript`) | TS/JS classes, functions, exports, name-based callers, related tests. Not tsc. |
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |
 | PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests. Not php-parser. |
@@ -36,7 +37,7 @@ plus tests against the shared model.
   Cost: we reimplement a small amount of Git behavior; merge-base nuances get
   tests, not folklore.
 - **Gradle modules now, few classes inside them.** Boundaries are core /
-  git / java / typescript / python / php / CLI. No extra modules for policy
+  git / java / kotlin / typescript / python / php / CLI. No extra modules for policy
   packs or a web UI until those are real adapters.
 - **Java 21 toolchain, not “whatever the developer has.”** Matches the LTS
   the brief asked for. Foojay resolver can provision 21 if the outer JDK is
@@ -55,13 +56,13 @@ plus tests against the shared model.
 | 0 Foundation | Gradle, CLI skeleton, docs, CI | Clean checkout builds and tests. **Current.** |
 | 1 Git diff | Base/head, changed files | Additions, edits, deletions, invalid refs. **Current.** |
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
-| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges plus call chains, overrides, fields, attributes. **Partial.** |
+| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. Kotlin: import/same-directory callers and call chains (not kotlinc). TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges plus call chains, overrides, fields, attributes. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
 | 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
 | 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action posts artifact, compact comment, job summary, Checks annotations. **Current.** |
 | 8 Policies | Optional blocking rules | `--policy-file`, `policies` command, baseline, finding-id suppressions, rename/signature. **Current.** |
-| 9 More analyzers | TypeScript, then Python | TS/JS, Python, and PHP current. |
+| 9 More analyzers | TypeScript, then Python | TS/JS, Python, PHP, and Kotlin current. |
 
 ## MVP non-goals
 

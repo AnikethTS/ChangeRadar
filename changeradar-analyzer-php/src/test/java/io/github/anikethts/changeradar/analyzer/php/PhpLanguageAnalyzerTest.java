@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.analyzer.php;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -278,6 +279,20 @@ class PhpLanguageAnalyzerTest {
                 finding ->
                     "CALLER".equals(finding.type())
                         && finding.location().path().contains("main.php")));
+  }
+
+  @Test
+  void whitespaceAndCommentOnlyIsFormatOnly() {
+    String base = "<?php\nfunction n() { return 1; }\n";
+    String head = "<?php\nfunction n() { return 1; } # pad\n";
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("api.php", ChangeType.MODIFY, null, List.of(new LineRange(1, 2)))),
+            Map.of("api.php", head),
+            Map.of("api.php", base));
+    assertTrue(result.limitations().stream().anyMatch(l -> "FORMAT_ONLY_CHANGES".equals(l.code())));
+    assertFalse(result.changedSymbols().stream().anyMatch(s -> "n".equals(s.name())));
   }
 
   @Test
