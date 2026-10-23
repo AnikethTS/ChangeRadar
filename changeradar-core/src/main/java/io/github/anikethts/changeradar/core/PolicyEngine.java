@@ -19,6 +19,7 @@ public final class PolicyEngine {
   public static final String BREAKING_PUBLIC_EXPORT = "breaking-public-export";
   public static final String BREAKING_PUBLIC_PYTHON = "breaking-public-python";
   public static final String BREAKING_PUBLIC_PHP = "breaking-public-php";
+  public static final String BREAKING_PUBLIC_KOTLIN = "breaking-public-kotlin";
   public static final String ANALYSIS_UNAVAILABLE = "analysis-unavailable";
   public static final String FAILED_RELATED_TESTS = "failed-related-tests";
 
@@ -28,6 +29,7 @@ public final class PolicyEngine {
           BREAKING_PUBLIC_EXPORT,
           BREAKING_PUBLIC_PYTHON,
           BREAKING_PUBLIC_PHP,
+          BREAKING_PUBLIC_KOTLIN,
           ANALYSIS_UNAVAILABLE,
           FAILED_RELATED_TESTS);
 
@@ -51,6 +53,10 @@ public final class PolicyEngine {
     map.put(
         BREAKING_PUBLIC_PHP,
         "Public PHP class/function was removed or its signature changed (renames are not"
+            + " removals).");
+    map.put(
+        BREAKING_PUBLIC_KOTLIN,
+        "Public Kotlin class/function was removed or its signature changed (renames are not"
             + " removals).");
     map.put(ANALYSIS_UNAVAILABLE, "A changed source file could not be parsed.");
     map.put(
@@ -105,19 +111,23 @@ public final class PolicyEngine {
     List<String> violations = new ArrayList<>();
     if (rules.contains(BREAKING_PUBLIC_JAVA_API)) {
       violations.addAll(breakingPublicApi(analysis, true));
-      violations.addAll(signatureViolations(signatureChanges, true, false, false, false));
+      violations.addAll(signatureViolations(signatureChanges, true, false, false, false, false));
     }
     if (rules.contains(BREAKING_PUBLIC_EXPORT)) {
       violations.addAll(breakingPublicApi(analysis, false));
-      violations.addAll(signatureViolations(signatureChanges, false, true, false, false));
+      violations.addAll(signatureViolations(signatureChanges, false, true, false, false, false));
     }
     if (rules.contains(BREAKING_PUBLIC_PYTHON)) {
       violations.addAll(breakingPublicPython(analysis));
-      violations.addAll(signatureViolations(signatureChanges, false, false, true, false));
+      violations.addAll(signatureViolations(signatureChanges, false, false, true, false, false));
     }
     if (rules.contains(BREAKING_PUBLIC_PHP)) {
       violations.addAll(breakingPublicPhp(analysis));
-      violations.addAll(signatureViolations(signatureChanges, false, false, false, true));
+      violations.addAll(signatureViolations(signatureChanges, false, false, false, true, false));
+    }
+    if (rules.contains(BREAKING_PUBLIC_KOTLIN)) {
+      violations.addAll(breakingPublicKotlin(analysis));
+      violations.addAll(signatureViolations(signatureChanges, false, false, false, false, true));
     }
     if (rules.contains(ANALYSIS_UNAVAILABLE)) {
       violations.addAll(analysisUnavailable(analysis, changedFiles));
@@ -215,12 +225,40 @@ public final class PolicyEngine {
     return violations;
   }
 
+  private static List<String> breakingPublicKotlin(AnalysisResult analysis) {
+    List<String> violations = new ArrayList<>();
+    for (ChangedSymbol symbol : analysis.changedSymbols()) {
+      if (!symbol.publiclyVisible() || symbol.changeType() != ChangeType.DELETE) {
+        continue;
+      }
+      String path = symbol.location().path();
+      if (SourcePaths.isTestSource(path)
+          || !new ChangedFile(path, ChangeType.MODIFY, null).isKotlinSource()) {
+        continue;
+      }
+      String label =
+          "type".equals(symbol.kind()) || symbol.owner().isEmpty()
+              ? symbol.name()
+              : symbol.owner() + "#" + symbol.name();
+      violations.add(
+          BREAKING_PUBLIC_KOTLIN
+              + ": public "
+              + symbol.kind()
+              + " "
+              + label
+              + " was removed from "
+              + path);
+    }
+    return violations;
+  }
+
   private static List<String> signatureViolations(
       List<ChangedSymbol> signatureChanges,
       boolean java,
       boolean export,
       boolean python,
-      boolean php) {
+      boolean php,
+      boolean kotlin) {
     if (signatureChanges == null || signatureChanges.isEmpty()) {
       return List.of();
     }
@@ -234,7 +272,8 @@ public final class PolicyEngine {
           java && path.endsWith(".java")
               || export && new ChangedFile(path, ChangeType.MODIFY, null).isEcmaSource()
               || python && new ChangedFile(path, ChangeType.MODIFY, null).isPythonSource()
-              || php && new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource();
+              || php && new ChangedFile(path, ChangeType.MODIFY, null).isPhpSource()
+              || kotlin && new ChangedFile(path, ChangeType.MODIFY, null).isKotlinSource();
       if (!match) {
         continue;
       }
@@ -243,7 +282,9 @@ public final class PolicyEngine {
               ? BREAKING_PUBLIC_JAVA_API
               : export
                   ? BREAKING_PUBLIC_EXPORT
-                  : python ? BREAKING_PUBLIC_PYTHON : BREAKING_PUBLIC_PHP;
+                  : python
+                      ? BREAKING_PUBLIC_PYTHON
+                      : php ? BREAKING_PUBLIC_PHP : BREAKING_PUBLIC_KOTLIN;
       String label =
           "type".equals(symbol.kind()) || symbol.owner().isEmpty()
               ? symbol.name()
@@ -277,6 +318,7 @@ public final class PolicyEngine {
     List<String> violations = new ArrayList<>();
     for (ChangedFile file : changedFiles) {
       if (!file.isJavaSource()
+          && !file.isKotlinSource()
           && !file.isEcmaSource()
           && !file.isPythonSource()
           && !file.isPhpSource()) {

@@ -12,6 +12,7 @@ policies:
   # - breaking-public-export
   # - breaking-public-python
   # - breaking-public-php
+  # - breaking-public-kotlin
   # - analysis-unavailable
   # - failed-related-tests   # requires --junit / Action junit:
 baseline: .changeradar/baseline.txt

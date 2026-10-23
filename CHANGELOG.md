@@ -7,6 +7,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Kotlin occupancy, import/same-directory callers, related tests, and
+  optional `breaking-public-kotlin` (not kotlinc).
+- TypeScript, Python, and PHP diffs whose tokens are unchanged except
+  comments and whitespace are `FORMAT_ONLY_CHANGES`, same as Java.
+  Python indent/dedent is kept. ChangeRadar does not format code.
 - Java diffs whose parse tree is unchanged except comments and whitespace
   are `FORMAT_ONLY_CHANGES`: still listed as changed files, not as public
   API occupancy or callers. ChangeRadar does not format code.

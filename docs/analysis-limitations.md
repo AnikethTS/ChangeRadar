@@ -68,10 +68,14 @@ Today the tool records:
   import of the changed symbol (`HEURISTIC`, including many tests).
 - `POLICIES_DISABLED` when no `--policy` flags were passed.
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
-- `FORMAT_ONLY_CHANGES` when a changed Java file’s parse tree is the same
-  except comments and whitespace. Those files stay on the changed-file
+- `FORMAT_ONLY_CHANGES` when a changed Java, Kotlin, TypeScript, Python,
+  or PHP file’s tokens are unchanged except comments and whitespace
+  (Java uses a parse-tree dump). Those files stay on the changed-file
   list and do not occupy symbols. Import reorder is not format-only.
-  ChangeRadar does not format source.
+  Python indent/dedent is kept. ChangeRadar does not format source.
+- `KT_IMPORTS` / `KT_CALL_CHAINS` / `KT_CALL_CHAIN_CAP` /
+  `KT_NAME_BASED_DISPATCH` / `KT_PARSE_FAILED` for the Kotlin adapter
+  (not kotlinc).
 - `FAILED_RELATED_TESTS_NO_JUNIT` when `failed-related-tests` is enabled
   without `--junit`.
 - `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read

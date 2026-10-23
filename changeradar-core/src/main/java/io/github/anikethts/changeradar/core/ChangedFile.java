@@ -30,6 +30,11 @@ public record ChangedFile(
     return lower.endsWith(".py") || lower.endsWith(".pyi");
   }
 
+  public boolean isKotlinSource() {
+    String lower = path.toLowerCase();
+    return lower.endsWith(".kt") || lower.endsWith(".kts");
+  }
+
   public boolean isEcmaSource() {
     String lower = path.toLowerCase();
     return lower.endsWith(".ts")

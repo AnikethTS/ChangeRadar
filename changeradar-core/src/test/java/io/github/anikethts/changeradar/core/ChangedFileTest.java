@@ -28,6 +28,13 @@ class ChangedFileTest {
   }
 
   @Test
+  void kotlinSourceDetection() {
+    assertTrue(new ChangedFile("src/Api.kt", ChangeType.MODIFY, null).isKotlinSource());
+    assertTrue(new ChangedFile("build.kts", ChangeType.MODIFY, null).isKotlinSource());
+    assertFalse(new ChangedFile("src/Main.java", ChangeType.MODIFY, null).isKotlinSource());
+  }
+
+  @Test
   void pythonSourceDetection() {
     assertTrue(new ChangedFile("api.py", ChangeType.MODIFY, null).isPythonSource());
     assertTrue(new ChangedFile("api.pyi", ChangeType.MODIFY, null).isPythonSource());

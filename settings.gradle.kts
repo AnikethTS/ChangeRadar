@@ -15,6 +15,7 @@ include(
   "changeradar-core",
   "changeradar-git",
   "changeradar-analyzer-java",
+  "changeradar-analyzer-kotlin",
   "changeradar-analyzer-typescript",
   "changeradar-analyzer-python",
   "changeradar-analyzer-php",

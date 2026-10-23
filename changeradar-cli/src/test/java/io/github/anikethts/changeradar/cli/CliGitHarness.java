@@ -280,6 +280,43 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedKotlinRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.kt");
+      Files.writeString(src, "fun n(): Int { return 1 }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "fun n(): Int { return 2 }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  void seedKotlinRemoval() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("api.kt");
+      Files.writeString(src, "fun gone() {}\nfun stays() {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "fun stays() {}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
+  void seedTypeScriptFormatOnly() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path src = tmp.resolve("src/api.ts");
+      Files.createDirectories(src.getParent());
+      Files.writeString(src, "export function n(): number { return 1; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(src, "export function n(): number {  return 1; }\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   void seedTypeScriptRepo() throws Exception {
     try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
       Path src = tmp.resolve("src/api.ts");
