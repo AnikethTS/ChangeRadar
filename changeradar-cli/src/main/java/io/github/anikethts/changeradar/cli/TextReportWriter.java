@@ -249,22 +249,33 @@ final class TextReportWriter {
         .append(" | ")
         .append(report.tests().size())
         .append(" |\n\n");
-    List<ImpactFinding> direct =
+    List<ImpactFinding> directAll =
         report.findings().stream()
             .filter(finding -> finding.confidence() == Confidence.DIRECT)
             .sorted(
                 Comparator.comparing((ImpactFinding f) -> f.location().path())
                     .thenComparing(f -> f.location().startLine()))
-            .limit(8)
             .toList();
+    List<ImpactFinding> direct = directAll.stream().limit(8).toList();
     long indirect =
         report.findings().stream().filter(f -> f.confidence() == Confidence.INDIRECT).count();
     long heuristic =
         report.findings().stream().filter(f -> f.confidence() == Confidence.HEURISTIC).count();
-    md.append("### Top DIRECT findings\n\n");
+    md.append("**Direct** ")
+        .append(directAll.size())
+        .append(" · **Indirect** ")
+        .append(indirect)
+        .append(" · **Heuristic** ")
+        .append(heuristic)
+        .append("\n\n");
     if (direct.isEmpty()) {
-      md.append("_None._\n\n");
+      md.append("_No direct findings._\n\n");
     } else {
+      md.append("<details>\n<summary><strong>Direct findings</strong>");
+      if (directAll.size() > direct.size()) {
+        md.append(" · showing ").append(direct.size()).append(" of ").append(directAll.size());
+      }
+      md.append("</summary>\n\n");
       for (ImpactFinding finding : direct) {
         md.append("- **")
             .append(finding.type())
@@ -276,35 +287,29 @@ final class TextReportWriter {
             .append(finding.summary())
             .append('\n');
       }
-      md.append('\n');
+      md.append("\n</details>\n\n");
     }
-    md.append("_Indirect: ")
-        .append(indirect)
-        .append(". Heuristic: ")
-        .append(heuristic)
-        .append("._\n\n");
-    md.append("### Tests\n\n");
-    if (report.tests().isEmpty()) {
-      md.append("_None selected._\n\n");
+    List<TestRecommendation> tests = report.tests().stream().limit(5).toList();
+    if (tests.isEmpty()) {
+      md.append("_No tests selected._\n\n");
     } else {
-      report.tests().stream()
-          .limit(5)
-          .forEach(
-              test -> {
-                String label = testLabel(test);
-                md.append("- **")
-                    .append(test.name())
-                    .append("** (`")
-                    .append(test.path())
-                    .append("`)");
-                if (!label.isEmpty()) {
-                  md.append(' ').append(label);
-                }
-                md.append('\n');
-              });
-      md.append('\n');
+      md.append("<details>\n<summary><strong>Tests to review</strong>");
+      if (report.tests().size() > tests.size()) {
+        md.append(" · showing ").append(tests.size()).append(" of ").append(report.tests().size());
+      }
+      md.append("</summary>\n\n");
+      for (TestRecommendation test : tests) {
+        String label = testLabel(test);
+        md.append("- **").append(test.name()).append("** (`").append(test.path()).append("`)");
+        if (!label.isEmpty()) {
+          md.append(' ').append(label);
+        }
+        md.append('\n');
+      }
+      md.append("\n</details>\n\n");
     }
     md.append("_Absence of a finding is not proof of no impact._\n");
+    md.append("<!-- changeradar-version: ").append(report.toolVersion()).append(" -->\n");
     return md.toString();
   }
 

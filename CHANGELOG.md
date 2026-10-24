@@ -5,6 +5,17 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Project site (`site/`) with the product overview, a sample pull-request
+  comment, and a contribute section. GitHub Pages publishes it from `main`.
+
+### Changed
+
+- Sticky PR comments keep the lockup, then counts and collapsed findings
+  and tests. The footer links to the run, the project site, limitations,
+  and contributing.
+
 ## [0.2.5] - 2026-10-24
 
 Analyzer JAR is the `v0.2.5` release asset. Omit `version` for latest;

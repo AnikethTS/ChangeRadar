@@ -14,25 +14,42 @@ fi
 python3 - "${RUN_URL}" "${LOGO_URL}" "${COMPACT}" <<'PY'
 import json
 import pathlib
+import re
 import sys
 
 run_url, logo_url, compact = sys.argv[1], sys.argv[2], pathlib.Path(sys.argv[3])
 marker = "<!-- changeradar-report -->"
+project = "https://github.com/AnikethTS/ChangeRadar"
+site = "https://anikethts.github.io/ChangeRadar/"
 body = compact.read_text()
 if body.startswith("## ChangeRadar"):
     body = body.split("\n", 1)[-1].lstrip()
+version = ""
+match = re.search(r"<!-- changeradar-version:\s*([^>]+?)\s*-->", body)
+if match:
+    version = match.group(1).strip()
+    body = (body[: match.start()] + body[match.end() :]).strip() + "\n"
+version_label = f" `{version}`" if version else ""
 header = (
     marker
     + "\n\n"
     + '<img src="'
     + logo_url
     + '" width="280" height="97" alt="ChangeRadar" />\n\n'
-    + "[Full Markdown, JSON, and SARIF]("
-    + run_url
-    + ")\n\n"
+)
+footer = (
+    "\n---\n\n"
+    "<sub>\n\n"
+    f"[This run]({run_url}) · "
+    f"[Docs]({site}) · "
+    f"[Limitations]({project}/blob/main/docs/analysis-limitations.md) · "
+    f"[Contribute]({project}/blob/main/CONTRIBUTING.md)\n\n"
+    f"ChangeRadar{version_label} reads the diff already in this pull request. "
+    "It does not deploy, skip tests, or replace review.\n\n"
+    "</sub>\n"
 )
 pathlib.Path("/tmp/changeradar-comment.json").write_text(
-    json.dumps({"body": header + body})
+    json.dumps({"body": header + body + footer})
 )
 PY
 COMMENT_ID="$(

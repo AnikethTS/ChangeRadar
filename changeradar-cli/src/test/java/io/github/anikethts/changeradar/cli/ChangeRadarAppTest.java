@@ -93,6 +93,8 @@ class ChangeRadarAppTest extends CliGitHarness {
     String sarif = Files.readString(out.resolve("report.sarif"));
     String github = Files.readString(out.resolve("report.github.json"));
     assertTrue(compact.contains("ChangeRadar"));
+    assertTrue(compact.contains("<!-- changeradar-version:"));
+    assertTrue(compact.contains("No direct findings.") || compact.contains("Direct findings"));
     assertTrue(sarif.contains("\"version\""));
     assertTrue(sarif.contains("2.1.0"));
     assertTrue(!sarif.contains("\"warning\""));

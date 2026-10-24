@@ -12,6 +12,7 @@
 [![Java](https://img.shields.io/badge/Java-21%2B-ED8B00?logo=openjdk&logoColor=white)](build.gradle.kts)
 [![Gradle](https://img.shields.io/badge/Gradle-wrapper-02303A?logo=gradle&logoColor=white)](gradle/wrapper)
 [![GitHub Actions](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)](docs/ci-integration.md)
+[![Site](https://img.shields.io/badge/site-ChangeRadar-0b1224)](https://anikethts.github.io/ChangeRadar/)
 
 </div>
 
@@ -201,6 +202,7 @@ Details: [CI integration](docs/ci-integration.md).
 
 ## Docs
 
+- [Project site](https://anikethts.github.io/ChangeRadar/) — overview and how to contribute
 - [Architecture](docs/architecture.md) — layers, tradeoffs, roadmap
 - [CI integration](docs/ci-integration.md) — exit codes, artifacts, GitHub Actions
 - [Analysis limitations](docs/analysis-limitations.md) — what static analysis cannot claim
