@@ -67,7 +67,7 @@ After a test job, pass `coverage:` (JaCoCo XML or LCOV) and/or `junit:`
 (JUnit XML). ChangeRadar does not run tests; it annotates the report with
 changed-line hits and pass/fail. CLI flags are `--coverage` and `--junit`.
 
-Pin a specific analyzer with `version: v0.2.4`. Pass `jar:` only when the fat
+Pin a specific analyzer with `version: v0.2.5`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
@@ -82,11 +82,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
+      - uses: AnikethTS/ChangeRadar@8795047ab4617ca241d5a69a8bb7c3e2aece1832
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.4
+          # version: v0.2.5
 ```
 
 This repository builds the JAR, runs tests, and passes JaCoCo XML plus
@@ -130,7 +130,7 @@ tests.
 
 ```yaml
 - run: ./gradlew assemble test jacocoTestReport --no-daemon
-- uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
+- uses: AnikethTS/ChangeRadar@8795047ab4617ca241d5a69a8bb7c3e2aece1832
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}

@@ -26,11 +26,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: AnikethTS/ChangeRadar@bf25a48ac78be2f178e9fd70727cc8a23b421a6c
+      - uses: AnikethTS/ChangeRadar@8795047ab4617ca241d5a69a8bb7c3e2aece1832
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.4
+          # version: v0.2.5
           # classpath: build/libs
           # policy-file: changeradar.yml
           # suppress-file: .changeradar/suppress.txt
