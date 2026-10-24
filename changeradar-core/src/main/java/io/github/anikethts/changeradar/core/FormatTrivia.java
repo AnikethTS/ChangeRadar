@@ -13,7 +13,8 @@ public final class FormatTrivia {
     C_LIKE,
     PHP,
     PYTHON,
-    KOTLIN
+    KOTLIN,
+    SQL
   }
 
   private FormatTrivia() {}
@@ -52,6 +53,18 @@ public final class FormatTrivia {
       }
       if (dialect == Dialect.PHP && c == '#' && next != '[') {
         i = skipLine(source, i + 1);
+        continue;
+      }
+      if (dialect == Dialect.SQL && c == '-' && next == '-') {
+        i = skipLine(source, i + 2);
+        continue;
+      }
+      if (dialect == Dialect.SQL && c == '#') {
+        i = skipLine(source, i + 1);
+        continue;
+      }
+      if (dialect == Dialect.SQL && c == '\'') {
+        i = skipSqlString(source, i, out);
         continue;
       }
       if (c == '/' && next == '*') {
@@ -189,6 +202,23 @@ public final class FormatTrivia {
       i++;
     }
     throw new IllegalArgumentException("unclosed block comment");
+  }
+
+  private static int skipSqlString(String source, int i, List<String> out) {
+    int start = i;
+    i++;
+    while (i < source.length()) {
+      if (source.charAt(i) == '\'') {
+        if (i + 1 < source.length() && source.charAt(i + 1) == '\'') {
+          i += 2;
+          continue;
+        }
+        out.add(source.substring(start, i + 1));
+        return i + 1;
+      }
+      i++;
+    }
+    throw new IllegalArgumentException("unclosed string");
   }
 
   private static int skipQuoted(String source, int i, char quote, List<String> out) {

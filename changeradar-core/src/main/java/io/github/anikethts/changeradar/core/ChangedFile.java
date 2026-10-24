@@ -25,6 +25,10 @@ public record ChangedFile(
     return path.toLowerCase().endsWith(".php");
   }
 
+  public boolean isSqlSource() {
+    return path.toLowerCase().endsWith(".sql");
+  }
+
   public boolean isPythonSource() {
     String lower = path.toLowerCase();
     return lower.endsWith(".py") || lower.endsWith(".pyi");

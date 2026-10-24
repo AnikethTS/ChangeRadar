@@ -39,6 +39,7 @@ changeradar-analyzer-kotlin/     Kotlin adapter (same split)
 changeradar-analyzer-typescript/ TypeScript/JavaScript adapter (same split)
 changeradar-analyzer-python/     Python adapter (same split)
 changeradar-analyzer-php/        PHP adapter (same split)
+changeradar-analyzer-sql/        SQL adapter (same split)
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
 site/                         project site published to GitHub Pages

@@ -404,6 +404,22 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedSqlRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path table = tmp.resolve("db/accounts.sql");
+      Path report = tmp.resolve("reports/monthly.sql");
+      Files.createDirectories(table.getParent());
+      Files.createDirectories(report.getParent());
+      Files.writeString(table, "create table accounts (id int);\n");
+      Files.writeString(report, "select id from accounts;\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(table, "create table accounts (id bigint);\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   static void commit(Git git, String message) throws Exception {
     git.commit()
         .setAuthor("ChangeRadar Test", "test@changeradar.example")

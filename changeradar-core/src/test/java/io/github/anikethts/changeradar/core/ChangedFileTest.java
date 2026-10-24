@@ -28,6 +28,12 @@ class ChangedFileTest {
   }
 
   @Test
+  void sqlSourceDetection() {
+    assertTrue(new ChangedFile("db/Accounts.SQL", ChangeType.MODIFY, null).isSqlSource());
+    assertFalse(new ChangedFile("db/accounts.sql.txt", ChangeType.MODIFY, null).isSqlSource());
+  }
+
+  @Test
   void kotlinSourceDetection() {
     assertTrue(new ChangedFile("src/Api.kt", ChangeType.MODIFY, null).isKotlinSource());
     assertTrue(new ChangedFile("build.kts", ChangeType.MODIFY, null).isKotlinSource());

@@ -126,12 +126,15 @@ the same place you already review the change.
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
   (JavaParser). Comment and whitespace-only Java, Kotlin, TypeScript,
-  Python, and PHP diffs are `FORMAT_ONLY_CHANGES`, not symbol occupancy.
+  Python, PHP, and SQL diffs are `FORMAT_ONLY_CHANGES`, not symbol occupancy.
 - Maps changed Kotlin lines to types and functions (not kotlinc).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
 - Maps changed Python lines to classes and functions (not CPython).
 - Maps changed PHP lines to classes and functions (not php-parser).
+- Maps changed SQL lines to tables, views, functions, and procedures.
+  Other `.sql` files that name the object are callers. Embedded SQL in
+  application code is not scanned. This is not a database.
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
   HEURISTIC. Java, Kotlin, Python, and PHP callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style

@@ -32,7 +32,8 @@ git config core.hooksPath .githooks
 - Add or update tests next to the code you change. Git behavior goes in
   `changeradar-git`, analyzers in   `changeradar-analyzer-java` /
   `changeradar-analyzer-kotlin` / `changeradar-analyzer-typescript` /
-  `changeradar-analyzer-python` / `changeradar-analyzer-php`, CLI/exit
+  `changeradar-analyzer-python` / `changeradar-analyzer-php` /
+  `changeradar-analyzer-sql`, CLI/exit
   codes in `changeradar-cli`, shared model in `changeradar-core`.
 - Prefer fixture repositories under `fixtures/` (or `@TempDir` Git repos in
   tests) over mocking JGit unless the mock is the thing under test.

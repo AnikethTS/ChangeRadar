@@ -45,4 +45,18 @@ class FormatTriviaTest {
             "<?php function n() { return 1; }",
             "<?php function n() { return 1; } # pad"));
   }
+
+  @Test
+  void sqlIgnoresCommentsAndKeepsStatementEdits() {
+    assertTrue(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.SQL,
+            "create table accounts (id int);",
+            "create table accounts (id int); -- pad\n/* block */"));
+    assertFalse(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.SQL,
+            "create table accounts (id int);",
+            "create table accounts (id text);"));
+  }
 }
