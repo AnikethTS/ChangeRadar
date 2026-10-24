@@ -149,10 +149,11 @@ unfiltered analysis.
 
 ### Pull request comments and check summary
 
-The Action posts `report.compact.md` as a sticky PR comment (counts, policy
-result, top DIRECT findings, tests, link to the run). Full Markdown and
-JSON stay on the artifact. The compact body is also written to
-`$GITHUB_STEP_SUMMARY`.
+The Action posts `report.compact.md` as a sticky PR comment: policy status,
+counts, direct / indirect / heuristic totals, and collapsed direct findings
+and tests. A footer links to this run, the project site, limitations, and
+contributing. Full Markdown and JSON stay on the artifact. The compact body
+is also written to `$GITHUB_STEP_SUMMARY` (without the comment footer).
 
 - Workflow default permission stays `contents: read`. The impact job adds
   `pull-requests: write` and `checks: write` when you want comments and
@@ -166,7 +167,8 @@ JSON stay on the artifact. The compact body is also written to
 - The author is **github-actions[bot]** (`GITHUB_TOKEN`). GitHub does not
   allow a custom name or avatar for that account. The comment uses a
   cropped lockup (`.github/logo-comment.png`, 280×97) so the radar and
-  name are readable. The full-bleed README banner is not used there.
+  name are readable. The full-bleed README banner is not used there. The
+  footer is added by the comment step, not by the CLI.
 - Comment and annotate use `continue-on-error`. A missing token must not
   be treated as a policy violation (CLI exit `1`).
 

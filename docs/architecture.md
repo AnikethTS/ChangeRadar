@@ -69,4 +69,5 @@ plus tests against the shared model.
 No web dashboard, no paid API, no claiming complete impact for reflection or
 generated code, no skipping tests or deploying from a heuristic, no blocking
 the pipeline by default for uncertain findings, no uploading source to a
-remote service by default.
+remote service by default. `site/` is a static project page (overview,
+sample comment, contribute). It does not run analysis or store reports.
