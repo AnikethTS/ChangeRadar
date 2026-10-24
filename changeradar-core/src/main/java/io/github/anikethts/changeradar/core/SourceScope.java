@@ -10,8 +10,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, and
- * files whose import/require/{@code use} specifiers resolve to a changed path.
+ * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, files
+ * whose import/require/{@code use} specifiers resolve to a changed path, and every {@code .sql}
+ * file when a SQL file changed.
  */
 public final class SourceScope {
 
@@ -25,7 +26,7 @@ public final class SourceScope {
   private static final List<String> SUFFIXES =
       List.of(
           ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
-          ".py", ".pyi", ".php");
+          ".py", ".pyi", ".php", ".sql");
 
   private SourceScope() {}
 
@@ -45,6 +46,7 @@ public final class SourceScope {
     for (String seed : seeds) {
       seedDirs.add(parentDir(seed));
     }
+    boolean sqlSeed = seeds.stream().anyMatch(path -> path.toLowerCase().endsWith(".sql"));
     TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headSources);
     for (Map.Entry<String, String> entry : headSources.entrySet()) {
       String path = entry.getKey();
@@ -57,6 +59,10 @@ public final class SourceScope {
       }
       if ((path.endsWith(".java") || path.endsWith(".kt") || path.endsWith(".kts"))
           && seedDirs.contains(parentDir(path))) {
+        keep.add(path);
+        continue;
+      }
+      if (sqlSeed && path.toLowerCase().endsWith(".sql")) {
         keep.add(path);
         continue;
       }
@@ -135,6 +141,7 @@ public final class SourceScope {
         || file.isKotlinSource()
         || file.isEcmaSource()
         || file.isPythonSource()
-        || file.isPhpSource();
+        || file.isPhpSource()
+        || file.isSqlSource();
   }
 }

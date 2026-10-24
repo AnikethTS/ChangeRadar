@@ -70,12 +70,18 @@ Today the tool records:
 - `JAVA_PARSE_FAILED` when a source file could not be parsed.
 - `FORMAT_ONLY_CHANGES` when a changed Java, Kotlin, TypeScript, Python,
   or PHP file’s tokens are unchanged except comments and whitespace
-  (Java uses a parse-tree dump). Those files stay on the changed-file
+  (Java uses a parse-tree dump). SQL `--`, `#`, and block comments are
+  ignored the same way. Those files stay on the changed-file
   list and do not occupy symbols. Import reorder is not format-only.
   Python indent/dedent is kept. ChangeRadar does not format source.
 - `KT_IMPORTS` / `KT_CALL_CHAINS` / `KT_CALL_CHAIN_CAP` /
   `KT_NAME_BASED_DISPATCH` / `KT_PARSE_FAILED` for the Kotlin adapter
   (not kotlinc).
+- `SQL_REFERENCES` when `.sql` files name a changed table, view, function,
+  or procedure. Matching is case-insensitive, comments and string literals
+  are removed, and a repeated name is HEURISTIC. Embedded SQL in
+  application code is not scanned. Dollar-quoted bodies may be missed.
+- `SQL_PARSE_FAILED` when a `.sql` file has an unclosed comment or string.
 - `FAILED_RELATED_TESTS_NO_JUNIT` when `failed-related-tests` is enabled
   without `--junit`.
 - `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read

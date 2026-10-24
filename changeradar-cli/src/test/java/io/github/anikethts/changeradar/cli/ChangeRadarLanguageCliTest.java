@@ -215,4 +215,29 @@ class ChangeRadarLanguageCliTest extends CliGitHarness {
                 "breaking-public-php");
     assertEquals(1, withPolicy);
   }
+
+  @Test
+  void analyzeSqlDiffWritesTableAndCaller() throws Exception {
+    seedSqlRepo();
+    Path out = tmp.resolve("sql-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("db/accounts.sql"));
+    assertTrue(json.contains("reports/monthly.sql"));
+    assertTrue(json.contains("SQL_REFERENCES"));
+  }
 }

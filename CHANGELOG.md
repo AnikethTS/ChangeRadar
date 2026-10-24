@@ -12,6 +12,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- SQL occupancy for tables, views, functions, and procedures in `.sql`
+  files, plus references from other `.sql` files. A name declared more
+  than once is HEURISTIC. Embedded SQL in application code is not scanned.
+  Comment-only scripts are `FORMAT_ONLY_CHANGES`. This is not a database.
 - Project site (`site/`) with the product overview, a sample pull-request
   comment, and a contribute section. GitHub Pages publishes it from `main`.
 

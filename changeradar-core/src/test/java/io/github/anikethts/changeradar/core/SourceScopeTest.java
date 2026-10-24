@@ -54,4 +54,22 @@ class SourceScopeTest {
     assertTrue(subset.containsKey("tsconfig.json"));
     assertFalse(subset.containsKey("src/unrelated.ts"));
   }
+
+  @Test
+  void keepsOtherSqlFilesWhenASqlFileChanged() {
+    Map<String, String> head =
+        Map.of(
+            "db/accounts.sql",
+            "create table accounts (id int);\n",
+            "reports/monthly.sql",
+            "select id from accounts;\n",
+            "src/other.ts",
+            "export function other() { return 1; }\n");
+    Map<String, String> subset =
+        SourceScope.subset(
+            List.of(new ChangedFile("db/accounts.sql", ChangeType.MODIFY, null)), head);
+    assertTrue(subset.containsKey("db/accounts.sql"));
+    assertTrue(subset.containsKey("reports/monthly.sql"));
+    assertFalse(subset.containsKey("src/other.ts"));
+  }
 }

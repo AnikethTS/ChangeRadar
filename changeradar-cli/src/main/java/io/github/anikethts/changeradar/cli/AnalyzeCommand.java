@@ -4,6 +4,7 @@ import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.kt.KotlinLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.sql.SqlLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
 import io.github.anikethts.changeradar.core.AnalysisOptions;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
@@ -48,7 +49,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
   private static final List<String> SOURCE_SUFFIXES =
       List.of(
           ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
-          ".py", ".pyi", ".php");
+          ".py", ".pyi", ".php", ".sql");
 
   private static final Set<String> FORMATS =
       Set.of("terminal", "markdown", "json", "sarif", "compact", "github");
@@ -196,7 +197,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
               new KotlinLanguageAnalyzer(),
               new TypeScriptLanguageAnalyzer(),
               new PythonLanguageAnalyzer(),
-              new PhpLanguageAnalyzer());
+              new PhpLanguageAnalyzer(),
+              new SqlLanguageAnalyzer());
       Map<String, String> headSources = new LinkedHashMap<>();
       for (String suffix : SOURCE_SUFFIXES) {
         for (String path : git.listPaths(head, suffix)) {
@@ -217,7 +219,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || file.isKotlinSource()
             || file.isEcmaSource()
             || file.isPythonSource()
-            || file.isPhpSource()) {
+            || file.isPhpSource()
+            || file.isSqlSource()) {
           git.readFile(base, file.path()).ifPresent(source -> baseSources.put(file.path(), source));
           if (file.previousPath() != null) {
             git.readFile(base, file.previousPath())
@@ -284,8 +287,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
                     + parsedHead.size()
                     + " of "
                     + headSources.size()
-                    + " HEAD source files (changed paths, same-directory Java neighbors, and"
-                    + " import/require/use importers). Pass --full-index to parse everything."));
+                    + " HEAD source files (changed paths, same-directory Java neighbors,"
+                    + " import/require/use importers, and every .sql file when a SQL file"
+                    + " changed). Pass --full-index to parse everything."));
       }
       if (enabledPolicies.isEmpty()) {
         limitations.add(
