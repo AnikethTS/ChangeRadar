@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-24
+
+Analyzer JAR is the `v0.2.6` release asset. Omit `version` for latest;
+set `version: v0.2.6` to pin this JAR.
+
 ### Fixed
 
 - The Pages workflow turns the site on for GitHub Actions builds when Pages
@@ -260,7 +265,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.6
 [0.2.5]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.5
 [0.2.4]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.4
 [0.2.3]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.3
