@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Pages workflow turns the site on for GitHub Actions builds when Pages
+  is not already enabled.
+
 ### Added
 
 - Project site (`site/`) with the product overview, a sample pull-request
