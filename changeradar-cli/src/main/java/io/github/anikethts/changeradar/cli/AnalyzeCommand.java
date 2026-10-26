@@ -6,6 +6,7 @@ import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.sql.SqlLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.workflow.WorkflowLanguageAnalyzer;
 import io.github.anikethts.changeradar.core.AnalysisOptions;
 import io.github.anikethts.changeradar.core.AnalysisRequest;
 import io.github.anikethts.changeradar.core.AnalysisResult;
@@ -198,7 +199,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
               new TypeScriptLanguageAnalyzer(),
               new PythonLanguageAnalyzer(),
               new PhpLanguageAnalyzer(),
-              new SqlLanguageAnalyzer());
+              new SqlLanguageAnalyzer(),
+              new WorkflowLanguageAnalyzer());
       Map<String, String> headSources = new LinkedHashMap<>();
       for (String suffix : SOURCE_SUFFIXES) {
         for (String path : git.listPaths(head, suffix)) {
@@ -208,6 +210,13 @@ public final class AnalyzeCommand implements Callable<Integer> {
       for (String path : git.listPaths(head, ".json")) {
         if (TsConfigPaths.isConfigPath(path)) {
           git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
+        }
+      }
+      for (String suffix : List.of(".yml", ".yaml")) {
+        for (String path : git.listPaths(head, suffix)) {
+          if (new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource()) {
+            git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
+          }
         }
       }
       boolean scoped = !fullIndex;
@@ -220,7 +229,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || file.isEcmaSource()
             || file.isPythonSource()
             || file.isPhpSource()
-            || file.isSqlSource()) {
+            || file.isSqlSource()
+            || file.isWorkflowSource()) {
           git.readFile(base, file.path()).ifPresent(source -> baseSources.put(file.path(), source));
           if (file.previousPath() != null) {
             git.readFile(base, file.previousPath())
@@ -288,8 +298,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
                     + " of "
                     + headSources.size()
                     + " HEAD source files (changed paths, same-directory Java neighbors,"
-                    + " import/require/use importers, and every .sql file when a SQL file"
-                    + " changed). Pass --full-index to parse everything."));
+                    + " import/require/use importers, every .sql file when a SQL file changed,"
+                    + " and every workflow file when a workflow file changed). Pass --full-index"
+                    + " to parse everything."));
       }
       if (enabledPolicies.isEmpty()) {
         limitations.add(

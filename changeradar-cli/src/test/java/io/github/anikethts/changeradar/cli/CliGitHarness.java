@@ -420,6 +420,44 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedWorkflowRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path called = tmp.resolve(".github/workflows/release.yml");
+      Path caller = tmp.resolve(".github/workflows/ci.yml");
+      Files.createDirectories(called.getParent());
+      Files.writeString(
+          called,
+          """
+          on:
+            workflow_call:
+          jobs:
+            package:
+              runs-on: ubuntu-latest
+          """);
+      Files.writeString(
+          caller,
+          """
+          on: push
+          jobs:
+            call:
+              uses: ./.github/workflows/release.yml
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          called,
+          """
+          on:
+            workflow_call:
+          jobs:
+            package:
+              runs-on: ubuntu-24.04
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   static void commit(Git git, String message) throws Exception {
     git.commit()
         .setAuthor("ChangeRadar Test", "test@changeradar.example")

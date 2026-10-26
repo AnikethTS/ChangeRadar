@@ -17,6 +17,7 @@ dependencies {
   implementation(project(":changeradar-analyzer-python"))
   implementation(project(":changeradar-analyzer-php"))
   implementation(project(":changeradar-analyzer-sql"))
+  implementation(project(":changeradar-analyzer-workflow"))
   implementation(libs.picocli)
   implementation(libs.jackson.databind)
   implementation(libs.jackson.datatype.jsr310)

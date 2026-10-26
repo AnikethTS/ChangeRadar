@@ -59,4 +59,18 @@ class FormatTriviaTest {
             "create table accounts (id int);",
             "create table accounts (id text);"));
   }
+
+  @Test
+  void yamlIgnoresCommentsAndKeepsKeyEdits() {
+    assertTrue(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.YAML,
+            "jobs:\n  build:\n    runs-on: ubuntu-latest\n",
+            "jobs:\n  build:\n    runs-on: ubuntu-latest # pin\n"));
+    assertFalse(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.YAML,
+            "jobs:\n  build:\n    runs-on: ubuntu-latest\n",
+            "jobs:\n  build:\n    runs-on: ubuntu-24.04\n"));
+  }
 }

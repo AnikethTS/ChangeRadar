@@ -5,6 +5,14 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Actions occupancy for jobs, reusable workflows (`workflow_call`), and
+  local actions (`action.yml`). Another workflow that `needs` the job or
+  `uses` the local path is a caller. Remote actions are not resolved, and
+  the workflow is not run. Comment-only workflow files are
+  `FORMAT_ONLY_CHANGES`.
+
 ## [0.2.6] - 2026-10-24
 
 Analyzer JAR is the `v0.2.6` release asset. Omit `version` for latest;

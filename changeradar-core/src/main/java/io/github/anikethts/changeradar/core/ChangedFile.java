@@ -1,6 +1,7 @@
 package io.github.anikethts.changeradar.core;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /** A path changed between two Git revisions. */
@@ -27,6 +28,20 @@ public record ChangedFile(
 
   public boolean isSqlSource() {
     return path.toLowerCase().endsWith(".sql");
+  }
+
+  /** A GitHub Actions workflow or a local {@code action.yml}. */
+  public boolean isWorkflowSource() {
+    String unix = path.replace('\\', '/');
+    String lower = unix.toLowerCase(Locale.ROOT);
+    boolean yaml = lower.endsWith(".yml") || lower.endsWith(".yaml");
+    boolean workflowDir =
+        lower.startsWith(".github/workflows/") || lower.contains("/.github/workflows/");
+    if (workflowDir && yaml) {
+      return true;
+    }
+    String file = lower.substring(lower.lastIndexOf('/') + 1);
+    return file.equals("action.yml") || file.equals("action.yaml");
   }
 
   public boolean isPythonSource() {

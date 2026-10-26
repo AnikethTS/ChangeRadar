@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
 
 /**
  * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, files
- * whose import/require/{@code use} specifiers resolve to a changed path, and every {@code .sql}
- * file when a SQL file changed.
+ * whose import/require/{@code use} specifiers resolve to a changed path, every {@code .sql} file
+ * when a SQL file changed, and every workflow file when a workflow file changed.
  */
 public final class SourceScope {
 
@@ -47,6 +47,9 @@ public final class SourceScope {
       seedDirs.add(parentDir(seed));
     }
     boolean sqlSeed = seeds.stream().anyMatch(path -> path.toLowerCase().endsWith(".sql"));
+    boolean workflowSeed =
+        seeds.stream()
+            .anyMatch(path -> new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource());
     TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headSources);
     for (Map.Entry<String, String> entry : headSources.entrySet()) {
       String path = entry.getKey();
@@ -63,6 +66,10 @@ public final class SourceScope {
         continue;
       }
       if (sqlSeed && path.toLowerCase().endsWith(".sql")) {
+        keep.add(path);
+        continue;
+      }
+      if (workflowSeed && new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource()) {
         keep.add(path);
         continue;
       }
@@ -142,6 +149,7 @@ public final class SourceScope {
         || file.isEcmaSource()
         || file.isPythonSource()
         || file.isPhpSource()
-        || file.isSqlSource();
+        || file.isSqlSource()
+        || file.isWorkflowSource();
   }
 }

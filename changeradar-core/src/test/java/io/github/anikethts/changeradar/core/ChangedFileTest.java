@@ -34,6 +34,16 @@ class ChangedFileTest {
   }
 
   @Test
+  void workflowSourceDetection() {
+    assertTrue(
+        new ChangedFile(".github/workflows/ci.yml", ChangeType.MODIFY, null).isWorkflowSource());
+    assertTrue(
+        new ChangedFile(".github/actions/hello/action.yml", ChangeType.MODIFY, null)
+            .isWorkflowSource());
+    assertFalse(new ChangedFile("config/app.yml", ChangeType.MODIFY, null).isWorkflowSource());
+  }
+
+  @Test
   void kotlinSourceDetection() {
     assertTrue(new ChangedFile("src/Api.kt", ChangeType.MODIFY, null).isKotlinSource());
     assertTrue(new ChangedFile("build.kts", ChangeType.MODIFY, null).isKotlinSource());

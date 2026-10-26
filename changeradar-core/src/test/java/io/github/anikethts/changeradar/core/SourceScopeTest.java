@@ -72,4 +72,23 @@ class SourceScopeTest {
     assertTrue(subset.containsKey("reports/monthly.sql"));
     assertFalse(subset.containsKey("src/other.ts"));
   }
+
+  @Test
+  void keepsOtherWorkflowFilesWhenAWorkflowFileChanged() {
+    Map<String, String> head =
+        Map.of(
+            ".github/workflows/called.yml",
+            "on: workflow_call\n",
+            ".github/workflows/caller.yml",
+            "jobs:\n  call:\n    uses: ./.github/workflows/called.yml\n",
+            "config/app.yml",
+            "name: app\n");
+    Map<String, String> subset =
+        SourceScope.subset(
+            List.of(new ChangedFile(".github/workflows/called.yml", ChangeType.MODIFY, null)),
+            head);
+    assertTrue(subset.containsKey(".github/workflows/called.yml"));
+    assertTrue(subset.containsKey(".github/workflows/caller.yml"));
+    assertFalse(subset.containsKey("config/app.yml"));
+  }
 }
