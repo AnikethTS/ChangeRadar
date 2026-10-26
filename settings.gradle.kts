@@ -20,5 +20,6 @@ include(
   "changeradar-analyzer-python",
   "changeradar-analyzer-php",
   "changeradar-analyzer-sql",
+  "changeradar-analyzer-workflow",
   "changeradar-cli",
 )

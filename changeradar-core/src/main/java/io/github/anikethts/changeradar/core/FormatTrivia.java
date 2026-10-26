@@ -14,7 +14,8 @@ public final class FormatTrivia {
     PHP,
     PYTHON,
     KOTLIN,
-    SQL
+    SQL,
+    YAML
   }
 
   private FormatTrivia() {}
@@ -59,7 +60,7 @@ public final class FormatTrivia {
         i = skipLine(source, i + 2);
         continue;
       }
-      if (dialect == Dialect.SQL && c == '#') {
+      if ((dialect == Dialect.SQL || dialect == Dialect.YAML) && c == '#') {
         i = skipLine(source, i + 1);
         continue;
       }

@@ -29,7 +29,9 @@ Today the tool records:
   (ChangeRadar does not run the target build).
 - `SCOPED_SOURCES` when parsers skipped HEAD files that were neither
   changed, same-directory Java neighbors, nor import/require/`use`
-  importers (`--full-index` disables this).
+  importers (`--full-index` disables this). A changed `.sql` file keeps
+  every other `.sql` file. A changed workflow file keeps every workflow
+  file.
 - `POLICY_BASELINE` when `--baseline` / `--policy-file` baseline keys are
   ignored.
 - `FINDING_SUPPRESSIONS` when `--suppress-file` / YAML `suppressions:`
@@ -71,7 +73,8 @@ Today the tool records:
 - `FORMAT_ONLY_CHANGES` when a changed Java, Kotlin, TypeScript, Python,
   or PHP file’s tokens are unchanged except comments and whitespace
   (Java uses a parse-tree dump). SQL `--`, `#`, and block comments are
-  ignored the same way. Those files stay on the changed-file
+  ignored the same way. Workflow `#` comments are ignored the same way,
+  including a `#` inside a literal block scalar. Those files stay on the changed-file
   list and do not occupy symbols. Import reorder is not format-only.
   Python indent/dedent is kept. ChangeRadar does not format source.
 - `KT_IMPORTS` / `KT_CALL_CHAINS` / `KT_CALL_CHAIN_CAP` /
@@ -82,6 +85,11 @@ Today the tool records:
   are removed, and a repeated name is HEURISTIC. Embedded SQL in
   application code is not scanned. Dollar-quoted bodies may be missed.
 - `SQL_PARSE_FAILED` when a `.sql` file has an unclosed comment or string.
+- `WORKFLOW_REFERENCES` when a GitHub Actions workflow or `action.yml`
+  changed. Callers are same-file `needs` and local `uses` paths that start
+  with `./`. Remote actions, matrices, and `workflow_call` inputs are not
+  resolved. The workflow is not run.
+- `WORKFLOW_PARSE_FAILED` when a workflow file has an unclosed quote.
 - `FAILED_RELATED_TESTS_NO_JUNIT` when `failed-related-tests` is enabled
   without `--junit`.
 - `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read

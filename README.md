@@ -25,7 +25,8 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.6` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, and SQL
+**Status:** `0.2.6` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, and
+GitHub Actions workflow
 impact reports, a published fat JAR / GitHub Action (Marketplace:
 ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
 finding-id suppressions, and optional policies (`changeradar policies`,
@@ -126,7 +127,8 @@ the same place you already review the change.
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
   (JavaParser). Comment and whitespace-only Java, Kotlin, TypeScript,
-  Python, PHP, and SQL diffs are `FORMAT_ONLY_CHANGES`, not symbol occupancy.
+  Python, PHP, SQL, and GitHub Actions workflow diffs are `FORMAT_ONLY_CHANGES`,
+  not symbol occupancy.
 - Maps changed Kotlin lines to types and functions (not kotlinc).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
   exports (not tsc).
@@ -135,6 +137,9 @@ the same place you already review the change.
 - Maps changed SQL lines to tables, views, functions, and procedures.
   Other `.sql` files that name the object are callers. Embedded SQL in
   application code is not scanned. This is not a database.
+- Maps changed GitHub Actions workflows to jobs, reusable workflows, and
+  local actions. Callers are same-file `needs` and local `uses: ./...`
+  paths. Remote actions are not resolved. This does not run the workflow.
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
   HEURISTIC. Java, Kotlin, Python, and PHP callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style

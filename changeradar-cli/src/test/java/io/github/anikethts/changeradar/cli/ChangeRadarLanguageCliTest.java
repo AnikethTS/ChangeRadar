@@ -240,4 +240,29 @@ class ChangeRadarLanguageCliTest extends CliGitHarness {
     assertTrue(json.contains("reports/monthly.sql"));
     assertTrue(json.contains("SQL_REFERENCES"));
   }
+
+  @Test
+  void analyzeWorkflowDiffWritesJobAndCaller() throws Exception {
+    seedWorkflowRepo();
+    Path out = tmp.resolve("workflow-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains(".github/workflows/ci.yml"));
+    assertTrue(json.contains(".github/workflows/release.yml"));
+    assertTrue(json.contains("WORKFLOW_REFERENCES"));
+  }
 }
