@@ -21,5 +21,6 @@ include(
   "changeradar-analyzer-php",
   "changeradar-analyzer-sql",
   "changeradar-analyzer-workflow",
+  "changeradar-analyzer-shell",
   "changeradar-cli",
 )

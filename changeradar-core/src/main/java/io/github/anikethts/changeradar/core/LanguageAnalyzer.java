@@ -6,7 +6,7 @@ import java.util.Map;
 
 /**
  * Language-neutral analyzer contract. Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, and
- * GitHub Actions workflows map into the same report model.
+ * GitHub Actions workflows, and shell scripts map into the same report model.
  */
 public interface LanguageAnalyzer {
 

@@ -31,7 +31,7 @@ Today the tool records:
   changed, same-directory Java neighbors, nor import/require/`use`
   importers (`--full-index` disables this). A changed `.sql` file keeps
   every other `.sql` file. A changed workflow file keeps every workflow
-  file.
+  file. A changed shell file keeps every other `.sh` file.
 - `POLICY_BASELINE` when `--baseline` / `--policy-file` baseline keys are
   ignored.
 - `FINDING_SUPPRESSIONS` when `--suppress-file` / YAML `suppressions:`
@@ -73,8 +73,9 @@ Today the tool records:
 - `FORMAT_ONLY_CHANGES` when a changed Java, Kotlin, TypeScript, Python,
   or PHP file’s tokens are unchanged except comments and whitespace
   (Java uses a parse-tree dump). SQL `--`, `#`, and block comments are
-  ignored the same way. Workflow `#` comments are ignored the same way,
-  including a `#` inside a literal block scalar. Those files stay on the changed-file
+  ignored the same way. Workflow `#` comments are ignored the same way, including
+  a `#` inside a literal block scalar. Shell `#` comments are ignored too.
+  Those files stay on the changed-file
   list and do not occupy symbols. Import reorder is not format-only.
   Python indent/dedent is kept. ChangeRadar does not format source.
 - `KT_IMPORTS` / `KT_CALL_CHAINS` / `KT_CALL_CHAIN_CAP` /
@@ -90,6 +91,11 @@ Today the tool records:
   with `./`. Remote actions, matrices, and `workflow_call` inputs are not
   resolved. The workflow is not run.
 - `WORKFLOW_PARSE_FAILED` when a workflow file has an unclosed quote.
+- `SHELL_REFERENCES` when a `.sh` file changed. Callers are function names
+  in other `.sh` files and `source` or `.` paths relative to the sourcing
+  script. A name declared more than once is HEURISTIC. The script is not
+  executed.
+- `SHELL_PARSE_FAILED` when a shell file has an unclosed quote.
 - `FAILED_RELATED_TESTS_NO_JUNIT` when `failed-related-tests` is enabled
   without `--junit`.
 - `COVERAGE_INGEST` when `--coverage` JaCoCo XML or LCOV was read

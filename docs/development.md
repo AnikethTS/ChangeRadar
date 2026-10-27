@@ -41,6 +41,7 @@ changeradar-analyzer-python/     Python adapter (same split)
 changeradar-analyzer-php/        PHP adapter (same split)
 changeradar-analyzer-sql/        SQL adapter (same split)
 changeradar-analyzer-workflow/  GitHub Actions workflow adapter (same split)
+changeradar-analyzer-shell/     Shell adapter (same split)
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
 site/                         project site published to GitHub Pages
