@@ -458,6 +458,20 @@ abstract class CliGitHarness {
     }
   }
 
+  void seedShellRepo() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path lib = tmp.resolve("lib.sh");
+      Path run = tmp.resolve("run.sh");
+      Files.writeString(lib, "build() {\n  echo old\n}\n");
+      Files.writeString(run, "source ./lib.sh\nbuild\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(lib, "build() {\n  echo new\n}\n");
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+  }
+
   static void commit(Git git, String message) throws Exception {
     git.commit()
         .setAuthor("ChangeRadar Test", "test@changeradar.example")

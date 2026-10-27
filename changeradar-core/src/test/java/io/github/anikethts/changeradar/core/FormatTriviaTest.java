@@ -73,4 +73,18 @@ class FormatTriviaTest {
             "jobs:\n  build:\n    runs-on: ubuntu-latest\n",
             "jobs:\n  build:\n    runs-on: ubuntu-24.04\n"));
   }
+
+  @Test
+  void shellIgnoresCommentsAndKeepsCommandEdits() {
+    assertTrue(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.SHELL,
+            "build() {\n  echo old\n}\n",
+            "build() {\n  echo old\n}\n# note\n"));
+    assertFalse(
+        FormatTrivia.sameIgnoringTrivia(
+            FormatTrivia.Dialect.SHELL,
+            "build() {\n  echo old\n}\n",
+            "build() {\n  echo new\n}\n"));
+  }
 }

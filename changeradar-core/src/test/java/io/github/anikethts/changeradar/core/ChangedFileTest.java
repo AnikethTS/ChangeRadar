@@ -44,6 +44,12 @@ class ChangedFileTest {
   }
 
   @Test
+  void shellSourceDetection() {
+    assertTrue(new ChangedFile("scripts/Build.SH", ChangeType.MODIFY, null).isShellSource());
+    assertFalse(new ChangedFile("scripts/build.sh.txt", ChangeType.MODIFY, null).isShellSource());
+  }
+
+  @Test
   void kotlinSourceDetection() {
     assertTrue(new ChangedFile("src/Api.kt", ChangeType.MODIFY, null).isKotlinSource());
     assertTrue(new ChangedFile("build.kts", ChangeType.MODIFY, null).isKotlinSource());

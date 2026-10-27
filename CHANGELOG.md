@@ -7,6 +7,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Shell occupancy for functions in `.sh` files. Other scripts that call the
+  function, or `source` the file, are callers. A name declared more than
+  once is HEURISTIC. The script is not executed. Comment-only scripts are
+  `FORMAT_ONLY_CHANGES`.
+
 - GitHub Actions occupancy for jobs, reusable workflows (`workflow_call`), and
   local actions (`action.yml`). Another workflow that `needs` the job or
   `uses` the local path is a caller. Remote actions are not resolved, and

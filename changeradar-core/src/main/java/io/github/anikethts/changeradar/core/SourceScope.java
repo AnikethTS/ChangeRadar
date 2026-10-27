@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
 /**
  * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, files
  * whose import/require/{@code use} specifiers resolve to a changed path, every {@code .sql} file
- * when a SQL file changed, and every workflow file when a workflow file changed.
+ * when a SQL file changed, every workflow file when a workflow file changed, and every {@code .sh}
+ * file when a shell file changed.
  */
 public final class SourceScope {
 
@@ -50,6 +51,9 @@ public final class SourceScope {
     boolean workflowSeed =
         seeds.stream()
             .anyMatch(path -> new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource());
+    boolean shellSeed =
+        seeds.stream()
+            .anyMatch(path -> new ChangedFile(path, ChangeType.MODIFY, null).isShellSource());
     TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headSources);
     for (Map.Entry<String, String> entry : headSources.entrySet()) {
       String path = entry.getKey();
@@ -70,6 +74,10 @@ public final class SourceScope {
         continue;
       }
       if (workflowSeed && new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource()) {
+        keep.add(path);
+        continue;
+      }
+      if (shellSeed && new ChangedFile(path, ChangeType.MODIFY, null).isShellSource()) {
         keep.add(path);
         continue;
       }
@@ -150,6 +158,7 @@ public final class SourceScope {
         || file.isPythonSource()
         || file.isPhpSource()
         || file.isSqlSource()
-        || file.isWorkflowSource();
+        || file.isWorkflowSource()
+        || file.isShellSource();
   }
 }

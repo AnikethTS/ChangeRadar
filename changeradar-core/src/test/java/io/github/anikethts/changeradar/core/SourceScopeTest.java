@@ -91,4 +91,21 @@ class SourceScopeTest {
     assertTrue(subset.containsKey(".github/workflows/caller.yml"));
     assertFalse(subset.containsKey("config/app.yml"));
   }
+
+  @Test
+  void keepsOtherShellFilesWhenAShellFileChanged() {
+    Map<String, String> head =
+        Map.of(
+            "lib.sh",
+            "build() { echo 1; }\n",
+            "run.sh",
+            "source ./lib.sh\n",
+            "src/other.ts",
+            "export function other() { return 1; }\n");
+    Map<String, String> subset =
+        SourceScope.subset(List.of(new ChangedFile("lib.sh", ChangeType.MODIFY, null)), head);
+    assertTrue(subset.containsKey("lib.sh"));
+    assertTrue(subset.containsKey("run.sh"));
+    assertFalse(subset.containsKey("src/other.ts"));
+  }
 }
