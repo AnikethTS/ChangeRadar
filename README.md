@@ -42,9 +42,13 @@ ships `changeradar.jar`:
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif \
+  --format compact,markdown,json,sarif,html \
   --output build/changeradar
+java -jar changeradar.jar review --output build/changeradar
 ```
+
+`review` prints a `http://127.0.0.1` URL and stops on Ctrl+C. With `--base`
+and `--head` it analyzes first.
 
 GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
 Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
@@ -147,8 +151,10 @@ the same place you already review the change.
   maps to the change. TypeScript also follows `export * from` barrels and
   `tsconfig` `paths` aliases (still not tsc).
 - Flags public Java members and exported TS/JS symbols on changed lines.
-- Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**, and
-  **github** (Checks annotations) reports with a stable schema version.
+- Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**,
+  **github** (Checks annotations), and **HTML** reports with a stable schema
+  version. `changeradar review` serves `report.html` on `127.0.0.1` and can
+  show source around a finding. The page stays on this machine.
 - Lists named policies with `changeradar policies` (alias `list-policies`).
 - Distinguishes a completed analysis (`0`), a configured policy violation
   (`1`, only with `--policy`), and a tool/input failure (`2`).
@@ -164,8 +170,9 @@ Curious how the pieces fit? [Architecture](docs/architecture.md) and
 
 ## What it is not
 
-- Not a diff viewer, generic dashboard, linter, formatter, or
-  vulnerability scanner.
+- Not a diff viewer, hosted dashboard, linter, formatter, or
+  vulnerability scanner. The review page reads a report you already
+  produced.
 - Not a replacement for running tests, human review, or other static
   analysis.
 - Not a guarantee that a change will break something — or that it will not.
@@ -181,7 +188,7 @@ reimplement analysis.
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif \
+  --format compact,markdown,json,sarif,html \
   --output build/changeradar
 ```
 

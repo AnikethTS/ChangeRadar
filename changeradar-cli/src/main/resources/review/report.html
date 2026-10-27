@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChangeRadar review</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1220;
+        --panel: #121a2b;
+        --line: #243044;
+        --text: #e7eefc;
+        --muted: #93a4c3;
+        --direct: #3dd68c;
+        --indirect: #7eb6ff;
+        --heuristic: #f0c14d;
+        --unknown: #9aa8c3;
+        --bad: #ff8b8b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.45 "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header, main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; }
+      header { padding: 28px 0 8px; }
+      h1 { font-size: 1.6rem; margin: 0 0 6px; }
+      h2 { font-size: 1.05rem; margin: 28px 0 10px; }
+      .meta, .hint { color: var(--muted); }
+      .counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+      .count, .card, .toolbar, .source {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .count { padding: 10px 14px; min-width: 120px; }
+      .count b { display: block; font-size: 1.3rem; }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 12px; }
+      label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.85rem; }
+      input[type="search"], select {
+        background: #0b1220;
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        min-width: 180px;
+      }
+      .checks { display: flex; gap: 10px; flex-wrap: wrap; padding-bottom: 8px; }
+      .checks label { flex-direction: row; align-items: center; color: var(--text); }
+      .card { padding: 12px 14px; margin: 8px 0; }
+      .card h3 { margin: 0 0 6px; font-size: 1rem; }
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 1px 8px;
+        font-size: 0.75rem;
+        border: 1px solid var(--line);
+        margin-right: 6px;
+      }
+      .DIRECT { color: var(--direct); }
+      .INDIRECT { color: var(--indirect); }
+      .HEURISTIC { color: var(--heuristic); }
+      .UNKNOWN { color: var(--unknown); }
+      .path { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.86rem; }
+      button {
+        margin-top: 8px;
+        background: transparent;
+        color: var(--indirect);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      pre.source {
+        overflow: auto;
+        padding: 10px 12px;
+        white-space: pre;
+        font-family: ui-monospace, monospace;
+        font-size: 0.82rem;
+      }
+      .empty { color: var(--muted); }
+      .blocking { color: var(--bad); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ChangeRadar review</h1>
+      <p id="meta" class="meta"></p>
+      <div id="counts" class="counts"></div>
+    </header>
+    <main>
+      <div class="toolbar">
+        <label>Search
+          <input id="search" type="search" placeholder="File, symbol, summary" />
+        </label>
+        <label>Finding type
+          <select id="type"></select>
+        </label>
+        <div class="checks" id="confidence"></div>
+      </div>
+      <p class="hint">Source lines load only while <code>changeradar review</code> is serving this page on this machine.</p>
+      <h2>Potentially affected</h2>
+      <div id="findings"></div>
+      <h2>Changed symbols</h2>
+      <div id="symbols"></div>
+      <h2>Changed files</h2>
+      <div id="files"></div>
+      <h2>Tests to consider</h2>
+      <div id="tests"></div>
+      <h2>Limitations</h2>
+      <div id="limitations"></div>
+      <h2>Policy</h2>
+      <div id="policy"></div>
+    </main>
+    <script id="report-data" type="application/json">__REPORT_JSON__</script>
+    <script>
+      const report = JSON.parse(document.getElementById("report-data").textContent);
+      const searchBox = document.getElementById("search");
+      const typeBox = document.getElementById("type");
+      const confidenceBox = document.getElementById("confidence");
+      const levels = ["DIRECT", "INDIRECT", "HEURISTIC", "UNKNOWN"];
+
+      function text(value) {
+        return value == null ? "" : String(value);
+      }
+
+      function add(parent, tag, className, content) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (content != null) node.textContent = content;
+        parent.appendChild(node);
+        return node;
+      }
+
+      function haystack(parts) {
+        return parts.map(text).join(" ").toLowerCase();
+      }
+
+      function selectedLevels() {
+        return new Set(
+          Array.from(confidenceBox.querySelectorAll("input:checked")).map((box) => box.value)
+        );
+      }
+
+      function query() {
+        return searchBox.value.trim().toLowerCase();
+      }
+
+      function fillCounts() {
+        const counts = document.getElementById("counts");
+        counts.replaceChildren();
+        const items = [
+          ["Changed files", (report.changedFiles || []).length],
+          ["Changed symbols", (report.changedSymbols || []).length],
+          ["Findings", (report.findings || []).length],
+          ["Tests", (report.recommendedTests || []).length],
+          ["Limitations", (report.limitations || []).length]
+        ];
+        for (const [label, value] of items) {
+          const card = add(counts, "div", "count");
+          add(card, "b", "", String(value));
+          add(card, "span", "", label);
+        }
+      }
+
+      function fillMeta() {
+        const policy = report.policyBlocking ? "blocking" : "not blocking";
+        document.getElementById("meta").textContent =
+          "ChangeRadar " + text(report.toolVersion) +
+          " · schema " + text(report.schemaVersion) +
+          " · " + text(report.base) + " → " + text(report.head) +
+          " · policy " + policy;
+      }
+
+      function fillTypes() {
+        const types = new Set((report.findings || []).map((finding) => text(finding.type)));
+        typeBox.replaceChildren();
+        add(typeBox, "option", "", "All types").value = "";
+        for (const type of types) {
+          const option = add(typeBox, "option", "", type);
+          option.value = type;
+        }
+      }
+
+      function fillConfidence() {
+        confidenceBox.replaceChildren();
+        for (const level of levels) {
+          const label = add(confidenceBox, "label", "");
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.value = level;
+          box.checked = true;
+          label.appendChild(box);
+          label.append(" " + level);
+        }
+      }
+
+      function empty(parent, message) {
+        parent.replaceChildren();
+        add(parent, "p", "empty", message);
+      }
+
+      function sourceButton(card, path, line) {
+        if (!path) return;
+        const button = add(card, "button", "", "Show source");
+        button.type = "button";
+        button.addEventListener("click", async () => {
+          const pre = document.createElement("pre");
+          pre.className = "source";
+          try {
+            const url = "/source?path=" + encodeURIComponent(path) + "&line=" + encodeURIComponent(line || 1);
+            const response = await fetch(url);
+            pre.textContent = response.ok
+              ? await response.text()
+              : "Source is available when changeradar review is serving this page.";
+          } catch (error) {
+            pre.textContent = "Source is available when changeradar review is serving this page.";
+          }
+          card.appendChild(pre);
+          button.remove();
+        });
+      }
+
+      function renderFindings() {
+        const parent = document.getElementById("findings");
+        const levelsSelected = selectedLevels();
+        const needle = query();
+        const type = typeBox.value;
+        const rows = (report.findings || []).filter((finding) => {
+          if (!levelsSelected.has(text(finding.confidence))) return false;
+          if (type && text(finding.type) !== type) return false;
+          const location = finding.location || {};
+          return haystack([finding.summary, finding.type, finding.id, location.path]).includes(needle);
+        });
+        if (rows.length === 0) {
+          empty(parent, "No findings match.");
+          return;
+        }
+        parent.replaceChildren();
+        for (const finding of rows) {
+          const card = add(parent, "article", "card");
+          const title = add(card, "h3", "");
+          add(title, "span", "badge " + text(finding.confidence), text(finding.confidence));
+          title.append(text(finding.type));
+          add(card, "p", "", text(finding.summary));
+          const location = finding.location || {};
+          add(card, "p", "path", text(location.path) + ":" + text(location.startLine));
+          sourceButton(card, location.path, location.startLine);
+        }
+      }
+
+      function renderSymbols() {
+        const parent = document.getElementById("symbols");
+        const needle = query();
+        const rows = (report.changedSymbols || []).filter((symbol) => {
+          const location = symbol.location || {};
+          return haystack([symbol.name, symbol.kind, symbol.owner, symbol.signature, location.path]).includes(needle);
+        });
+        if (rows.length === 0) {
+          empty(parent, "No changed symbols match.");
+          return;
+        }
+        parent.replaceChildren();
+        for (const symbol of rows) {
+          const card = add(parent, "article", "card");
+          add(card, "h3", "", text(symbol.kind) + " " + text(symbol.name));
+          const location = symbol.location || {};
+          add(card, "p", "path", text(symbol.changeType) + " " + text(location.path) + ":" + text(location.startLine));
+          if (symbol.signature) add(card, "p", "", text(symbol.signature));
+          sourceButton(card, location.path, location.startLine);
+        }
+      }
+
+      function renderFiles() {
+        const parent = document.getElementById("files");
+        const needle = query();
+        const rows = (report.changedFiles || []).filter((file) => haystack([file.path, file.changeType, file.previousPath]).includes(needle));
+        if (rows.length === 0) {
+          empty(parent, "No changed files match.");
+          return;
+        }
+        parent.replaceChildren();
+        for (const file of rows) {
+          const card = add(parent, "article", "card");
+          add(card, "h3", "", text(file.path));
+          const previous = file.previousPath ? " from " + file.previousPath : "";
+          add(card, "p", "path", text(file.changeType) + previous);
+          sourceButton(card, file.path, 1);
+        }
+      }
+
+      function renderTests() {
+        const parent = document.getElementById("tests");
+        const levelsSelected = selectedLevels();
+        const needle = query();
+        const rows = (report.recommendedTests || []).filter((test) => {
+          if (!levelsSelected.has(text(test.confidence))) return false;
+          return haystack([test.name, test.path, test.reason, test.execution]).includes(needle);
+        });
+        if (rows.length === 0) {
+          empty(parent, "No tests match.");
+          return;
+        }
+        parent.replaceChildren();
+        for (const test of rows) {
+          const card = add(parent, "article", "card");
+          const title = add(card, "h3", "");
+          add(title, "span", "badge " + text(test.confidence), text(test.confidence));
+          title.append(text(test.name));
+          add(card, "p", "", text(test.reason));
+          add(card, "p", "path", text(test.path) + " · " + text(test.execution));
+          sourceButton(card, test.path, 1);
+        }
+      }
+
+      function renderLimitations() {
+        const parent = document.getElementById("limitations");
+        const needle = query();
+        const rows = (report.limitations || []).filter((item) => haystack([item.code, item.message]).includes(needle));
+        if (rows.length === 0) {
+          empty(parent, "No limitations match.");
+          return;
+        }
+        parent.replaceChildren();
+        for (const item of rows) {
+          const card = add(parent, "article", "card");
+          add(card, "h3", "", text(item.code));
+          add(card, "p", "", text(item.message));
+        }
+      }
+
+      function renderPolicy() {
+        const parent = document.getElementById("policy");
+        parent.replaceChildren();
+        const card = add(parent, "article", "card");
+        const state = report.policyBlocking ? "Blocking policy violated" : "No blocking policy violated";
+        add(card, "h3", report.policyBlocking ? "blocking" : "", state);
+        const violations = report.policyViolations || [];
+        if (violations.length === 0) {
+          add(card, "p", "empty", "No policy violations.");
+          return;
+        }
+        for (const violation of violations) add(card, "p", "", text(violation));
+      }
+
+      function render() {
+        renderFindings();
+        renderSymbols();
+        renderFiles();
+        renderTests();
+        renderLimitations();
+        renderPolicy();
+      }
+
+      fillMeta();
+      fillCounts();
+      fillTypes();
+      fillConfidence();
+      searchBox.addEventListener("input", render);
+      typeBox.addEventListener("change", render);
+      confidenceBox.addEventListener("change", render);
+      render();
+    </script>
+  </body>
+</html>

@@ -11,16 +11,28 @@ source tree to run Gradle.
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif \
+  --format compact,markdown,json,sarif,html \
   --output build/changeradar
 ```
 
 `--repo` defaults to the current directory. `--format` is a comma-separated
-list of `terminal`, `markdown`, `json`, `compact`, `sarif`, and `github`.
-File formats are written under `--output` as `report.md`, `report.json`,
-`report.compact.md`, `report.sarif`, and `report.github.json`. If
-`--output` is omitted and a file format is requested, the default
-directory is `build/changeradar`.
+list of `terminal`, `markdown`, `json`, `compact`, `sarif`, `github`, and
+`html`. File formats are written under `--output` as `report.md`,
+`report.json`, `report.compact.md`, `report.sarif`, `report.github.json`,
+and `report.html`. If `--output` is omitted and a file format is requested,
+the default directory is `build/changeradar`.
+
+`report.html` is a self-contained review page. Open it from the artifact, or
+serve it on this machine:
+
+```bash
+java -jar changeradar.jar review --output build/changeradar
+```
+
+`review` binds to `127.0.0.1` only. While it is running, the page can show a
+short source slice from `--repo`. It does not upload source. Pass `--base`
+and `--head` to analyze (always including `html`) and then serve that
+directory. Stop it with Ctrl+C.
 
 When `GITHUB_STEP_SUMMARY` is set (GitHub Actions), the compact report is
 appended there as well.

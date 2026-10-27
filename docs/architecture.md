@@ -19,7 +19,7 @@ deep analyzers. CI systems invoke the same CLI.
 | SQL analyzer (`changeradar-analyzer-sql`) | Tables, views, functions, and procedures in `.sql` files, plus name references in other `.sql` files. Not a database. |
 | Workflow analyzer (`changeradar-analyzer-workflow`) | GitHub Actions jobs, reusable workflows, and local actions. Local `uses` and same-file `needs` only. The workflow is not run. |
 | Impact / policy / report (`changeradar-core`) | Typed findings, confidence, evidence, optional policies. Policies stay independent of severity guesses. |
-| Reporters | Terminal, Markdown, JSON, compact Markdown, SARIF. GitHub Actions downloads `changeradar.jar` (or uses a local fat JAR) and runs the CLI. |
+| Reporters | Terminal, Markdown, JSON, compact Markdown, SARIF, and a self-contained HTML review page. `changeradar review` serves that page on `127.0.0.1`. GitHub Actions downloads `changeradar.jar` (or uses a local fat JAR) and runs the CLI. |
 
 Flow:
 
@@ -39,8 +39,8 @@ plus tests against the shared model.
   Cost: we reimplement a small amount of Git behavior; merge-base nuances get
   tests, not folklore.
 - **Gradle modules now, few classes inside them.** Boundaries are core /
-  git / java / kotlin / typescript / python / php / CLI. No extra modules for policy
-  packs or a web UI until those are real adapters.
+  git / java / kotlin / typescript / python / php / CLI. The local review page
+  lives in the CLI. No extra module for a hosted dashboard.
 - **Java 21 toolchain, not “whatever the developer has.”** Matches the LTS
   the brief asked for. Foojay resolver can provision 21 if the outer JDK is
   older.
@@ -60,7 +60,7 @@ plus tests against the shared model.
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
 | 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. Kotlin: import/same-directory callers and call chains (not kotlinc). TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges plus call chains, overrides, fields, attributes. SQL: name references among `.sql` files. GitHub Actions: local `uses` and same-file `needs`. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
-| 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + grouped findings with stable ids. **Current.** |
+| 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + HTML review page + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
 | 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action posts artifact, compact comment, job summary, Checks annotations. **Current.** |
 | 8 Policies | Optional blocking rules | `--policy-file`, `policies` command, baseline, finding-id suppressions, rename/signature. **Current.** |
@@ -68,8 +68,10 @@ plus tests against the shared model.
 
 ## MVP non-goals
 
-No web dashboard, no paid API, no claiming complete impact for reflection or
+No hosted dashboard, no paid API, no claiming complete impact for reflection or
 generated code, no skipping tests or deploying from a heuristic, no blocking
 the pipeline by default for uncertain findings, no uploading source to a
-remote service by default. `site/` is a static project page (overview,
-sample comment, contribute). It does not run analysis or store reports.
+remote service. `changeradar review` serves the report on `127.0.0.1`, and
+`--format html` writes a self-contained `report.html` that does not need the
+server. `site/` is a static project page (overview, sample comment,
+contribute). It does not run analysis or store reports.

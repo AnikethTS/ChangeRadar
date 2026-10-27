@@ -156,13 +156,14 @@ jobs:
           java -jar changeradar-cli/build/libs/changeradar.jar analyze \
             --base "${BASE}" \
             --head HEAD \
-            --format terminal,markdown,json,compact,sarif,github \
+            --format terminal,markdown,json,compact,sarif,github,html \
             --output build/changeradar
           test -s build/changeradar/report.json
           test -s build/changeradar/report.md
           test -s build/changeradar/report.compact.md
           test -s build/changeradar/report.sarif
           test -s build/changeradar/report.github.json
+          test -s build/changeradar/report.html
           if command -v python3 >/dev/null; then PY=python3; else PY=python; fi
           "${PY}" -m venv "${RUNNER_TEMP}/schema-venv"
           if [ -x "${RUNNER_TEMP}/schema-venv/bin/pip" ]; then
