@@ -15,7 +15,8 @@ public final class FormatTrivia {
     PYTHON,
     KOTLIN,
     SQL,
-    YAML
+    YAML,
+    SHELL
   }
 
   private FormatTrivia() {}
@@ -60,7 +61,8 @@ public final class FormatTrivia {
         i = skipLine(source, i + 2);
         continue;
       }
-      if ((dialect == Dialect.SQL || dialect == Dialect.YAML) && c == '#') {
+      if ((dialect == Dialect.SQL || dialect == Dialect.YAML || dialect == Dialect.SHELL)
+          && c == '#') {
         i = skipLine(source, i + 1);
         continue;
       }

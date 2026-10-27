@@ -44,6 +44,10 @@ public record ChangedFile(
     return file.equals("action.yml") || file.equals("action.yaml");
   }
 
+  public boolean isShellSource() {
+    return path.toLowerCase(Locale.ROOT).endsWith(".sh");
+  }
+
   public boolean isPythonSource() {
     String lower = path.toLowerCase();
     return lower.endsWith(".py") || lower.endsWith(".pyi");

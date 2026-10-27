@@ -19,7 +19,8 @@ Fixes #
       `changeradar-git`,       `changeradar-analyzer-java`, `changeradar-analyzer-kotlin`,
       `changeradar-analyzer-typescript`, `changeradar-analyzer-python`,
       `changeradar-analyzer-php`, `changeradar-analyzer-sql`,
-      `changeradar-analyzer-workflow`, or `changeradar-cli`)
+      `changeradar-analyzer-workflow`, `changeradar-analyzer-shell`, or
+      `changeradar-cli`)
 - [ ] `./gradlew check` passes locally
 - [ ] Added a bullet under `## [Unreleased]` in `CHANGELOG.md`
 - [ ] Stayed in scope — no unrelated refactors, new dependencies, language
