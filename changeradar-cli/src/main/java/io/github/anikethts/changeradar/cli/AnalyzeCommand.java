@@ -54,7 +54,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
           ".py", ".pyi", ".php", ".sql", ".sh");
 
   private static final Set<String> FORMATS =
-      Set.of("terminal", "markdown", "json", "sarif", "compact", "github");
+      Set.of("terminal", "markdown", "json", "sarif", "compact", "github", "html");
 
   @Option(
       names = "--base",
@@ -79,8 +79,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
       defaultValue = "terminal",
       split = ",",
       description =
-          "Comma-separated formats: terminal, markdown, json, compact, sarif, github. Default:"
-              + " terminal.")
+          "Comma-separated formats: terminal, markdown, json, compact, sarif, github, html."
+              + " Default: terminal.")
   List<String> formats;
 
   @Option(names = "--output", description = "Directory for report files. Created if missing.")
@@ -164,6 +164,41 @@ public final class AnalyzeCommand implements Callable<Integer> {
   AnalyzeCommand(Clock clock, ReportWriters writers) {
     this.clock = clock;
     this.writers = writers;
+  }
+
+  static AnalyzeCommand create(
+      String base,
+      String head,
+      Path repo,
+      List<String> formats,
+      Path output,
+      List<String> policies,
+      Path policyFile,
+      Path baseline,
+      Path writeBaseline,
+      Path suppressFile,
+      Path writeSuppressions,
+      List<String> classpath,
+      List<String> coverage,
+      List<String> junit,
+      boolean fullIndex) {
+    AnalyzeCommand command = new AnalyzeCommand();
+    command.base = base;
+    command.head = head;
+    command.repo = repo;
+    command.formats = formats;
+    command.output = output;
+    command.policies = policies;
+    command.policyFile = policyFile;
+    command.baseline = baseline;
+    command.writeBaseline = writeBaseline;
+    command.suppressFile = suppressFile;
+    command.writeSuppressions = writeSuppressions;
+    command.classpath = classpath;
+    command.coverage = coverage;
+    command.junit = junit;
+    command.fullIndex = fullIndex;
+    return command;
   }
 
   @Override
@@ -365,7 +400,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || selected.contains("json")
             || selected.contains("sarif")
             || selected.contains("compact")
-            || selected.contains("github");
+            || selected.contains("github")
+            || selected.contains("html");
     Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
     if (files) {
       Files.createDirectories(dest);
@@ -383,6 +419,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       if (selected.contains("github")) {
         writers.writeGithub(report, dest.resolve("report.github.json"));
+      }
+      if (selected.contains("html")) {
+        writers.writeHtml(report, dest.resolve("report.html"));
       }
     }
     String summary = System.getenv("GITHUB_STEP_SUMMARY");

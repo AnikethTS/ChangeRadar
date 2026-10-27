@@ -49,4 +49,8 @@ final class ReportWriters {
   void writeJson(Report report, Path file) throws IOException {
     JsonReportWriter.writeJson(mapper, report, file);
   }
+
+  void writeHtml(Report report, Path file) throws IOException {
+    HtmlReportWriter.write(mapper, report, file);
+  }
 }
