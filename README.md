@@ -124,6 +124,9 @@ the same place you already review the change.
 ## What it does
 
 - Compares explicit `--base` and `--head` Git refs (SHAs or branch names).
+- Writes an agent brief (`--format agent`) and can serve it to a local
+  agent over stdin/stdout (`changeradar mcp`). Analysis stays deterministic.
+  See [Agent usage](docs/agent-usage.md).
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
   (JavaParser). Comment and whitespace-only Java, Kotlin, TypeScript,
@@ -171,6 +174,8 @@ Curious how the pieces fit? [Architecture](docs/architecture.md) and
 - Not a guarantee that a change will break something — or that it will not.
 - Not a deployment platform. It never deploys, rolls back, or skips the
   full test suite based on a heuristic score.
+- Not a language model. The agent brief is the same local report, capped so
+  an agent can read it.
 
 ## CI/CD
 

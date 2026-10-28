@@ -1,10 +1,12 @@
 package io.github.anikethts.changeradar.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.anikethts.changeradar.core.AnalysisRequest;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.Limitation;
+import io.github.anikethts.changeradar.core.PolicyResult;
 import io.github.anikethts.changeradar.core.Report;
 import io.github.anikethts.changeradar.core.TestRecommendation;
 import java.io.IOException;
@@ -33,6 +35,25 @@ final class JsonReportWriter {
             report.policy().blocking(),
             report.policy().violations());
     mapper.writeValue(file.toFile(), body);
+  }
+
+  static Report read(ObjectMapper mapper, Path file) throws IOException {
+    JsonReport body = mapper.readValue(file.toFile(), JsonReport.class);
+    return new Report(
+        body.schemaVersion(),
+        body.toolVersion(),
+        body.generatedAt(),
+        new AnalysisRequest(Path.of(body.repository()), body.base(), body.head()),
+        list(body.changedFiles()),
+        list(body.changedSymbols()),
+        list(body.findings()),
+        list(body.recommendedTests()),
+        list(body.limitations()),
+        new PolicyResult(body.policyBlocking(), list(body.policyViolations())));
+  }
+
+  private static <T> List<T> list(List<T> values) {
+    return values == null ? List.of() : values;
   }
 
   record JsonReport(

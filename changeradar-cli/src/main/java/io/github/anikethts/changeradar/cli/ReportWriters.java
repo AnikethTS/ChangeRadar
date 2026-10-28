@@ -49,4 +49,12 @@ final class ReportWriters {
   void writeJson(Report report, Path file) throws IOException {
     JsonReportWriter.writeJson(mapper, report, file);
   }
+
+  void writeAgent(Report report, Path file) throws IOException {
+    AgentReportWriter.write(mapper, report, file);
+  }
+
+  ObjectMapper mapper() {
+    return mapper;
+  }
 }

@@ -7,6 +7,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- An agent brief. `--format agent` writes `report.agent.json`: a capped
+  projection of the report with policy status, every limitation, and
+  guidance that heuristic findings are not proof. `changeradar mcp` serves
+  `analyze` and `brief` on stdin/stdout for a local agent. It does not open
+  a port, upload source, or call a model.
 - GitHub Actions occupancy for jobs, reusable workflows (`workflow_call`), and
   local actions (`action.yml`). Another workflow that `needs` the job or
   `uses` the local path is a caller. Remote actions are not resolved, and

@@ -13,7 +13,12 @@ import picocli.CommandLine.IVersionProvider;
             + " skip tests, or replace the rest of the pipeline.",
     mixinStandardHelpOptions = true,
     versionProvider = ChangeRadarApp.VersionProvider.class,
-    subcommands = {AnalyzeCommand.class, PoliciesCommand.class, CommandLine.HelpCommand.class},
+    subcommands = {
+      AnalyzeCommand.class,
+      McpCommand.class,
+      PoliciesCommand.class,
+      CommandLine.HelpCommand.class
+    },
     exitCodeOnInvalidInput = 2,
     exitCodeOnExecutionException = 2)
 public final class ChangeRadarApp implements Runnable {
