@@ -7,6 +7,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- An agent brief. `--format agent` writes `report.agent.json`: a capped
+  projection of the report with policy status, every limitation, and
+  guidance that heuristic findings are not proof. `changeradar mcp` serves
+  `analyze` and `brief` on stdin/stdout for a local agent. It does not open
+  a port, upload source, or call a model.
 - A local review page. `--format html` writes self-contained `report.html`.
   `changeradar review` serves it on `127.0.0.1` and can show source lines
   from the repository. The page does not upload source.

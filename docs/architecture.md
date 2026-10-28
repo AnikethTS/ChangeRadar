@@ -20,7 +20,7 @@ the deep analyzers. CI systems invoke the same CLI.
 | Workflow analyzer (`changeradar-analyzer-workflow`) | GitHub Actions jobs, reusable workflows, and local actions. Local `uses` and same-file `needs` only. The workflow is not run. |
 | Shell analyzer (`changeradar-analyzer-shell`) | Functions in `.sh` files, plus calls and `source` from other `.sh` files. The script is not executed. |
 | Impact / policy / report (`changeradar-core`) | Typed findings, confidence, evidence, optional policies. Policies stay independent of severity guesses. |
-| Reporters | Terminal, Markdown, JSON, compact Markdown, SARIF, and a self-contained HTML review page. `changeradar review` serves that page on `127.0.0.1`. GitHub Actions downloads `changeradar.jar` (or uses a local fat JAR) and runs the CLI. |
+| Reporters | Terminal, Markdown, JSON, compact Markdown, SARIF, a self-contained HTML review page, and an agent brief (`report.agent.json`). `changeradar review` serves the page on `127.0.0.1`. `changeradar mcp` serves the brief on stdin/stdout and does not open a port. GitHub Actions downloads `changeradar.jar` (or uses a local fat JAR) and runs the CLI. |
 
 Flow:
 
@@ -61,7 +61,7 @@ plus tests against the shared model.
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
 | 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. Kotlin: import/same-directory callers and call chains (not kotlinc). TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges plus call chains, overrides, fields, attributes. SQL: name references among `.sql` files. GitHub Actions: local `uses` and same-file `needs`. Shell: function names and `source` among `.sh` files. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
-| 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + HTML review page + grouped findings with stable ids. **Current.** |
+| 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + HTML review page + agent brief + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |
 | 7 GitHub Actions | Example + artifacts / optional PR comment | Fat JAR Action posts artifact, compact comment, job summary, Checks annotations. **Current.** |
 | 8 Policies | Optional blocking rules | `--policy-file`, `policies` command, baseline, finding-id suppressions, rename/signature. **Current.** |
@@ -74,5 +74,7 @@ generated code, no skipping tests or deploying from a heuristic, no blocking
 the pipeline by default for uncertain findings, no uploading source to a
 remote service. `changeradar review` serves the report on `127.0.0.1`, and
 `--format html` writes a self-contained `report.html` that does not need the
-server. `site/` is a static project page (overview, sample comment,
-contribute). It does not run analysis or store reports.
+server. An LLM is not part of analysis. `changeradar mcp` is a local process
+an agent starts; it returns the same deterministic brief as `--format agent`.
+`site/` is a static project page (overview, sample comment, contribute). It
+does not run analysis or store reports.

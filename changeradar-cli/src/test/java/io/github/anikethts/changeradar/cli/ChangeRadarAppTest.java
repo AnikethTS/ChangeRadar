@@ -135,6 +135,31 @@ class ChangeRadarAppTest extends CliGitHarness {
   }
 
   @Test
+  void analyzeWritesAgentBrief() throws Exception {
+    seedRepo();
+    Path out = tmp.resolve("reports-agent");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "agent",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String agent = Files.readString(out.resolve("report.agent.json"));
+    assertTrue(agent.contains("\"agentSchemaVersion\" : \"1.0.0\""));
+    assertTrue(agent.contains("Do not skip tests or deploy from this brief."));
+    assertTrue(agent.contains("\"exitCode\" : 0"));
+  }
+
+  @Test
   void unknownPolicyIsFailure() throws Exception {
     seedRepo();
     CommandLine cmd = command();

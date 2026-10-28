@@ -16,11 +16,16 @@ java -jar changeradar.jar analyze \
 ```
 
 `--repo` defaults to the current directory. `--format` is a comma-separated
-list of `terminal`, `markdown`, `json`, `compact`, `sarif`, `github`, and
-`html`. File formats are written under `--output` as `report.md`,
-`report.json`, `report.compact.md`, `report.sarif`, `report.github.json`,
-and `report.html`. If `--output` is omitted and a file format is requested,
-the default directory is `build/changeradar`.
+list of `terminal`, `markdown`, `json`, `compact`, `sarif`, `github`,
+`html`, and `agent`. File formats are written under `--output` as
+`report.md`, `report.json`, `report.compact.md`, `report.sarif`,
+`report.github.json`, `report.html`, and `report.agent.json`. If
+`--output` is omitted and a file format is requested, the default
+directory is `build/changeradar`.
+
+`agent` is a short JSON brief for a local agent. It is not a model call.
+See [Agent usage](agent-usage.md). The GitHub Action default format list
+does not include it.
 
 `report.html` is a self-contained review page. Open it from the artifact, or
 serve it on this machine:

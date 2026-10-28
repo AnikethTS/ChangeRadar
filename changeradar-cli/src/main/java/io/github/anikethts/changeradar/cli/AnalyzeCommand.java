@@ -54,7 +54,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
           ".py", ".pyi", ".php", ".sql", ".sh");
 
   private static final Set<String> FORMATS =
-      Set.of("terminal", "markdown", "json", "sarif", "compact", "github", "html");
+      Set.of("terminal", "markdown", "json", "sarif", "compact", "github", "html", "agent");
 
   @Option(
       names = "--base",
@@ -79,7 +79,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
       defaultValue = "terminal",
       split = ",",
       description =
-          "Comma-separated formats: terminal, markdown, json, compact, sarif, github, html."
+          "Comma-separated formats: terminal, markdown, json, compact, sarif, github, html,"
+              + " agent."
               + " Default: terminal.")
   List<String> formats;
 
@@ -401,7 +402,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || selected.contains("sarif")
             || selected.contains("compact")
             || selected.contains("github")
-            || selected.contains("html");
+            || selected.contains("html")
+            || selected.contains("agent");
     Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
     if (files) {
       Files.createDirectories(dest);
@@ -422,6 +424,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       if (selected.contains("html")) {
         writers.writeHtml(report, dest.resolve("report.html"));
+      }
+      if (selected.contains("agent")) {
+        writers.writeAgent(report, dest.resolve("report.agent.json"));
       }
     }
     String summary = System.getenv("GITHUB_STEP_SUMMARY");

@@ -50,7 +50,15 @@ final class ReportWriters {
     JsonReportWriter.writeJson(mapper, report, file);
   }
 
+  void writeAgent(Report report, Path file) throws IOException {
+    AgentReportWriter.write(mapper, report, file);
+  }
+
   void writeHtml(Report report, Path file) throws IOException {
     HtmlReportWriter.write(mapper, report, file);
+  }
+
+  ObjectMapper mapper() {
+    return mapper;
   }
 }
