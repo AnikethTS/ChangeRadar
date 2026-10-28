@@ -25,8 +25,8 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.6` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, and
-GitHub Actions workflow
+**Status:** `0.2.6` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, shell,
+and GitHub Actions workflow
 impact reports, a published fat JAR / GitHub Action (Marketplace:
 ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
 finding-id suppressions, and optional policies (`changeradar policies`,
@@ -42,9 +42,13 @@ ships `changeradar.jar`:
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif \
+  --format compact,markdown,json,sarif,html \
   --output build/changeradar
+java -jar changeradar.jar review --output build/changeradar
 ```
+
+`review` prints a `http://127.0.0.1` URL and stops on Ctrl+C. With `--base`
+and `--head` it analyzes first.
 
 GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
 Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
@@ -130,7 +134,7 @@ the same place you already review the change.
 - Lists changed files, including additions, edits, deletions, and renames.
 - Maps changed Java lines to types and methods, including overloads
   (JavaParser). Comment and whitespace-only Java, Kotlin, TypeScript,
-  Python, PHP, SQL, and GitHub Actions workflow diffs are `FORMAT_ONLY_CHANGES`,
+  Python, PHP, SQL, shell, and GitHub Actions workflow diffs are `FORMAT_ONLY_CHANGES`,
   not symbol occupancy.
 - Maps changed Kotlin lines to types and functions (not kotlinc).
 - Maps changed TypeScript/JavaScript lines to classes, functions, and
@@ -143,6 +147,9 @@ the same place you already review the change.
 - Maps changed GitHub Actions workflows to jobs, reusable workflows, and
   local actions. Callers are same-file `needs` and local `uses: ./...`
   paths. Remote actions are not resolved. This does not run the workflow.
+- Maps changed shell lines to functions in `.sh` files. Other scripts that
+  call the function, or `source` the file, are callers. The script is not
+  executed.
 - Finds likely callers and related tests, labeled DIRECT, INDIRECT, or
   HEURISTIC. Java, Kotlin, Python, and PHP callers of callers are INDIRECT (capped). Java also
   reports overrides, field reads, annotation uses, and inject-style
@@ -150,8 +157,10 @@ the same place you already review the change.
   maps to the change. TypeScript also follows `export * from` barrels and
   `tsconfig` `paths` aliases (still not tsc).
 - Flags public Java members and exported TS/JS symbols on changed lines.
-- Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**, and
-  **github** (Checks annotations) reports with a stable schema version.
+- Writes **terminal**, **Markdown**, **JSON**, **compact**, **SARIF**,
+  **github** (Checks annotations), and **HTML** reports with a stable schema
+  version. `changeradar review` serves `report.html` on `127.0.0.1` and can
+  show source around a finding. The page stays on this machine.
 - Lists named policies with `changeradar policies` (alias `list-policies`).
 - Distinguishes a completed analysis (`0`), a configured policy violation
   (`1`, only with `--policy`), and a tool/input failure (`2`).
@@ -167,8 +176,9 @@ Curious how the pieces fit? [Architecture](docs/architecture.md) and
 
 ## What it is not
 
-- Not a diff viewer, generic dashboard, linter, formatter, or
-  vulnerability scanner.
+- Not a diff viewer, hosted dashboard, linter, formatter, or
+  vulnerability scanner. The review page reads a report you already
+  produced.
 - Not a replacement for running tests, human review, or other static
   analysis.
 - Not a guarantee that a change will break something — or that it will not.
@@ -186,7 +196,7 @@ reimplement analysis.
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif \
+  --format compact,markdown,json,sarif,html \
   --output build/changeradar
 ```
 

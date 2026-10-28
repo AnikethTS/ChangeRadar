@@ -43,8 +43,8 @@ jobs:
           jar: changeradar-cli/build/libs/changeradar.jar
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          format: compact,markdown,json,sarif,github
+          format: compact,markdown,json,sarif,github,html
           output: build/changeradar
-          classpath: changeradar-core/build/libs:changeradar-git/build/libs:changeradar-analyzer-java/build/libs:changeradar-analyzer-kotlin/build/libs:changeradar-analyzer-typescript/build/libs:changeradar-analyzer-python/build/libs:changeradar-analyzer-php/build/libs:changeradar-analyzer-sql/build/libs:changeradar-analyzer-workflow/build/libs:changeradar-cli/build/libs
+          classpath: changeradar-core/build/libs:changeradar-git/build/libs:changeradar-analyzer-java/build/libs:changeradar-analyzer-kotlin/build/libs:changeradar-analyzer-typescript/build/libs:changeradar-analyzer-python/build/libs:changeradar-analyzer-php/build/libs:changeradar-analyzer-sql/build/libs:changeradar-analyzer-workflow/build/libs:changeradar-analyzer-shell/build/libs:changeradar-cli/build/libs
           coverage: build/test-evidence/coverage
           junit: build/test-evidence/junit

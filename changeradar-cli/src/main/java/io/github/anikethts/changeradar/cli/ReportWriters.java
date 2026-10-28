@@ -54,6 +54,10 @@ final class ReportWriters {
     AgentReportWriter.write(mapper, report, file);
   }
 
+  void writeHtml(Report report, Path file) throws IOException {
+    HtmlReportWriter.write(mapper, report, file);
+  }
+
   ObjectMapper mapper() {
     return mapper;
   }

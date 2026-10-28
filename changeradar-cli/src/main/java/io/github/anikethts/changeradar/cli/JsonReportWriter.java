@@ -19,22 +19,28 @@ final class JsonReportWriter {
   private JsonReportWriter() {}
 
   static void writeJson(ObjectMapper mapper, Report report, Path file) throws IOException {
-    JsonReport body =
-        new JsonReport(
-            report.schemaVersion(),
-            report.toolVersion(),
-            report.generatedAt(),
-            report.request().repository().toString(),
-            report.request().base(),
-            report.request().head(),
-            report.changedFiles(),
-            report.changedSymbols(),
-            report.findings(),
-            report.tests(),
-            report.limitations(),
-            report.policy().blocking(),
-            report.policy().violations());
-    mapper.writeValue(file.toFile(), body);
+    mapper.writeValue(file.toFile(), body(report));
+  }
+
+  static String json(ObjectMapper mapper, Report report) throws IOException {
+    return mapper.writeValueAsString(body(report));
+  }
+
+  private static JsonReport body(Report report) {
+    return new JsonReport(
+        report.schemaVersion(),
+        report.toolVersion(),
+        report.generatedAt(),
+        report.request().repository().toString(),
+        report.request().base(),
+        report.request().head(),
+        report.changedFiles(),
+        report.changedSymbols(),
+        report.findings(),
+        report.tests(),
+        report.limitations(),
+        report.policy().blocking(),
+        report.policy().violations());
   }
 
   static Report read(ObjectMapper mapper, Path file) throws IOException {

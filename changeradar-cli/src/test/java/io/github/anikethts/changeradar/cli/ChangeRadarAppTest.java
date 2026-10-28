@@ -71,6 +71,39 @@ class ChangeRadarAppTest extends CliGitHarness {
   }
 
   @Test
+  void analyzeWritesHtml() throws Exception {
+    seedRepo();
+    Path out = tmp.resolve("html-reports");
+    int code =
+        command()
+            .execute(
+                "analyze",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "html",
+                "--output",
+                out.toString());
+    assertEquals(0, code);
+    String page = Files.readString(out.resolve("report.html"));
+    assertTrue(page.contains("ChangeRadar review"));
+    assertTrue(page.contains("src/Demo.java"));
+  }
+
+  @Test
+  void reviewWithoutReportIsFailure() throws Exception {
+    seedRepo();
+    Path out = tmp.resolve("missing-report");
+    Files.createDirectories(out);
+    int code = command().execute("review", "--repo", tmp.toString(), "--output", out.toString());
+    assertEquals(2, code);
+  }
+
+  @Test
   void analyzeWritesCompactAndSarif() throws Exception {
     seedRepo();
     Path out = tmp.resolve("reports2");

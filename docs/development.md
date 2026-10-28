@@ -11,8 +11,13 @@
 ./gradlew :changeradar-cli:shadowJar
 ./run.sh --help
 ./run.sh analyze --base HEAD --head HEAD
+./run.sh analyze --base HEAD~1 --head HEAD --format html --output build/changeradar
+./run.sh review --output build/changeradar
 java -jar changeradar-cli/build/libs/changeradar.jar analyze --base HEAD --head HEAD
 ```
+
+`review` serves `report.html` on `127.0.0.1`. With `--base` and `--head` it
+runs analyze first. Ctrl+C stops the server.
 
 ## Tests and formatting
 
@@ -41,6 +46,7 @@ changeradar-analyzer-python/     Python adapter (same split)
 changeradar-analyzer-php/        PHP adapter (same split)
 changeradar-analyzer-sql/        SQL adapter (same split)
 changeradar-analyzer-workflow/  GitHub Actions workflow adapter (same split)
+changeradar-analyzer-shell/     Shell adapter (same split)
 changeradar-cli/              picocli, reporters
 docs/                         architecture and CI docs
 site/                         project site published to GitHub Pages

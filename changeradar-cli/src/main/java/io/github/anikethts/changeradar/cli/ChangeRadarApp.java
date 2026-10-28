@@ -16,6 +16,7 @@ import picocli.CommandLine.IVersionProvider;
     subcommands = {
       AnalyzeCommand.class,
       McpCommand.class,
+      ReviewCommand.class,
       PoliciesCommand.class,
       CommandLine.HelpCommand.class
     },

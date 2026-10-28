@@ -30,7 +30,22 @@ final class McpTools implements McpServer.ToolHost {
     Path output = path(arguments, "output");
     Path policyFile = path(arguments, "policyFile");
     AnalyzeCommand command =
-        AnalyzeCommand.create(base, head, repo, List.of("agent"), output, policyFile);
+        AnalyzeCommand.create(
+            base,
+            head,
+            repo == null ? Path.of(".") : repo,
+            List.of("agent"),
+            output,
+            null,
+            policyFile,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false);
     command.call();
     Path repository = (repo == null ? Path.of(".") : repo).toAbsolutePath().normalize();
     Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;

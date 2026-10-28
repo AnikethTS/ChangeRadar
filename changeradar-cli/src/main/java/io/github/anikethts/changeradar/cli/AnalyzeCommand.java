@@ -4,6 +4,7 @@ import io.github.anikethts.changeradar.analyzer.java.JavaLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.kt.KotlinLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.php.PhpLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.py.PythonLanguageAnalyzer;
+import io.github.anikethts.changeradar.analyzer.shell.ShellLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.sql.SqlLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.ts.TypeScriptLanguageAnalyzer;
 import io.github.anikethts.changeradar.analyzer.workflow.WorkflowLanguageAnalyzer;
@@ -50,10 +51,10 @@ public final class AnalyzeCommand implements Callable<Integer> {
   private static final List<String> SOURCE_SUFFIXES =
       List.of(
           ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
-          ".py", ".pyi", ".php", ".sql");
+          ".py", ".pyi", ".php", ".sql", ".sh");
 
   private static final Set<String> FORMATS =
-      Set.of("terminal", "markdown", "json", "sarif", "compact", "github", "agent");
+      Set.of("terminal", "markdown", "json", "sarif", "compact", "github", "html", "agent");
 
   @Option(
       names = "--base",
@@ -78,7 +79,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
       defaultValue = "terminal",
       split = ",",
       description =
-          "Comma-separated formats: terminal, markdown, json, compact, sarif, github, agent."
+          "Comma-separated formats: terminal, markdown, json, compact, sarif, github, html,"
+              + " agent."
               + " Default: terminal.")
   List<String> formats;
 
@@ -166,14 +168,37 @@ public final class AnalyzeCommand implements Callable<Integer> {
   }
 
   static AnalyzeCommand create(
-      String base, String head, Path repo, List<String> formats, Path output, Path policyFile) {
+      String base,
+      String head,
+      Path repo,
+      List<String> formats,
+      Path output,
+      List<String> policies,
+      Path policyFile,
+      Path baseline,
+      Path writeBaseline,
+      Path suppressFile,
+      Path writeSuppressions,
+      List<String> classpath,
+      List<String> coverage,
+      List<String> junit,
+      boolean fullIndex) {
     AnalyzeCommand command = new AnalyzeCommand();
     command.base = base;
     command.head = head;
-    command.repo = repo == null ? Path.of(".") : repo;
+    command.repo = repo;
     command.formats = formats;
     command.output = output;
+    command.policies = policies;
     command.policyFile = policyFile;
+    command.baseline = baseline;
+    command.writeBaseline = writeBaseline;
+    command.suppressFile = suppressFile;
+    command.writeSuppressions = writeSuppressions;
+    command.classpath = classpath;
+    command.coverage = coverage;
+    command.junit = junit;
+    command.fullIndex = fullIndex;
     return command;
   }
 
@@ -212,7 +237,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
               new PythonLanguageAnalyzer(),
               new PhpLanguageAnalyzer(),
               new SqlLanguageAnalyzer(),
-              new WorkflowLanguageAnalyzer());
+              new WorkflowLanguageAnalyzer(),
+              new ShellLanguageAnalyzer());
       Map<String, String> headSources = new LinkedHashMap<>();
       for (String suffix : SOURCE_SUFFIXES) {
         for (String path : git.listPaths(head, suffix)) {
@@ -242,7 +268,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || file.isPythonSource()
             || file.isPhpSource()
             || file.isSqlSource()
-            || file.isWorkflowSource()) {
+            || file.isWorkflowSource()
+            || file.isShellSource()) {
           git.readFile(base, file.path()).ifPresent(source -> baseSources.put(file.path(), source));
           if (file.previousPath() != null) {
             git.readFile(base, file.previousPath())
@@ -311,7 +338,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
                     + headSources.size()
                     + " HEAD source files (changed paths, same-directory Java neighbors,"
                     + " import/require/use importers, every .sql file when a SQL file changed,"
-                    + " and every workflow file when a workflow file changed). Pass --full-index"
+                    + " and every workflow file when a workflow file changed, and every .sh file"
+                    + " when a shell file changed). Pass --full-index"
                     + " to parse everything."));
       }
       if (enabledPolicies.isEmpty()) {
@@ -374,6 +402,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
             || selected.contains("sarif")
             || selected.contains("compact")
             || selected.contains("github")
+            || selected.contains("html")
             || selected.contains("agent");
     Path dest = output == null ? repository.resolve("build").resolve("changeradar") : output;
     if (files) {
@@ -392,6 +421,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
       if (selected.contains("github")) {
         writers.writeGithub(report, dest.resolve("report.github.json"));
+      }
+      if (selected.contains("html")) {
+        writers.writeHtml(report, dest.resolve("report.html"));
       }
       if (selected.contains("agent")) {
         writers.writeAgent(report, dest.resolve("report.agent.json"));
