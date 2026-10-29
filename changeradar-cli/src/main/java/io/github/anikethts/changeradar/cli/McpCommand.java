@@ -6,8 +6,8 @@ import picocli.CommandLine.Command;
 @Command(
     name = "mcp",
     description =
-        "Serve analyze and brief tools on stdin/stdout for a local agent. Does not open a port or"
-            + " upload source.")
+        "Serve analyze and brief on stdin/stdout for Claude Code, Cursor, and other local MCP"
+            + " clients. One JSON object per line. Does not open a port or upload source.")
 public final class McpCommand implements Callable<Integer> {
 
   @Override

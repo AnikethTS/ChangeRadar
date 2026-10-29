@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "changeradar": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/changeradar.jar", "mcp"]
+    }
+  }
+}

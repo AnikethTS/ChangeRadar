@@ -34,9 +34,15 @@ when that format is also requested.
 java -jar changeradar.jar mcp
 ```
 
-The process speaks JSON-RPC on stdin and stdout with `Content-Length`
-framing (protocol `2024-11-05`). It does not open a port and does not
-upload source. Logs go to stderr.
+The process speaks JSON-RPC on stdin and stdout, one JSON object per line.
+That is the stdio transport Claude Code, Cursor, and the official MCP SDK
+use. A client that sends `Content-Length` headers is answered in that
+framing instead. The server echoes the protocol version the client
+requests. It does not open a port and does not upload source. Logs go to
+stderr.
+
+Start it with the working directory set to the repository under analysis.
+`analyze` then defaults `repo` to `.`.
 
 Tools:
 
@@ -47,6 +53,31 @@ Tools:
 
 There is no source-reading tool. The agent reads files with its own tools.
 
-A client config points the command at `java` with `-jar` and the path to
-`changeradar.jar`, then `mcp`. The working directory should be the
-repository under analysis, or each `analyze` call should pass `repo`.
+### Claude Code
+
+From the repository you want analyzed, with `changeradar.jar` on disk:
+
+```bash
+claude mcp add --transport stdio --scope project changeradar -- \
+  java -jar /absolute/path/changeradar.jar mcp
+```
+
+The same entry belongs in `.mcp.json` at the repository root. Cursor uses
+the same document at `.cursor/mcp.json`. A copy with a placeholder path is
+[`examples/mcp.json`](../examples/mcp.json).
+
+```json
+{
+  "mcpServers": {
+    "changeradar": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/changeradar.jar", "mcp"]
+    }
+  }
+}
+```
+
+Restart the client after saving the file. Ask it to analyze `base` against
+`head`. The server instructions tell the client that heuristic findings are
+not proof and that the brief must not skip tests.
