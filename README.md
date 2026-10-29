@@ -236,6 +236,10 @@ Details: [CI integration](docs/ci-integration.md).
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to send a PR
 - [SECURITY.md](SECURITY.md) — how to report a vulnerability
 
+## Open Source Contributions
+
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/AnikethTS/badge.svg)](https://hub.xerj.org/contributors/AnikethTS)
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
