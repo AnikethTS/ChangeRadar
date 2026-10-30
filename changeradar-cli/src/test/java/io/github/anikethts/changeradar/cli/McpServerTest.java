@@ -66,6 +66,31 @@ class McpServerTest {
     assertTrue(!responses.get(2).get("result").has("isError"));
   }
 
+  @Test
+  void speaksNewlineJsonAndEchoesTheClientProtocol() throws Exception {
+    ObjectMapper json = new ObjectMapper();
+    ObjectNode initialize = message(json, 1, "initialize");
+    initialize.putObject("params").put("protocolVersion", "2025-06-18");
+    byte[] request =
+        (json.writeValueAsString(initialize)
+                + "\n"
+                + json.writeValueAsString(message(json, 2, "tools/list"))
+                + "\n")
+            .getBytes(StandardCharsets.UTF_8);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    McpServer.serve(new ByteArrayInputStream(request), out, new McpTools());
+
+    String payload = out.toString(StandardCharsets.UTF_8);
+    assertTrue(!payload.contains("Content-Length"));
+    String[] lines = payload.split("\n");
+    assertEquals(2, lines.length);
+    JsonNode handshake = json.readTree(lines[0]);
+    assertEquals("2025-06-18", handshake.get("result").get("protocolVersion").asText());
+    assertTrue(handshake.get("result").get("instructions").asText().contains("Do not skip tests"));
+    assertEquals(
+        "analyze", json.readTree(lines[1]).get("result").get("tools").get(0).get("name").asText());
+  }
+
   private static ObjectNode message(ObjectMapper json, Integer id, String method) {
     ObjectNode node = json.createObjectNode();
     node.put("jsonrpc", "2.0");
