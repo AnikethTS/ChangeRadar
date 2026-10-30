@@ -58,6 +58,67 @@ class KotlinLanguageAnalyzerTest {
   }
 
   @Test
+  void overridePropertyAndAnnotationAreReported() {
+    String parent =
+        """
+        open class Parent {
+          open fun n() {}
+          var tax: Int = 1
+        }
+        """;
+    String child =
+        """
+        class Child : Parent() {
+          override fun n() {}
+        }
+        fun read(child: Child): Int {
+          return child.tax
+        }
+        """;
+    String marked =
+        """
+        annotation class Mark
+        """;
+    String host =
+        """
+        @Mark
+        class Host
+        val box: Mark = Mark()
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile("Parent.kt", ChangeType.MODIFY, null, List.of(new LineRange(2, 3))),
+                new ChangedFile("Mark.kt", ChangeType.ADD, null, List.of())),
+            Map.of("Parent.kt", parent, "Child.kt", child, "Mark.kt", marked, "Host.kt", host),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "OVERRIDE".equals(finding.type())
+                        && finding.summary().contains("Child#n overrides Parent#n")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "FIELD_ACCESS".equals(finding.type())
+                        && finding.location().path().equals("Child.kt")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "ANNOTATION_USE".equals(finding.type())
+                        && finding.location().path().equals("Host.kt")));
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "FIELD_TYPE".equals(finding.type()) && finding.summary().contains("Mark")));
+    assertTrue(result.limitations().stream().anyMatch(l -> "KT_STRUCTURAL_EDGES".equals(l.code())));
+  }
+
+  @Test
   void marksRemovedPublicFunctionAsDelete() {
     String base =
         """

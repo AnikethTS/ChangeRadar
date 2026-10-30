@@ -7,6 +7,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Kotlin overrides, property reads, property types, and annotation uses.
+  An `override` method is reported when the parent or child method changed.
+  Same-directory and import rules still apply. This is not kotlinc.
 - An agent brief. `--format agent` writes `report.agent.json`: a capped
   projection of the report with policy status, every limitation, and
   guidance that heuristic findings are not proof. `changeradar mcp` serves

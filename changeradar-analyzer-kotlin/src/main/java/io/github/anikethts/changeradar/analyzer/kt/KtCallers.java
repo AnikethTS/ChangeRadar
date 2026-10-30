@@ -6,6 +6,7 @@ import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
+import io.github.anikethts.changeradar.core.StructuralScan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -20,6 +21,11 @@ final class KtCallers {
 
   static final Pattern CALL =
       Pattern.compile("(?:([A-Za-z_][\\w]*)\\s*\\.)?([A-Za-z_][\\w]*)\\s*(?:<[^>]*>)?\\s*\\(");
+  static final Pattern FIELD_ACCESS =
+      Pattern.compile("([A-Za-z_][\\w]*)\\s*\\.\\s*([A-Za-z_][\\w]*)\\s*(?!\\()");
+  static final Pattern ANNOTATION = Pattern.compile("@([A-Za-z_][\\w]*)");
+  static final Pattern TYPED_PROPERTY =
+      Pattern.compile("(?:val|var)\\s+[A-Za-z_][\\w]*\\s*:\\s*([A-Za-z_][\\w]*)");
   static final Set<String> NOT_CALLS =
       Set.of(
           "if",
@@ -112,6 +118,137 @@ final class KtCallers {
       }
     }
     return new CallerScan(findings, expansion.capped());
+  }
+
+  static List<ImpactFinding> findStructural(
+      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+    Set<String> changedFields = new LinkedHashSet<>();
+    Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
+    Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
+    Set<String> changedOwnerMethods = new LinkedHashSet<>();
+    for (ChangedSymbol symbol : changedSymbols) {
+      if ("field".equals(symbol.kind())) {
+        changedFields.add(symbol.name());
+      }
+      if ("method".equals(symbol.kind()) || "constructor".equals(symbol.kind())) {
+        if (!symbol.owner().isEmpty()) {
+          changedOwnerMethods.add(symbol.owner() + "#" + symbol.name());
+        }
+      }
+      changedNamesByPath
+          .computeIfAbsent(symbol.location().path(), key -> new LinkedHashSet<>())
+          .add(symbol.name());
+    }
+    List<ImpactFinding> findings = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (ParsedFile file : parsedHead.values()) {
+      for (Decl decl : file.decls()) {
+        if (!"method".equals(decl.kind())) {
+          continue;
+        }
+        String declaration = file.lines().get(decl.startLine() - 1);
+        if (!declaration.contains("override")) {
+          continue;
+        }
+        for (String parent : file.supers().getOrDefault(decl.owner(), List.of())) {
+          boolean parentChanged = changedOwnerMethods.contains(parent + "#" + decl.name());
+          boolean childChanged = changedOwnerMethods.contains(decl.owner() + "#" + decl.name());
+          if (!parentChanged && !childChanged) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, parent, decl.name(), parsedHead, changedNamesByPath, file.testFile());
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "OVERRIDE",
+                  confidence.get(),
+                  decl.owner() + "#" + decl.name() + " overrides " + parent + "#" + decl.name(),
+                  parent + "#" + decl.name(),
+                  new SourceLocation(file.path(), decl.startLine(), decl.endLine())));
+        }
+      }
+      for (int i = 0; i < file.lines().size(); i++) {
+        String trimmed = file.lines().get(i).trim();
+        int lineNo = i + 1;
+        Matcher annotation = ANNOTATION.matcher(trimmed);
+        while (annotation.find()) {
+          String name = annotation.group(1);
+          if (!changedTypeDecls.contains(name)) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile());
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "ANNOTATION_USE",
+                  confidence.get(),
+                  file.path() + " uses @" + name,
+                  name,
+                  new SourceLocation(file.path(), lineNo, lineNo)));
+        }
+        Matcher typed = TYPED_PROPERTY.matcher(trimmed);
+        if (typed.find() && changedTypeDecls.contains(typed.group(1))) {
+          String typeName = typed.group(1);
+          Optional<Confidence> confidence =
+              importConfidence(
+                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile());
+          if (confidence.isPresent()) {
+            StructuralScan.addFinding(
+                seen,
+                findings,
+                new ImpactFinding(
+                    "FIELD_TYPE",
+                    confidence.get(),
+                    file.path() + " is typed as " + typeName,
+                    typeName,
+                    new SourceLocation(file.path(), lineNo, lineNo)));
+          }
+        }
+        Matcher access = FIELD_ACCESS.matcher(file.lines().get(i));
+        while (access.find()) {
+          String name = access.group(2);
+          if (!changedFields.contains(name) || NOT_CALLS.contains(name)) {
+            continue;
+          }
+          boolean declaration =
+              file.decls().stream()
+                  .anyMatch(
+                      decl ->
+                          "field".equals(decl.kind())
+                              && decl.name().equals(name)
+                              && decl.startLine() == lineNo);
+          if (declaration) {
+            continue;
+          }
+          Optional<Confidence> confidence =
+              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile());
+          if (confidence.isEmpty()) {
+            continue;
+          }
+          StructuralScan.addFinding(
+              seen,
+              findings,
+              new ImpactFinding(
+                  "FIELD_ACCESS",
+                  confidence.get(),
+                  file.path() + " reads " + name,
+                  name,
+                  new SourceLocation(file.path(), lineNo, lineNo)));
+        }
+      }
+    }
+    return findings;
   }
 
   private static void addCaller(
