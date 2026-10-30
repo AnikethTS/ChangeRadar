@@ -23,9 +23,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Kotlin analyzer: maps changed lines to types and functions, then finds name-resolvable callers.
- * This is not kotlinc; unmatched braces fail the file. {@code private}/{@code internal} members are
- * not public API.
+ * Kotlin analyzer: maps changed lines to types and functions, then finds name-resolvable callers,
+ * overrides, property reads, and annotation uses. This is not kotlinc; unmatched braces fail the
+ * file. {@code private}/{@code internal} members are not public API.
  */
 public final class KotlinLanguageAnalyzer implements LanguageAnalyzer {
 
@@ -126,6 +126,7 @@ public final class KotlinLanguageAnalyzer implements LanguageAnalyzer {
 
     CallerScan callers = KtCallers.findCallers(parsedHead, changedSymbols);
     List<ImpactFinding> findings = new ArrayList<>(callers.findings());
+    findings.addAll(KtCallers.findStructural(parsedHead, changedSymbols));
     findings.addAll(KtRecommendations.publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -145,6 +146,11 @@ public final class KotlinLanguageAnalyzer implements LanguageAnalyzer {
               "Kotlin callers are matched using import specifiers and same-directory types against"
                   + " HEAD files, not kotlinc. Reflection and generated bindings may be missed or"
                   + " over-reported."));
+      limitations.add(
+          new Limitation(
+              "KT_STRUCTURAL_EDGES",
+              "Kotlin overrides, property reads, property types, and annotation uses are matched"
+                  + " by name, imports, and same-directory types against HEAD files, not kotlinc."));
       limitations.add(
           new Limitation(
               "KT_CALL_CHAINS",

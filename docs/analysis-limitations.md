@@ -79,8 +79,9 @@ Today the tool records:
   list and do not occupy symbols. Import reorder is not format-only.
   Python indent/dedent is kept. ChangeRadar does not format source.
 - `KT_IMPORTS` / `KT_CALL_CHAINS` / `KT_CALL_CHAIN_CAP` /
-  `KT_NAME_BASED_DISPATCH` / `KT_PARSE_FAILED` for the Kotlin adapter
-  (not kotlinc).
+  `KT_STRUCTURAL_EDGES` / `KT_NAME_BASED_DISPATCH` / `KT_PARSE_FAILED`
+  for the Kotlin adapter (not kotlinc). Overrides require the `override`
+  keyword. Property reads are `receiver.name` sites that are not calls.
 - `SQL_REFERENCES` when `.sql` files name a changed table, view, function,
   or procedure. Matching is case-insensitive, comments and string literals
   are removed, and a repeated name is HEURISTIC. Embedded SQL in
