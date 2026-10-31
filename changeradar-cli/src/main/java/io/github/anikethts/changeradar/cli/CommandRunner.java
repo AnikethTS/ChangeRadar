@@ -33,15 +33,29 @@ final class CommandRunner {
     try {
       boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
       if (!finished) {
-        process.destroyForcibly();
-        process.waitFor(5, TimeUnit.SECONDS);
+        stop(process);
         return new Result(0, true, true, null, stdout, stderr);
       }
       return new Result(process.exitValue(), false, true, null, stdout, stderr);
     } catch (InterruptedException interrupted) {
-      process.destroyForcibly();
+      stop(process);
       Thread.currentThread().interrupt();
       return new Result(0, true, true, "interrupted", stdout, stderr);
+    }
+  }
+
+  /** Stops the shell and commands it started. Windows will not delete files a child still holds. */
+  private static void stop(Process process) {
+    process.descendants().forEach(ProcessHandle::destroyForcibly);
+    process.destroyForcibly();
+    try {
+      if (!process.waitFor(5, TimeUnit.SECONDS)) {
+        process.descendants().forEach(ProcessHandle::destroyForcibly);
+        process.destroyForcibly();
+        process.waitFor(2, TimeUnit.SECONDS);
+      }
+    } catch (InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
     }
   }
 

@@ -33,10 +33,10 @@ class RunCommandTest extends CliGitHarness {
                 "--junit",
                 "junit.xml",
                 "--command",
-                "printf ran > ran-marker.txt && printf '<testsuite><testcase name=\"ok\"/></testsuite>' > junit.xml");
+                successCommand());
 
     assertEquals(0, code);
-    assertEquals("ran", Files.readString(tmp.resolve("ran-marker.txt")));
+    assertTrue(Files.readString(tmp.resolve("ran-marker.txt")).startsWith("ran"));
     String json = Files.readString(out.resolve("report.json"));
     assertTrue(json.contains("EXECUTION"));
     assertTrue(json.contains("process exit 0"));
@@ -110,9 +110,27 @@ class RunCommandTest extends CliGitHarness {
                 "--timeout",
                 "1",
                 "--command",
-                "sleep 30");
+                sleepCommand());
     assertEquals(2, code);
     assertTrue(
         Files.readString(out.resolve("report.json")).contains("Stopped the command after 1s"));
+  }
+
+  private static boolean windows() {
+    return System.getProperty("os.name", "").toLowerCase().contains("win");
+  }
+
+  /** A command both {@code sh -c} and {@code cmd /c} can run. */
+  private static String successCommand() {
+    if (windows()) {
+      return "(echo ran)> ran-marker.txt & (echo ^<testsuite^>^<testcase"
+          + " name='ok'/^>^</testsuite^>)> junit.xml";
+    }
+    return "printf ran > ran-marker.txt && printf '<testsuite><testcase"
+        + " name=\"ok\"/></testsuite>' > junit.xml";
+  }
+
+  private static String sleepCommand() {
+    return windows() ? "ping -n 31 127.0.0.1" : "sleep 30";
   }
 }
