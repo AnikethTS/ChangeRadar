@@ -104,6 +104,11 @@ Today the tool records:
   was not coverage data.
 - `JUNIT_INGEST` when `--junit` XML annotated pass/fail.
   `JUNIT_PARSE_FAILED` when a file was not JUnit XML.
+- `EXECUTION` when `changeradar run` ran a command in the working tree.
+  The message includes the command, the timeout, and the process exit, or
+  that the command was stopped or could not start. The command is not
+  proof from the diff. `analyze` does not emit this. `run` does not
+  checkout `--head` before the command.
 - Public Java ABI checks compare source-level parameter types, return
   type, declared `throws`, field type, and `public` vs not. They are not
   japicmp (`final`/`static`, constant inlining, and erasure are omitted).

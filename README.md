@@ -114,8 +114,10 @@ Exit 0 means analysis completed, not that the change is safe.
 Findings, when present, are grouped by file and include a stable `id`.
 `changeradar policies` lists blocking rule names (`list-policies`).
 
-A suggested test will never be phrased as “this test failed” unless
-ChangeRadar actually ran it — and the MVP does not run tests.
+A suggested test is phrased as failed only when JUnit XML says so.
+`changeradar analyze` does not run tests. `changeradar run --command …`
+runs that command after analysis, with a timeout, and can then read
+`--junit` the command wrote.
 
 ## Why this exists
 
@@ -161,6 +163,8 @@ the same place you already review the change.
   **github** (Checks annotations), and **HTML** reports with a stable schema
   version. `changeradar review` serves `report.html` on `127.0.0.1` and can
   show source around a finding. The page stays on this machine.
+- `changeradar run --command …` analyzes, then runs that command in the
+  working tree. It does not choose a build tool or upload source.
 - Lists named policies with `changeradar policies` (alias `list-policies`).
 - Distinguishes a completed analysis (`0`), a configured policy violation
   (`1`, only with `--policy`), and a tool/input failure (`2`).

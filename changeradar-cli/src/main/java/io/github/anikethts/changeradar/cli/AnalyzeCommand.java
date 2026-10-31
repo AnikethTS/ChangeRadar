@@ -155,6 +155,10 @@ public final class AnalyzeCommand implements Callable<Integer> {
       description = "Parse every HEAD source file instead of changed files plus importers.")
   boolean fullIndex;
 
+  private String runCommand;
+  private int runTimeoutSeconds;
+  private CommandRunner.Result executionResult;
+
   private final Clock clock;
   private final ReportWriters writers;
 
@@ -200,6 +204,19 @@ public final class AnalyzeCommand implements Callable<Integer> {
     command.junit = junit;
     command.fullIndex = fullIndex;
     return command;
+  }
+
+  /** Used by {@link RunCommand}. {@code analyze} leaves this unset and does not execute. */
+  void runAfterAnalysis(String command, int timeoutSeconds) {
+    if (command == null || command.isBlank()) {
+      throw new GitAccessException("run requires a non-blank --command");
+    }
+    if (timeoutSeconds < 1 || timeoutSeconds > CommandRunner.MAX_TIMEOUT_SECONDS) {
+      throw new GitAccessException(
+          "run --timeout must be between 1 and " + CommandRunner.MAX_TIMEOUT_SECONDS + " seconds");
+    }
+    this.runCommand = command;
+    this.runTimeoutSeconds = timeoutSeconds;
   }
 
   @Override
@@ -291,8 +308,17 @@ public final class AnalyzeCommand implements Callable<Integer> {
       ChangedSymbols.Result coalesced = ChangedSymbols.coalesce(merged.changedSymbols());
       List<Limitation> analysisLimitations = new ArrayList<>(merged.limitations());
       List<TestRecommendation> tests = merged.tests();
-      List<Path> coverageFiles = TestEvidence.expand(repository, coverage, "coverage");
-      List<Path> junitFiles = TestEvidence.expand(repository, junit, "junit");
+      CommandRunner.Result execution = null;
+      if (runCommand != null) {
+        Path logs = output == null ? repository.resolve("build").resolve("changeradar") : output;
+        Files.createDirectories(logs);
+        execution = CommandRunner.run(repository, runCommand, runTimeoutSeconds, logs);
+        analysisLimitations.add(executionLimitation(execution));
+      }
+      List<Path> coverageFiles =
+          expandEvidence(repository, coverage, "coverage", execution, analysisLimitations);
+      List<Path> junitFiles =
+          expandEvidence(repository, junit, "junit", execution, analysisLimitations);
       if (!coverageFiles.isEmpty() || !junitFiles.isEmpty()) {
         TestEvidence.Result evidence =
             TestEvidence.apply(tests, changed, coverageFiles, junitFiles);
@@ -369,8 +395,11 @@ public final class AnalyzeCommand implements Callable<Integer> {
         limitations.add(
             new Limitation(
                 "FAILED_RELATED_TESTS_NO_JUNIT",
-                "Policy failed-related-tests is enabled but --junit was not passed. The rule did"
-                    + " not fire. Provide JUnit XML from a test job you already ran."));
+                execution == null
+                    ? "Policy failed-related-tests is enabled but --junit was not passed. The rule"
+                        + " did not fire. Provide JUnit XML from a test job you already ran."
+                    : "Policy failed-related-tests is enabled but no JUnit XML was found after the"
+                        + " command. The rule did not fire."));
       }
       limitations.add(
           new Limitation(
@@ -390,6 +419,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               analysis.tests(),
               List.copyOf(limitations),
               policy);
+      this.executionResult = execution;
     }
 
     Set<String> selected = selectedFormats();
@@ -438,7 +468,78 @@ public final class AnalyzeCommand implements Callable<Integer> {
           StandardOpenOption.CREATE,
           StandardOpenOption.APPEND);
     }
-    return report.policy().blocking() ? ExitCode.POLICY_VIOLATION.code() : ExitCode.SUCCESS.code();
+    int code =
+        report.policy().blocking() ? ExitCode.POLICY_VIOLATION.code() : ExitCode.SUCCESS.code();
+    if (executionResult == null) {
+      return code;
+    }
+    if (!executionResult.started() || executionResult.timedOut()) {
+      return ExitCode.FAILURE.code();
+    }
+    if (executionResult.exitCode() != 0) {
+      return ExitCode.POLICY_VIOLATION.code();
+    }
+    return code;
+  }
+
+  private List<Path> expandEvidence(
+      Path repository,
+      List<String> raw,
+      String kind,
+      CommandRunner.Result execution,
+      List<Limitation> limitations) {
+    try {
+      return TestEvidence.expand(repository, raw, kind);
+    } catch (GitAccessException missing) {
+      if (execution == null) {
+        throw missing;
+      }
+      limitations.add(
+          new Limitation(
+              "EXECUTION",
+              "After the command, --" + kind + " could not be read. " + missing.getMessage()));
+      return List.of();
+    }
+  }
+
+  private Limitation executionLimitation(CommandRunner.Result result) {
+    String shown = runCommand.length() > 300 ? runCommand.substring(0, 300) + "..." : runCommand;
+    if (!result.started()) {
+      return new Limitation(
+          "EXECUTION",
+          "The command could not start ("
+              + result.error()
+              + "). Command: "
+              + shown
+              + ". Nothing was uploaded.");
+    }
+    if (result.timedOut()) {
+      return new Limitation(
+          "EXECUTION",
+          "Stopped the command after "
+              + runTimeoutSeconds
+              + "s. Command: "
+              + shown
+              + ". Captured "
+              + result.stdout().getFileName()
+              + " and "
+              + result.stderr().getFileName()
+              + ". This is not proof from the diff.");
+    }
+    return new Limitation(
+        "EXECUTION",
+        "Ran the command in the working tree (timeout "
+            + runTimeoutSeconds
+            + "s), process exit "
+            + result.exitCode()
+            + ". Command: "
+            + shown
+            + ". Captured "
+            + result.stdout().getFileName()
+            + " and "
+            + result.stderr().getFileName()
+            + ". Analysis read the Git refs and did not checkout. This execution is not proof from"
+            + " the diff. A passing command is not proof the change is safe.");
   }
 
   private static Map<String, String> filterSources(

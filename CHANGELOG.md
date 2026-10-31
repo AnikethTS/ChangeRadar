@@ -7,6 +7,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `changeradar run --command …` analyzes, then runs that command in the
+  working tree with a timeout. The report records an `EXECUTION` limitation
+  with the process exit. `--junit` and `--coverage` are read after the
+  command. `analyze` does not run a command. Exit `1` means a blocking
+  policy or a non-zero command. Exit `2` means the command did not start
+  or exceeded the timeout.
 - The agent brief includes a `review` order and changed-line ranges
   (`agentSchemaVersion` `1.1.0`). Open failed tests from provided JUnit XML,
   direct findings, and changed public symbols before the rest of the diff.

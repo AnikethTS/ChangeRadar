@@ -7,7 +7,10 @@ The analysis underneath is the same `analyze` command CI already runs.
 `HEURISTIC` and `UNKNOWN` are not proof of impact. A missing finding is not
 proof that nothing else is affected. Do not skip tests or deploy from the
 brief. Exit code `1` means a blocking policy matched. It does not measure
-how large the blast radius looks.
+how large the blast radius looks. `changeradar run` can also exit `1` when
+the command you supplied exits non-zero. The brief then includes an
+`EXECUTION` limitation. That limitation is the command's result, not proof
+from the diff. `changeradar mcp` does not run a command.
 
 ## Brief file
 

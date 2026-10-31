@@ -58,6 +58,14 @@ Fail-open vs fail-closed (whether exit `2` should fail the GitHub job) is a
 *workflow* decision, documented in [policy configuration](policy-configuration.md).
 The CLI itself still returns `2` for tool failure.
 
+`changeradar run --command …` uses the same analysis, then runs that command
+in the working tree. Exit `1` also means the command exited non-zero. Exit
+`2` means the command could not start or exceeded `--timeout` (default 600
+seconds). The report limitation `EXECUTION` records the command and the
+result. `analyze` never runs a command. The GitHub Action does not run one
+either. Do not point `run` at a fork pull request unless that job is already
+allowed to execute the pull request.
+
 ## GitHub Actions
 
 Consumers copy a template into **their** repo as
