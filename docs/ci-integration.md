@@ -84,7 +84,7 @@ After a test job, pass `coverage:` (JaCoCo XML or LCOV) and/or `junit:`
 (JUnit XML). ChangeRadar does not run tests; it annotates the report with
 changed-line hits and pass/fail. CLI flags are `--coverage` and `--junit`.
 
-Pin a specific analyzer with `version: v0.2.6`. Pass `jar:` only when the fat
+Pin a specific analyzer with `version: v0.2.7`. Pass `jar:` only when the fat
 JAR is already on disk (this repo’s dogfood workflow).
 
 ```yaml
@@ -103,7 +103,7 @@ jobs:
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # version: v0.2.6
+          # version: v0.2.7
 ```
 
 This repository builds the JAR, runs tests, and passes JaCoCo XML plus

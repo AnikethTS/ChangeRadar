@@ -45,7 +45,7 @@ jobs:
           head: ${{ github.event.pull_request.head.sha }}
 
           # Pin the analyzer JAR (omit for latest):
-          # version: v0.2.6
+          # version: v0.2.7
 
           # Java: compile in this workflow first, then pass jars. ChangeRadar
           # does not run your Maven/Gradle. See changeradar-java.yml.
