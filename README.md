@@ -42,7 +42,7 @@ ships `changeradar.jar`:
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif,html \
+  --format compact,markdown,json,sarif,html,agent \
   --output build/changeradar
 java -jar changeradar.jar review --output build/changeradar
 ```
@@ -196,7 +196,7 @@ reimplement analysis.
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif,html \
+  --format compact,markdown,json,sarif,html,agent \
   --output build/changeradar
 ```
 

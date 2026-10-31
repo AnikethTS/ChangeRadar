@@ -59,8 +59,10 @@ class McpServerTest {
     JsonNode tools = responses.get(1).get("result").get("tools");
     assertEquals("analyze", tools.get(0).get("name").asText());
     assertEquals("brief", tools.get(1).get("name").asText());
+    assertTrue(tools.get(0).get("inputSchema").get("properties").has("junit"));
+    assertTrue(tools.get(0).get("inputSchema").get("properties").has("classpath"));
     String text = responses.get(2).get("result").get("content").get(0).get("text").asText();
-    assertTrue(text.contains("\"agentSchemaVersion\" : \"1.0.0\""));
+    assertTrue(text.contains("\"agentSchemaVersion\" : \"1.1.0\""));
     assertTrue(text.contains("STATIC_ANALYSIS_LIMITS"));
     assertTrue(text.contains("Do not skip tests or deploy from this brief."));
     assertTrue(!responses.get(2).get("result").has("isError"));

@@ -154,7 +154,7 @@ class ChangeRadarAppTest extends CliGitHarness {
                 out.toString());
     assertEquals(0, code);
     String agent = Files.readString(out.resolve("report.agent.json"));
-    assertTrue(agent.contains("\"agentSchemaVersion\" : \"1.0.0\""));
+    assertTrue(agent.contains("\"agentSchemaVersion\" : \"1.1.0\""));
     assertTrue(agent.contains("Do not skip tests or deploy from this brief."));
     assertTrue(agent.contains("\"exitCode\" : 0"));
   }

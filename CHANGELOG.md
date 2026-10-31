@@ -5,6 +5,15 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- The agent brief includes a `review` order and changed-line ranges
+  (`agentSchemaVersion` `1.1.0`). Open failed tests from provided JUnit XML,
+  direct findings, and changed public symbols before the rest of the diff.
+  `changeradar mcp` accepts the same policy, classpath, coverage, and JUnit
+  inputs CI already passes, and does not run the build or tests. The GitHub
+  Action writes `report.agent.json` by default.
+
 ## [0.2.7] - 2026-10-31
 
 Analyzer JAR is the `v0.2.7` release asset. Omit `version` for latest;

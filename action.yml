@@ -28,7 +28,7 @@ inputs:
   format:
     description: Comma-separated formats
     required: false
-    default: compact,markdown,json,sarif,github,html
+    default: compact,markdown,json,sarif,github,html,agent
   policy:
     description: Optional comma-separated --policy names
     required: false
