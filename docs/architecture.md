@@ -47,10 +47,14 @@ plus tests against the shared model.
   older.
 - **No LLM on the analysis path.** Deterministic, local, free to run in CI.
   An LLM can never be required to produce a report.
-- **Do not execute the project's build.** Source is untrusted input. Analysis
-  reads files; it does not run Maven/Gradle/npm from the target repo.
-  Optional `--coverage` / `--junit` ingest reports the consumer already
-  wrote.
+- **`analyze` does not execute the project.** Source in a pull request is
+  untrusted. `changeradar analyze` reads Git and source. `changeradar run`
+  is opt-in: after that same analysis it runs the command you pass, in the
+  working tree, with a timeout, and records the process exit on the report.
+  It does not choose a build tool, checkout a ref, or upload source. Do not
+  point `run` at a fork unless that job is already allowed to execute the
+  code. Optional `--coverage` / `--junit` still only read files. `run` reads
+  them after the command, so the command can be what writes them.
 
 ## Roadmap
 
@@ -74,7 +78,8 @@ generated code, no skipping tests or deploying from a heuristic, no blocking
 the pipeline by default for uncertain findings, no uploading source to a
 remote service. `changeradar review` serves the report on `127.0.0.1`, and
 `--format html` writes a self-contained `report.html` that does not need the
-server. An LLM is not part of analysis. `changeradar mcp` is a local process
+server. An LLM is not part of analysis. `changeradar run` executes only a command
+the caller passes after the read-only analysis. `changeradar mcp` is a local process
 an agent starts; it returns the same deterministic brief as `--format agent`,
 including the review order, and can take the JUnit, coverage, and classpath
 files CI already wrote.

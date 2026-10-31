@@ -15,6 +15,7 @@ import picocli.CommandLine.IVersionProvider;
     versionProvider = ChangeRadarApp.VersionProvider.class,
     subcommands = {
       AnalyzeCommand.class,
+      RunCommand.class,
       McpCommand.class,
       ReviewCommand.class,
       PoliciesCommand.class,
