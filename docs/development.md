@@ -74,7 +74,7 @@ Third-party actions in this repo's workflows are pinned to commit SHAs.
 
 ## Releasing
 
-Ship from protected `main`. Tags are the release record (`v0.2.6`), not
+Ship from protected `main`. Tags are the release record (`v0.2.7`), not
 a long-lived `release` branch.
 
 1. Open a PR that sets `VERSION`, folds the Unreleased notes into

@@ -14,7 +14,7 @@ inputs:
   version:
     description: >
       Analyzer JAR to download when jar is empty. Default latest uses GitHub's
-      latest published release. Set a tag (v0.2.6) to pin a specific JAR.
+      latest published release. Set a tag (v0.2.7) to pin a specific JAR.
     required: false
     default: latest
   jar:

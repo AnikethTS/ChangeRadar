@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-10-31
+
+Analyzer JAR is the `v0.2.7` release asset. Omit `version` for latest;
+set `version: v0.2.7` to pin this JAR.
+
 ### Added
 
 - Kotlin overrides, property reads, property types, and annotation uses.
@@ -19,6 +24,10 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - A local review page. `--format html` writes self-contained `report.html`.
   `changeradar review` serves it on `127.0.0.1` and can show source lines
   from the repository. The page does not upload source.
+- Shell occupancy for functions in `.sh` files. Another script that calls
+  the function, or `source`s the file, is a caller. A name declared more
+  than once is HEURISTIC. Comment-only scripts are `FORMAT_ONLY_CHANGES`.
+  The script is not executed.
 - GitHub Actions occupancy for jobs, reusable workflows (`workflow_call`), and
   local actions (`action.yml`). Another workflow that `needs` the job or
   `uses` the local path is a caller. Remote actions are not resolved, and
@@ -285,7 +294,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.7
 [0.2.6]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.6
 [0.2.5]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.5
 [0.2.4]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.4
