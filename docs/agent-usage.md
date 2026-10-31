@@ -20,13 +20,21 @@ java -jar changeradar.jar analyze \
 ```
 
 That writes `build/changeradar/report.agent.json`. The document version is
-`agentSchemaVersion` `1.0.0`. It is separate from report schema `1.0.0`.
+`agentSchemaVersion` `1.1.0`. It is separate from report schema `1.0.0`.
 
 The brief includes refs, policy status, counts, and how many rows were cut
 (`truncated`). Findings keep higher confidence first, then a stable id, up
 to 40. Files are capped at 40, symbols at 20 (public symbols first), and
-tests at 15. Limitations are never cut. The full report is `report.json`
-when that format is also requested.
+tests at 15. Each changed file lists up to 8 inclusive HEAD line ranges
+(`lines`). A deleted file has an empty `lines` array.
+
+`review` is the order to open files, capped at 20. A row is a failed or
+error test from provided JUnit XML, a direct finding, a changed public
+symbol, or a test that covers changed lines. Line `0` means the row names
+a file rather than a line. One row per path and line; a direct finding
+keeps the line when a public symbol sits on it too. Heuristic findings
+stay in `findings` and are not a review row. Limitations are never cut.
+The full report is `report.json` when that format is also requested.
 
 ## Local MCP
 
@@ -48,7 +56,7 @@ Tools:
 
 | Tool | Arguments | Result |
 | --- | --- | --- |
-| `analyze` | `base`, `head`, optional `repo`, `policyFile`, `output` | Runs analyze with `--format agent` and returns the brief. Policy exit `1` is `exitCode` inside the brief. A failed run is a tool error. |
+| `analyze` | `base`, `head`, optional `repo`, `policies`, `policyFile`, `baseline`, `suppressFile`, `classpath`, `coverage`, `junit`, `fullIndex`, `output` | Runs analyze with `--format agent` and returns the brief. Pass JUnit XML, coverage, and classpath when the build already wrote them. The server does not run the build or tests, and it does not write a baseline or suppressions file. Policy exit `1` is `exitCode` inside the brief. A failed run is a tool error. |
 | `brief` | `report` (path to an existing `report.json`) | Projects that file. Does not run Git. |
 
 There is no source-reading tool. The agent reads files with its own tools.

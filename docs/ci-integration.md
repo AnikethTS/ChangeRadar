@@ -11,7 +11,7 @@ source tree to run Gradle.
 java -jar changeradar.jar analyze \
   --base "$BASE_SHA" \
   --head "$HEAD_SHA" \
-  --format compact,markdown,json,sarif,html \
+  --format compact,markdown,json,sarif,html,agent \
   --output build/changeradar
 ```
 
@@ -25,7 +25,7 @@ directory is `build/changeradar`.
 
 `agent` is a short JSON brief for a local agent. It is not a model call.
 See [Agent usage](agent-usage.md). The GitHub Action default format list
-does not include it.
+includes it, so the artifact contains `report.agent.json`.
 
 `report.html` is a self-contained review page. Open it from the artifact, or
 serve it on this machine:

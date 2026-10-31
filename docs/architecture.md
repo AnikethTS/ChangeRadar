@@ -75,6 +75,8 @@ the pipeline by default for uncertain findings, no uploading source to a
 remote service. `changeradar review` serves the report on `127.0.0.1`, and
 `--format html` writes a self-contained `report.html` that does not need the
 server. An LLM is not part of analysis. `changeradar mcp` is a local process
-an agent starts; it returns the same deterministic brief as `--format agent`.
+an agent starts; it returns the same deterministic brief as `--format agent`,
+including the review order, and can take the JUnit, coverage, and classpath
+files CI already wrote.
 `site/` is a static project page (overview, sample comment, contribute). It
 does not run analysis or store reports.

@@ -23,7 +23,9 @@ final class McpServer {
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final String INSTRUCTIONS =
       "ChangeRadar reads a local Git diff and returns a capped brief. Call analyze with base and"
-          + " head. HEURISTIC and UNKNOWN are not proof of impact. Do not skip tests or deploy"
+          + " head. Open the review rows before the rest of the diff. Pass junit, coverage, and"
+          + " classpath when CI already produced them; this server does not run the build or"
+          + " tests. HEURISTIC and UNKNOWN are not proof of impact. Do not skip tests or deploy"
           + " from the brief. This server does not upload source.";
 
   private McpServer() {}
@@ -93,8 +95,10 @@ final class McpServer {
         tool(
             "analyze",
             "Analyze change impact",
-            "Run local impact analysis for a Git base and head. Returns the agent brief."
-                + " HEURISTIC and UNKNOWN are not proof.",
+            "Run local impact analysis for a Git base and head. Returns the agent brief,"
+                + " including a review order. Optional JUnit, coverage, classpath, and policy"
+                + " inputs match CI and do not run the build or tests. HEURISTIC and UNKNOWN"
+                + " are not proof.",
             analyzeSchema()));
     tools.add(
         tool(
@@ -134,6 +138,47 @@ final class McpServer {
         .putObject("policyFile")
         .put("type", "string")
         .put("description", "Optional policy YAML path.");
+    properties
+        .putObject("policies")
+        .put("type", "array")
+        .put("description", "Blocking policy names, same as --policy. Off unless set.")
+        .putObject("items")
+        .put("type", "string");
+    properties
+        .putObject("baseline")
+        .put("type", "string")
+        .put("description", "Existing policy baseline file. Does not write a new baseline.");
+    properties
+        .putObject("suppressFile")
+        .put("type", "string")
+        .put("description", "Existing finding-id suppressions. Does not write a new file.");
+    properties
+        .putObject("classpath")
+        .put("type", "array")
+        .put(
+            "description",
+            "Already-built jars or jar directories for Java type resolution. Does not run the"
+                + " build.")
+        .putObject("items")
+        .put("type", "string");
+    properties
+        .putObject("coverage")
+        .put("type", "array")
+        .put("description", "JaCoCo XML or LCOV files the build already wrote. Does not run tests.")
+        .putObject("items")
+        .put("type", "string");
+    properties
+        .putObject("junit")
+        .put("type", "array")
+        .put(
+            "description",
+            "JUnit XML the test run already wrote. Annotates pass or fail. Does not run tests.")
+        .putObject("items")
+        .put("type", "string");
+    properties
+        .putObject("fullIndex")
+        .put("type", "boolean")
+        .put("description", "Parse every HEAD source file. Default: false.");
     properties
         .putObject("output")
         .put("type", "string")
