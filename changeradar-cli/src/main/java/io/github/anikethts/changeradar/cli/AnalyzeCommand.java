@@ -256,24 +256,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
               new SqlLanguageAnalyzer(),
               new WorkflowLanguageAnalyzer(),
               new ShellLanguageAnalyzer());
-      Map<String, String> headSources = new LinkedHashMap<>();
-      for (String suffix : SOURCE_SUFFIXES) {
-        for (String path : git.listPaths(head, suffix)) {
-          git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
-        }
-      }
-      for (String path : git.listPaths(head, ".json")) {
-        if (TsConfigPaths.isConfigPath(path)) {
-          git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
-        }
-      }
-      for (String suffix : List.of(".yml", ".yaml")) {
-        for (String path : git.listPaths(head, suffix)) {
-          if (new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource()) {
-            git.readFile(head, path).ifPresent(source -> headSources.put(path, source));
-          }
-        }
-      }
+      Map<String, String> headSources = git.readSources(head, AnalyzeCommand::isIndexedHeadPath);
       boolean scoped = !fullIndex;
       Map<String, String> parsedHead =
           scoped ? SourceScope.subset(changed, headSources) : headSources;
@@ -540,6 +523,21 @@ public final class AnalyzeCommand implements Callable<Integer> {
             + result.stderr().getFileName()
             + ". Analysis read the Git refs and did not checkout. This execution is not proof from"
             + " the diff. A passing command is not proof the change is safe.");
+  }
+
+  private static boolean isIndexedHeadPath(String path) {
+    for (String suffix : SOURCE_SUFFIXES) {
+      if (path.endsWith(suffix)) {
+        return true;
+      }
+    }
+    if (path.endsWith(".json")) {
+      return TsConfigPaths.isConfigPath(path);
+    }
+    if (path.endsWith(".yml") || path.endsWith(".yaml")) {
+      return new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource();
+    }
+    return false;
   }
 
   private static Map<String, String> filterSources(

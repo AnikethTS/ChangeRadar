@@ -37,8 +37,8 @@ plus tests against the shared model.
 
 - **JGit instead of shelling out to `git`.** Predictable on Windows/macOS/Linux
   CI images, and we never invoke the analyzed project's Git hooks by accident.
-  Cost: we reimplement a small amount of Git behavior; merge-base nuances get
-  tests, not folklore.
+  HEAD sources are loaded in one tree walk. Cost: we reimplement a small amount
+  of Git behavior; merge-base nuances get tests, not folklore.
 - **Gradle modules now, few classes inside them.** Boundaries are core /
   git / java / kotlin / typescript / python / php / CLI. The local review page
   lives in the CLI. No extra module for a hosted dashboard.
