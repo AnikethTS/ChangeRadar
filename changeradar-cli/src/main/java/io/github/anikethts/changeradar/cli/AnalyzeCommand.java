@@ -156,7 +156,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
   boolean fullIndex;
 
   private String runCommand;
+  private String executedCommand;
   private int runTimeoutSeconds;
+  private TestRunFilter testRunFilter;
   private CommandRunner.Result executionResult;
 
   private final Clock clock;
@@ -207,7 +209,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
   }
 
   /** Used by {@link RunCommand}. {@code analyze} leaves this unset and does not execute. */
-  void runAfterAnalysis(String command, int timeoutSeconds) {
+  void runAfterAnalysis(String command, int timeoutSeconds, TestRunFilter filter) {
     if (command == null || command.isBlank()) {
       throw new GitAccessException("run requires a non-blank --command");
     }
@@ -217,6 +219,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
     }
     this.runCommand = command;
     this.runTimeoutSeconds = timeoutSeconds;
+    this.testRunFilter = filter;
   }
 
   @Override
@@ -293,10 +296,17 @@ public final class AnalyzeCommand implements Callable<Integer> {
       List<TestRecommendation> tests = merged.tests();
       CommandRunner.Result execution = null;
       if (runCommand != null) {
-        Path logs = output == null ? repository.resolve("build").resolve("changeradar") : output;
-        Files.createDirectories(logs);
-        execution = CommandRunner.run(repository, runCommand, runTimeoutSeconds, logs);
-        analysisLimitations.add(executionLimitation(execution));
+        String command = runCommand;
+        if (testRunFilter != null) {
+          command = testRunFilter.commandFor(runCommand, tests, analysisLimitations);
+        }
+        if (command != null) {
+          executedCommand = command;
+          Path logs = output == null ? repository.resolve("build").resolve("changeradar") : output;
+          Files.createDirectories(logs);
+          execution = CommandRunner.run(repository, command, runTimeoutSeconds, logs);
+          analysisLimitations.add(executionLimitation(execution));
+        }
       }
       List<Path> coverageFiles =
           expandEvidence(repository, coverage, "coverage", execution, analysisLimitations);
@@ -486,7 +496,8 @@ public final class AnalyzeCommand implements Callable<Integer> {
   }
 
   private Limitation executionLimitation(CommandRunner.Result result) {
-    String shown = runCommand.length() > 300 ? runCommand.substring(0, 300) + "..." : runCommand;
+    String recorded = executedCommand == null ? runCommand : executedCommand;
+    String shown = recorded.length() > 300 ? recorded.substring(0, 300) + "..." : recorded;
     if (!result.started()) {
       return new Limitation(
           "EXECUTION",

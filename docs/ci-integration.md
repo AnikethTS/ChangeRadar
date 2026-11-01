@@ -59,9 +59,12 @@ Fail-open vs fail-closed (whether exit `2` should fail the GitHub job) is a
 The CLI itself still returns `2` for tool failure.
 
 `changeradar run --command …` uses the same analysis, then runs that command
-in the working tree. Exit `1` also means the command exited non-zero. Exit
-`2` means the command could not start or exceeded `--timeout` (default 600
-seconds). The report limitation `EXECUTION` records the command and the
+in the working tree. `--runner gradle`, `maven`, or `pytest` limits that
+command to DIRECT test recommendations. Heuristic tests are not executed.
+Put `{tests}` in the command to place the filter; otherwise it is appended.
+If no DIRECT test has a safe filter, the command is not started. Exit `1`
+also means the command exited non-zero. Exit `2` means the command could
+not start or exceeded `--timeout` (default 600 seconds). The report limitation `EXECUTION` records the command and the
 result. `analyze` never runs a command. The GitHub Action does not run one
 either. Do not point `run` at a fork pull request unless that job is already
 allowed to execute the pull request.

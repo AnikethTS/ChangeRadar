@@ -63,7 +63,8 @@ final class TsRecommendations {
       }
       for (String changed : changedTypeNames) {
         if (testName.contains(changed) || file.path().contains(changed)) {
-          tests.putIfAbsent(
+          TestRecommendation.prefer(
+              tests,
               file.path(),
               new TestRecommendation(
                   testName,
@@ -86,7 +87,8 @@ final class TsRecommendations {
               .map(decl -> decl.name())
               .findFirst()
               .orElse(file.path());
-      tests.putIfAbsent(
+      TestRecommendation.prefer(
+          tests,
           file.path(),
           new TestRecommendation(
               testName,

@@ -67,7 +67,8 @@ final class JavaRecommendations {
         }
         for (String typeName : changedTypeNames) {
           if (decl.name().equals(typeName + "Test") || decl.name().equals(typeName + "Tests")) {
-            tests.putIfAbsent(
+            TestRecommendation.prefer(
+                tests,
                 file.path() + "#" + decl.name(),
                 new TestRecommendation(
                     decl.name(),
@@ -94,7 +95,8 @@ final class JavaRecommendations {
               .map(Decl::name)
               .findFirst()
               .orElse(file.path());
-      tests.putIfAbsent(
+      TestRecommendation.prefer(
+          tests,
           file.path() + "#" + testName,
           new TestRecommendation(
               testName,

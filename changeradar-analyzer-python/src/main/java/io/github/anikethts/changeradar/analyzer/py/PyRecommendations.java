@@ -55,7 +55,8 @@ final class PyRecommendations {
       }
       for (String changed : names) {
         if (file.path().contains(changed) || file.path().contains(PySupport.toSnake(changed))) {
-          tests.putIfAbsent(
+          TestRecommendation.prefer(
+              tests,
               file.path(),
               new TestRecommendation(
                   file.path(),
@@ -78,7 +79,8 @@ final class PyRecommendations {
               .map(decl -> decl.name())
               .findFirst()
               .orElse(file.path());
-      tests.putIfAbsent(
+      TestRecommendation.prefer(
+          tests,
           file.path(),
           new TestRecommendation(
               testName,

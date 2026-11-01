@@ -39,8 +39,16 @@ public final class RunCommand implements Callable<Integer> {
       required = true,
       description =
           "Command to run after analysis, passed to the system shell. Example:"
-              + " ./gradlew test. ChangeRadar does not pick a build tool.")
+              + " ./gradlew test. With --runner, {tests} is replaced by the DIRECT-test filter, or"
+              + " the filter is appended. ChangeRadar does not pick a build tool.")
   String command;
+
+  @Option(
+      names = "--runner",
+      description =
+          "Limit the command to DIRECT tests: gradle (--tests), maven (-Dtest), or pytest (node"
+              + " ids). Heuristic tests are not run. Omit to run --command unchanged.")
+  String runner;
 
   @Option(
       names = "--timeout",
@@ -125,7 +133,7 @@ public final class RunCommand implements Callable<Integer> {
             coverage,
             junit,
             fullIndex);
-    analyze.runAfterAnalysis(command, timeout);
+    analyze.runAfterAnalysis(command, timeout, runner == null ? null : TestRunFilter.parse(runner));
     return analyze.call();
   }
 }

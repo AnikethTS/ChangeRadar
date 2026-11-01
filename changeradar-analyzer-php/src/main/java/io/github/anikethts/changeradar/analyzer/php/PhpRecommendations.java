@@ -55,7 +55,8 @@ final class PhpRecommendations {
       }
       for (String changed : names) {
         if (file.path().contains(changed)) {
-          tests.putIfAbsent(
+          TestRecommendation.prefer(
+              tests,
               file.path(),
               new TestRecommendation(
                   file.path(),
@@ -72,7 +73,8 @@ final class PhpRecommendations {
       if (file == null || !file.testFile()) {
         continue;
       }
-      tests.putIfAbsent(
+      TestRecommendation.prefer(
+          tests,
           file.path(),
           new TestRecommendation(
               file.path(),
