@@ -104,6 +104,9 @@ Today the tool records:
   was not coverage data.
 - `JUNIT_INGEST` when `--junit` XML annotated pass/fail.
   `JUNIT_PARSE_FAILED` when a file was not JUnit XML.
+- `SELECTED_TESTS` when `changeradar run --runner` kept DIRECT tests and
+  left heuristic recommendations unexecuted. No safe DIRECT filter means
+  the command was not started.
 - `EXECUTION` when `changeradar run` ran a command in the working tree.
   The message includes the command, the timeout, and the process exit, or
   that the command was stopped or could not start. The command is not

@@ -1,5 +1,6 @@
 package io.github.anikethts.changeradar.core;
 
+import java.util.Map;
 import java.util.Objects;
 
 public record TestRecommendation(
@@ -20,6 +21,15 @@ public record TestRecommendation(
 
   public TestRecommendation(String name, String path, Confidence confidence, String reason) {
     this(name, path, confidence, reason, false, ExecutionStatus.UNKNOWN);
+  }
+
+  /** Keeps the stronger confidence when two recommendations name the same test. */
+  public static void prefer(
+      Map<String, TestRecommendation> tests, String key, TestRecommendation candidate) {
+    TestRecommendation current = tests.get(key);
+    if (current == null || candidate.confidence().ordinal() < current.confidence().ordinal()) {
+      tests.put(key, candidate);
+    }
   }
 
   public TestRecommendation withEvidence(

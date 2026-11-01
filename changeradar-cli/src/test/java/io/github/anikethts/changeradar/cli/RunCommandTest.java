@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.Test;
 
 class RunCommandTest extends CliGitHarness {
@@ -114,6 +115,102 @@ class RunCommandTest extends CliGitHarness {
     assertEquals(2, code);
     assertTrue(
         Files.readString(out.resolve("report.json")).contains("Stopped the command after 1s"));
+  }
+
+  @Test
+  void runnerAppendsOnlyTheDirectTest() throws Exception {
+    try (Git git = Git.init().setDirectory(tmp.toFile()).call()) {
+      Path demo = tmp.resolve("src/main/java/demo/Demo.java");
+      Path test = tmp.resolve("src/main/java/demo/DemoTest.java");
+      Files.createDirectories(demo.getParent());
+      Files.writeString(
+          demo,
+          """
+          package demo;
+          public class Demo {
+            public void n() {}
+          }
+          """);
+      Files.writeString(
+          test,
+          """
+          package demo;
+          public class DemoTest {
+            void checks() {
+              new Demo().n();
+            }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "base");
+      Files.writeString(
+          demo,
+          """
+          package demo;
+          public class Demo {
+            public void n() {
+              int x = 1;
+            }
+          }
+          """);
+      git.add().addFilepattern(".").call();
+      commit(git, "head");
+    }
+    Path out = tmp.resolve("selected");
+    int code =
+        command()
+            .execute(
+                "run",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString(),
+                "--timeout",
+                "30",
+                "--runner",
+                "gradle",
+                "--command",
+                "echo ran> ran-marker.txt");
+    assertEquals(0, code);
+    String json = Files.readString(out.resolve("report.json"));
+    assertTrue(json.contains("--tests DemoTest"));
+    assertTrue(json.contains("SELECTED_TESTS"));
+    assertTrue(Files.exists(tmp.resolve("ran-marker.txt")));
+  }
+
+  @Test
+  void runnerDoesNotStartWhenNoDirectTestIsSelected() throws Exception {
+    seedRepo();
+    Path out = tmp.resolve("none");
+    int code =
+        command()
+            .execute(
+                "run",
+                "--base",
+                "HEAD~1",
+                "--head",
+                "HEAD",
+                "--repo",
+                tmp.toString(),
+                "--format",
+                "json",
+                "--output",
+                out.toString(),
+                "--timeout",
+                "30",
+                "--runner",
+                "gradle",
+                "--command",
+                "echo ran> ran-marker.txt");
+    assertEquals(0, code);
+    assertTrue(Files.readString(out.resolve("report.json")).contains("command was not run"));
+    assertFalse(Files.exists(tmp.resolve("ran-marker.txt")));
   }
 
   private static boolean windows() {

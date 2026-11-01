@@ -53,7 +53,8 @@ plus tests against the shared model.
   working tree, with a timeout, and records the process exit on the report.
   It does not choose a build tool, checkout a ref, or upload source. Do not
   point `run` at a fork unless that job is already allowed to execute the
-  code. Optional `--coverage` / `--junit` still only read files. `run` reads
+  code. `--runner` limits the command to DIRECT test recommendations.
+  Optional `--coverage` / `--junit` still only read files. `run` reads
   them after the command, so the command can be what writes them.
 
 ## Roadmap

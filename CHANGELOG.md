@@ -12,6 +12,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- `changeradar run --runner gradle|maven|pytest` appends a filter for DIRECT
+  tests only (`--tests`, `-Dtest`, or a pytest node id). Heuristic tests are
+  not executed. A direct call replaces a naming-only suggestion for the same
+  test. When none of the DIRECT names are a safe filter, the command is not
+  started. `{tests}` in `--command` marks where the filter goes.
 - `changeradar run --command …` analyzes, then runs that command in the
   working tree with a timeout. The report records an `EXECUTION` limitation
   with the process exit. `--junit` and `--coverage` are read after the

@@ -20,7 +20,8 @@ final class SqlRecommendations {
       if (file == null || !file.testFile()) {
         continue;
       }
-      tests.putIfAbsent(
+      TestRecommendation.prefer(
+          tests,
           file.path(),
           new TestRecommendation(
               file.path(),
