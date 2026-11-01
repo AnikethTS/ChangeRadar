@@ -10,13 +10,18 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.diff.Edit;
+import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectReader;
@@ -101,6 +106,45 @@ public final class JGitRepository implements GitRepository {
       return List.copyOf(paths);
     } catch (IOException e) {
       throw new GitAccessException("Cannot list files at " + revision, e);
+    }
+  }
+
+  @Override
+  public Map<String, String> readSources(String revision, Predicate<String> include) {
+    Repository repo = git.getRepository();
+    try (RevWalk walk = new RevWalk(repo);
+        TreeWalk treeWalk = new TreeWalk(repo);
+        ObjectReader reader = repo.newObjectReader()) {
+      RevCommit commit = walk.parseCommit(requireResolved(revision));
+      treeWalk.addTree(commit.getTree());
+      treeWalk.setRecursive(true);
+      List<String> paths = new ArrayList<>();
+      List<ObjectId> ids = new ArrayList<>();
+      while (treeWalk.next()) {
+        FileMode mode = treeWalk.getFileMode(0);
+        if (mode == FileMode.TREE || mode == FileMode.GITLINK || mode == FileMode.MISSING) {
+          continue;
+        }
+        String path = treeWalk.getPathString();
+        if (!include.test(path)) {
+          continue;
+        }
+        paths.add(path);
+        ids.add(treeWalk.getObjectId(0));
+      }
+      Integer[] order = new Integer[paths.size()];
+      for (int i = 0; i < order.length; i++) {
+        order[i] = i;
+      }
+      Arrays.sort(order, Comparator.comparing(paths::get));
+      Map<String, String> sources = new LinkedHashMap<>();
+      for (int index : order) {
+        ObjectLoader loader = reader.open(ids.get(index));
+        sources.put(paths.get(index), new String(loader.getBytes(), StandardCharsets.UTF_8));
+      }
+      return sources;
+    } catch (IOException e) {
+      throw new GitAccessException("Cannot read sources at " + revision, e);
     }
   }
 

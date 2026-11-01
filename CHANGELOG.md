@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- HEAD sources are loaded in one Git tree walk. Analysis used to walk the
+  tree once per suffix and open each file on its own.
+
 ### Added
 
 - `changeradar run --command …` analyzes, then runs that command in the
