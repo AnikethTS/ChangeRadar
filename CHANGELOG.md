@@ -5,6 +5,11 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-11-07
+
+Analyzer JAR is the `v0.2.8` release asset. Omit `version` for latest;
+set `version: v0.2.8` to pin this JAR.
+
 ### Changed
 
 - HEAD sources are loaded in one Git tree walk. Analysis used to walk the
@@ -319,7 +324,8 @@ graph.
 - CI `check` jobs: ktlint on `changeradar-git/build.gradle.kts`, Gradle
   Wrapper 9.1.0, and google-java-format 1.28.0 so Spotless runs on JDK 25.
 
-[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/AnikethTS/ChangeRadar/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.8
 [0.2.7]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.7
 [0.2.6]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.6
 [0.2.5]: https://github.com/AnikethTS/ChangeRadar/releases/tag/v0.2.5

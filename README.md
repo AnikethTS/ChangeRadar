@@ -25,7 +25,7 @@ as a step in the pipeline you already have. It does not replace GitHub
 Actions, GitLab CI, Jenkins, your test runner, or your deploy tooling. It
 adds impact intelligence to those systems.
 
-**Status:** `0.2.7` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, shell,
+**Status:** `0.2.8` — Java, Kotlin, TypeScript/JavaScript, Python, PHP, SQL, shell,
 and GitHub Actions workflow
 impact reports, a local review page, an agent brief, a published fat JAR / GitHub Action (Marketplace:
 ChangeRadar Impact Analysis), compact PR comments, Checks annotations,
@@ -52,7 +52,7 @@ and `--head` it analyzes first.
 
 GitHub Actions: pin the composite Action to a **commit SHA** (the wrapper).
 Omit `version` to download GitHub’s **latest** `changeradar.jar`. Set
-`version: v0.2.7` only when you want that exact analyzer. Copy
+`version: v0.2.8` only when you want that exact analyzer. Copy
 [`examples/github-actions/changeradar.yml`](examples/github-actions/changeradar.yml)
 into `.github/workflows/changeradar.yml` (checkout + one step; comment,
 Checks notices, and the artifact are inside the Action). JVM repos can
@@ -64,7 +64,7 @@ instead.
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
-    # version: v0.2.7   # pin the JAR; omit for latest
+    # version: v0.2.8   # pin the JAR; omit for latest
 ```
 
 Developing ChangeRadar itself:
@@ -81,7 +81,7 @@ See [Development](docs/development.md).
 ## Sample report
 
 ```text
-ChangeRadar 0.2.7
+ChangeRadar 0.2.8
 schema 1.0.0
 base   HEAD~1
 head   HEAD
