@@ -15,7 +15,7 @@ the deep analyzers. CI systems invoke the same CLI.
 | Kotlin analyzer (`changeradar-analyzer-kotlin`) | Types and functions, import/same-directory callers, related tests. Not kotlinc. |
 | TypeScript analyzer (`changeradar-analyzer-typescript`) | TS/JS classes, functions, exports, name-based callers, related tests. Not tsc. |
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |
-| PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests. Not php-parser. |
+| PHP analyzer (`changeradar-analyzer-php`) | Classes and functions, name-based callers, related tests, and `composer.json` PSR-4/PSR-0 prefixes. Not php-parser or Composer. |
 | SQL analyzer (`changeradar-analyzer-sql`) | Tables, views, functions, and procedures in `.sql` files, plus name references in other `.sql` files. Not a database. |
 | Workflow analyzer (`changeradar-analyzer-workflow`) | GitHub Actions jobs, reusable workflows, and local actions. Local `uses` and same-file `needs` only. The workflow is not run. |
 | Shell analyzer (`changeradar-analyzer-shell`) | Functions in `.sh` files, plus calls and `source` from other `.sh` files. The script is not executed. |
@@ -64,7 +64,7 @@ plus tests against the shared model.
 | 0 Foundation | Gradle, CLI skeleton, docs, CI | Clean checkout builds and tests. **Current.** |
 | 1 Git diff | Base/head, changed files | Additions, edits, deletions, invalid refs. **Current.** |
 | 2 Java symbols | Changed lines → classes/methods | Fixture tests. **Current.** |
-| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. Kotlin: import/same-directory callers, call chains, overrides, property reads, and annotations (not kotlinc). TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges plus call chains, overrides, fields, attributes. SQL: name references among `.sql` files. GitHub Actions: local `uses` and same-file `needs`. Shell: function names and `source` among `.sh` files. **Partial.** |
+| 3 Graph | Call edges, callers, evidence paths | Java: in-repo + JRE symbol solver, overload signatures, call chains, overrides, fields, annotations. Kotlin: import/same-directory callers, call chains, overrides, property reads, and annotations (not kotlinc). TS: import/require plus `export *` / named re-export barrels, tsconfig `paths`, overrides, fields, decorators. Python: import edges plus call chains. PHP: use/require edges, `composer.json` psr-4/psr-0 prefixes, call chains, overrides, fields, attributes. SQL: name references among `.sql` files. GitHub Actions: local `uses` and same-file `needs`. Shell: function names and `source` among `.sh` files. **Partial.** |
 | 4 Tests | Related tests with reasons | Every suggestion has confidence. **Current.** |
 | 5 Reports | Richer terminal/Markdown/JSON | Compact + SARIF + HTML review page + agent brief + grouped findings with stable ids. **Current.** |
 | 6 CI contract | Output dir, base/head on a clean runner | Documented and tested. **Current.** |

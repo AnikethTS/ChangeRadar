@@ -5,6 +5,7 @@ import io.github.anikethts.changeradar.core.CallChains;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
+import io.github.anikethts.changeradar.core.ComposerAutoload;
 import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.FormatOnly;
 import io.github.anikethts.changeradar.core.FormatTrivia;
@@ -124,9 +125,10 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
             .thenComparing(s -> s.location().startLine())
             .thenComparing(ChangedSymbol::id));
 
-    CallerScan callers = PhpCallers.findCallers(parsedHead, changedSymbols);
+    ComposerAutoload.PrefixMap autoload = ComposerAutoload.index(headFiles);
+    CallerScan callers = PhpCallers.findCallers(parsedHead, changedSymbols, autoload);
     List<ImpactFinding> findings = new ArrayList<>(callers.findings());
-    findings.addAll(PhpCallers.findStructural(parsedHead, changedSymbols));
+    findings.addAll(PhpCallers.findStructural(parsedHead, changedSymbols, autoload));
     findings.addAll(PhpRecommendations.publicApiFindings(changedSymbols));
     findings.sort(
         Comparator.comparing((ImpactFinding f) -> f.location().path())
@@ -144,13 +146,21 @@ public final class PhpLanguageAnalyzer implements LanguageAnalyzer {
           new Limitation(
               "PHP_IMPORTS",
               "PHP callers are matched using use/require specifiers against HEAD files, not"
-                  + " php-parser or Composer autoload. call_user_func may be missed or"
-                  + " over-reported."));
+                  + " php-parser. call_user_func may be missed or over-reported."));
+      if (autoload.hasPrefixes()) {
+        limitations.add(
+            new Limitation(
+                "PHP_COMPOSER_AUTOLOAD",
+                "PHP use names were resolved with psr-4 and psr-0 prefixes from composer.json."
+                    + " This is not Composer: classmap, files, and vendor packages are not loaded."
+                    + " Grouped use statements are not expanded."));
+      }
       limitations.add(
           new Limitation(
               "PHP_STRUCTURAL_EDGES",
               "PHP overrides, property reads, and attributes are matched by name and use/require"
-                  + " specifiers against HEAD files, not php-parser or Composer autoload."));
+                  + " specifiers against HEAD files, not php-parser. Composer classmap and files"
+                  + " autoload are not loaded."));
       limitations.add(
           new Limitation(
               "PHP_CALL_CHAINS",

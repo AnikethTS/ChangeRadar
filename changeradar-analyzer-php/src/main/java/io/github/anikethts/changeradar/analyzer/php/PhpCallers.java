@@ -2,12 +2,14 @@ package io.github.anikethts.changeradar.analyzer.php;
 
 import io.github.anikethts.changeradar.core.CallChains;
 import io.github.anikethts.changeradar.core.ChangedSymbol;
+import io.github.anikethts.changeradar.core.ComposerAutoload;
 import io.github.anikethts.changeradar.core.Confidence;
 import io.github.anikethts.changeradar.core.ImpactFinding;
 import io.github.anikethts.changeradar.core.SourceLocation;
 import io.github.anikethts.changeradar.core.SourcePaths;
 import io.github.anikethts.changeradar.core.StructuralScan;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,7 +58,9 @@ final class PhpCallers {
   private PhpCallers() {}
 
   static CallerScan findCallers(
-      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+      Map<String, ParsedFile> parsedHead,
+      List<ChangedSymbol> changedSymbols,
+      ComposerAutoload.PrefixMap autoload) {
     Set<String> changedFns = new LinkedHashSet<>();
     Set<String> changedTypes = new LinkedHashSet<>();
     Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
@@ -90,14 +94,20 @@ final class PhpCallers {
         Matcher neu = NEW_TYPE.matcher(line);
         while (neu.find()) {
           String typeName = neu.group(1);
-          Optional<String> constructed = resolveTypeId(file, typeName, parsedHead);
+          Optional<String> constructed = resolveTypeId(file, typeName, parsedHead, autoload);
           if (constructed.isPresent()) {
             if (enclosing.isPresent()) {
               edges.add(new CallChains.Edge(constructed.get(), enclosing.get(), location));
             } else if (changedTypes.contains(typeName)) {
               Optional<Confidence> confidence =
                   importConfidence(
-                      file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile());
+                      file,
+                      typeName,
+                      typeName,
+                      parsedHead,
+                      changedNamesByPath,
+                      file.testFile(),
+                      autoload);
               if (confidence.isPresent()
                   && seen.add(file.path() + ":" + lineNo + ":new " + typeName)) {
                 findings.add(
@@ -116,7 +126,13 @@ final class PhpCallers {
           }
           Optional<Confidence> confidence =
               importConfidence(
-                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile());
+                  file,
+                  typeName,
+                  typeName,
+                  parsedHead,
+                  changedNamesByPath,
+                  file.testFile(),
+                  autoload);
           if (confidence.isEmpty() || confidence.get() == Confidence.DIRECT) {
             continue;
           }
@@ -147,7 +163,7 @@ final class PhpCallers {
           if (receiver == null && line.contains("new " + name)) {
             continue;
           }
-          Optional<String> callee = resolveCallableId(file, receiver, name, parsedHead);
+          Optional<String> callee = resolveCallableId(file, receiver, name, parsedHead, autoload);
           if (callee.isPresent()) {
             if (enclosing.isPresent()) {
               edges.add(new CallChains.Edge(callee.get(), enclosing.get(), location));
@@ -159,7 +175,8 @@ final class PhpCallers {
                       name,
                       parsedHead,
                       changedNamesByPath,
-                      file.testFile());
+                      file.testFile(),
+                      autoload);
               if (confidence.isPresent()) {
                 String symbolId = receiver != null ? receiver + "#" + name : name;
                 if (seen.add(file.path() + ":" + lineNo + ":" + symbolId)) {
@@ -186,7 +203,7 @@ final class PhpCallers {
           String binding = receiver != null ? receiver : name;
           Optional<Confidence> confidence =
               importConfidence(
-                  file, binding, name, parsedHead, changedNamesByPath, file.testFile());
+                  file, binding, name, parsedHead, changedNamesByPath, file.testFile(), autoload);
           if (confidence.isEmpty() || confidence.get() == Confidence.DIRECT) {
             continue;
           }
@@ -258,17 +275,18 @@ final class PhpCallers {
   }
 
   static Optional<ParsedFile> resolveImportedFile(
-      ParsedFile file, String binding, Map<String, ParsedFile> parsedHead) {
+      ParsedFile file,
+      String binding,
+      Map<String, ParsedFile> parsedHead,
+      ComposerAutoload.PrefixMap autoload) {
     String spec = file.imports().bindings().get(binding);
     if (spec != null) {
-      return SourcePaths.resolveExisting(
-              file.path(), spec, parsedHead.keySet(), PhpSupport.MODULE_SUFFIXES)
+      return resolveSpecifier(file.path(), spec, parsedHead.keySet(), autoload)
           .map(parsedHead::get);
     }
     for (String module : file.imports().modules()) {
       Optional<String> resolved =
-          SourcePaths.resolveExisting(
-              file.path(), module, parsedHead.keySet(), PhpSupport.MODULE_SUFFIXES);
+          resolveSpecifier(file.path(), module, parsedHead.keySet(), autoload);
       if (resolved.isPresent()) {
         return Optional.ofNullable(parsedHead.get(resolved.get()));
       }
@@ -276,8 +294,29 @@ final class PhpCallers {
     return Optional.empty();
   }
 
+  static Optional<String> resolveSpecifier(
+      String fromFile, String spec, Collection<String> known, ComposerAutoload.PrefixMap autoload) {
+    Optional<String> resolved =
+        SourcePaths.resolveExisting(fromFile, spec, known, PhpSupport.MODULE_SUFFIXES);
+    if (resolved.isPresent() || autoload == null) {
+      return resolved;
+    }
+    for (String stem : autoload.expand(spec)) {
+      Optional<String> mapped =
+          SourcePaths.resolveExisting(fromFile, stem, known, PhpSupport.MODULE_SUFFIXES);
+      if (mapped.isPresent()) {
+        return mapped;
+      }
+    }
+    return Optional.empty();
+  }
+
   static Optional<String> resolveCallableId(
-      ParsedFile file, String receiver, String name, Map<String, ParsedFile> parsedHead) {
+      ParsedFile file,
+      String receiver,
+      String name,
+      Map<String, ParsedFile> parsedHead,
+      ComposerAutoload.PrefixMap autoload) {
     if (receiver == null) {
       for (Decl decl : file.decls()) {
         if (isCallableKind(decl.kind()) && decl.name().equals(name)) {
@@ -294,7 +333,7 @@ final class PhpCallers {
       }
     }
     String binding = receiver != null ? receiver : name;
-    Optional<ParsedFile> imported = resolveImportedFile(file, binding, parsedHead);
+    Optional<ParsedFile> imported = resolveImportedFile(file, binding, parsedHead, autoload);
     if (imported.isEmpty()) {
       return Optional.empty();
     }
@@ -307,13 +346,16 @@ final class PhpCallers {
   }
 
   static Optional<String> resolveTypeId(
-      ParsedFile file, String name, Map<String, ParsedFile> parsedHead) {
+      ParsedFile file,
+      String name,
+      Map<String, ParsedFile> parsedHead,
+      ComposerAutoload.PrefixMap autoload) {
     for (Decl decl : file.decls()) {
       if ("type".equals(decl.kind()) && decl.name().equals(name)) {
         return Optional.of(declId(decl));
       }
     }
-    Optional<ParsedFile> imported = resolveImportedFile(file, name, parsedHead);
+    Optional<ParsedFile> imported = resolveImportedFile(file, name, parsedHead, autoload);
     if (imported.isEmpty()) {
       return Optional.empty();
     }
@@ -326,7 +368,9 @@ final class PhpCallers {
   }
 
   static List<ImpactFinding> findStructural(
-      Map<String, ParsedFile> parsedHead, List<ChangedSymbol> changedSymbols) {
+      Map<String, ParsedFile> parsedHead,
+      List<ChangedSymbol> changedSymbols,
+      ComposerAutoload.PrefixMap autoload) {
     Set<String> changedFields = new LinkedHashSet<>();
     Set<String> changedTypeDecls = StructuralScan.typeDeclsWithoutNestedMembers(changedSymbols);
     Map<String, Set<String>> changedNamesByPath = new LinkedHashMap<>();
@@ -359,7 +403,13 @@ final class PhpCallers {
           }
           Optional<Confidence> confidence =
               importConfidence(
-                  file, parent, decl.name(), parsedHead, changedNamesByPath, file.testFile());
+                  file,
+                  parent,
+                  decl.name(),
+                  parsedHead,
+                  changedNamesByPath,
+                  file.testFile(),
+                  autoload);
           if (confidence.isEmpty()) {
             continue;
           }
@@ -381,7 +431,8 @@ final class PhpCallers {
         if (attribute.find() && changedTypeDecls.contains(attribute.group(1))) {
           String name = attribute.group(1);
           Optional<Confidence> confidence =
-              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile());
+              importConfidence(
+                  file, name, name, parsedHead, changedNamesByPath, file.testFile(), autoload);
           if (confidence.isPresent()) {
             StructuralScan.addFinding(
                 seen,
@@ -400,7 +451,13 @@ final class PhpCallers {
           final int lineIndex = i;
           Optional<Confidence> confidence =
               importConfidence(
-                  file, typeName, typeName, parsedHead, changedNamesByPath, file.testFile());
+                  file,
+                  typeName,
+                  typeName,
+                  parsedHead,
+                  changedNamesByPath,
+                  file.testFile(),
+                  autoload);
           if (confidence.isPresent()) {
             boolean inject =
                 INJECT_ATTRS.stream()
@@ -424,7 +481,8 @@ final class PhpCallers {
             continue;
           }
           Optional<Confidence> confidence =
-              importConfidence(file, name, name, parsedHead, changedNamesByPath, file.testFile());
+              importConfidence(
+                  file, name, name, parsedHead, changedNamesByPath, file.testFile(), autoload);
           if (confidence.isEmpty()) {
             continue;
           }
@@ -456,7 +514,8 @@ final class PhpCallers {
       String symbolName,
       Map<String, ParsedFile> parsedHead,
       Map<String, Set<String>> changedNamesByPath,
-      boolean allowTestHeuristic) {
+      boolean allowTestHeuristic,
+      ComposerAutoload.PrefixMap autoload) {
     if (changedNamesByPath.getOrDefault(file.path(), Set.of()).contains(symbolName)
         && file.decls().stream()
             .anyMatch(decl -> decl.name().equals(binding) || decl.name().equals(symbolName))) {
@@ -465,8 +524,7 @@ final class PhpCallers {
     String spec = file.imports().bindings().get(binding);
     if (spec != null) {
       Optional<String> resolved =
-          SourcePaths.resolveExisting(
-              file.path(), spec, parsedHead.keySet(), PhpSupport.MODULE_SUFFIXES);
+          resolveSpecifier(file.path(), spec, parsedHead.keySet(), autoload);
       if (resolved.isPresent()
           && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
         return Optional.of(Confidence.DIRECT);
@@ -477,8 +535,7 @@ final class PhpCallers {
     }
     for (String module : file.imports().modules()) {
       Optional<String> resolved =
-          SourcePaths.resolveExisting(
-              file.path(), module, parsedHead.keySet(), PhpSupport.MODULE_SUFFIXES);
+          resolveSpecifier(file.path(), module, parsedHead.keySet(), autoload);
       if (resolved.isPresent()
           && changedNamesByPath.getOrDefault(resolved.get(), Set.of()).contains(symbolName)) {
         return Optional.of(Confidence.DIRECT);

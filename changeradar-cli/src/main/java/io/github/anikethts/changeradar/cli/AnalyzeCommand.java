@@ -14,6 +14,7 @@ import io.github.anikethts.changeradar.core.AnalysisResult;
 import io.github.anikethts.changeradar.core.ChangeType;
 import io.github.anikethts.changeradar.core.ChangedFile;
 import io.github.anikethts.changeradar.core.ChangedSymbols;
+import io.github.anikethts.changeradar.core.ComposerAutoload;
 import io.github.anikethts.changeradar.core.ExitCode;
 import io.github.anikethts.changeradar.core.FindingSuppressions;
 import io.github.anikethts.changeradar.core.GitAccessException;
@@ -543,7 +544,7 @@ public final class AnalyzeCommand implements Callable<Integer> {
       }
     }
     if (path.endsWith(".json")) {
-      return TsConfigPaths.isConfigPath(path);
+      return TsConfigPaths.isConfigPath(path) || ComposerAutoload.isComposerPath(path);
     }
     if (path.endsWith(".yml") || path.endsWith(".yaml")) {
       return new ChangedFile(path, ChangeType.MODIFY, null).isWorkflowSource();
@@ -558,7 +559,9 @@ public final class AnalyzeCommand implements Callable<Integer> {
       ChangedFile asFile = new ChangedFile(entry.getKey(), ChangeType.MODIFY, null);
       if (analyzer.supports(asFile)
           || (TsConfigPaths.isConfigPath(entry.getKey())
-              && TypeScriptLanguageAnalyzer.LANGUAGE_ID.equals(analyzer.languageId()))) {
+              && TypeScriptLanguageAnalyzer.LANGUAGE_ID.equals(analyzer.languageId()))
+          || (ComposerAutoload.isComposerPath(entry.getKey())
+              && PhpLanguageAnalyzer.LANGUAGE_ID.equals(analyzer.languageId()))) {
         filtered.put(entry.getKey(), entry.getValue());
       }
     }

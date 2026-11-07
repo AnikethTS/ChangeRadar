@@ -11,9 +11,9 @@ import java.util.regex.Pattern;
 
 /**
  * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, files
- * whose import/require/{@code use} specifiers resolve to a changed path, every {@code .sql} file
- * when a SQL file changed, every workflow file when a workflow file changed, and every {@code .sh}
- * file when a shell file changed.
+ * whose import/require/{@code use} specifiers resolve to a changed path (including Composer
+ * PSR-4/PSR-0 prefixes), every {@code .sql} file when a SQL file changed, every workflow file when
+ * a workflow file changed, and every {@code .sh} file when a shell file changed.
  */
 public final class SourceScope {
 
@@ -55,12 +55,13 @@ public final class SourceScope {
         seeds.stream()
             .anyMatch(path -> new ChangedFile(path, ChangeType.MODIFY, null).isShellSource());
     TsConfigPaths.PathMap pathMap = TsConfigPaths.index(headSources);
+    ComposerAutoload.PrefixMap autoload = ComposerAutoload.index(headSources);
     for (Map.Entry<String, String> entry : headSources.entrySet()) {
       String path = entry.getKey();
       if (keep.contains(path)) {
         continue;
       }
-      if (TsConfigPaths.isConfigPath(path)) {
+      if (TsConfigPaths.isConfigPath(path) || ComposerAutoload.isComposerPath(path)) {
         keep.add(path);
         continue;
       }
@@ -81,7 +82,7 @@ public final class SourceScope {
         keep.add(path);
         continue;
       }
-      if (importsSeed(path, entry.getValue(), seeds, headSources.keySet(), pathMap)) {
+      if (importsSeed(path, entry.getValue(), seeds, headSources.keySet(), pathMap, autoload)) {
         keep.add(path);
       }
     }
@@ -100,22 +101,23 @@ public final class SourceScope {
       String source,
       Set<String> seeds,
       Set<String> known,
-      TsConfigPaths.PathMap pathMap) {
+      TsConfigPaths.PathMap pathMap,
+      ComposerAutoload.PrefixMap autoload) {
     Matcher quoted = QUOTED.matcher(source);
     while (quoted.find()) {
-      if (resolvesToSeed(fromFile, quoted.group(1), seeds, known, pathMap)) {
+      if (resolvesToSeed(fromFile, quoted.group(1), seeds, known, pathMap, autoload)) {
         return true;
       }
     }
     Matcher from = FROM_MODULE.matcher(source);
     while (from.find()) {
-      if (resolvesToSeed(fromFile, from.group(1), seeds, known, pathMap)) {
+      if (resolvesToSeed(fromFile, from.group(1), seeds, known, pathMap, autoload)) {
         return true;
       }
     }
     Matcher imp = IMPORT_MODULE.matcher(source);
     while (imp.find()) {
-      if (resolvesToSeed(fromFile, imp.group(1), seeds, known, pathMap)) {
+      if (resolvesToSeed(fromFile, imp.group(1), seeds, known, pathMap, autoload)) {
         return true;
       }
     }
@@ -126,7 +128,7 @@ public final class SourceScope {
       if (as >= 0) {
         spec = spec.substring(0, as).trim();
       }
-      if (resolvesToSeed(fromFile, spec, seeds, known, pathMap)) {
+      if (resolvesToSeed(fromFile, spec, seeds, known, pathMap, autoload)) {
         return true;
       }
     }
@@ -138,10 +140,20 @@ public final class SourceScope {
       String spec,
       Set<String> seeds,
       Set<String> known,
-      TsConfigPaths.PathMap pathMap) {
+      TsConfigPaths.PathMap pathMap,
+      ComposerAutoload.PrefixMap autoload) {
     Optional<String> resolved =
         SourcePaths.resolveExisting(fromFile, spec, known, SUFFIXES, pathMap);
-    return resolved.filter(seeds::contains).isPresent();
+    if (resolved.filter(seeds::contains).isPresent()) {
+      return true;
+    }
+    for (String stem : autoload.expand(spec)) {
+      Optional<String> mapped = SourcePaths.resolveExisting(fromFile, stem, known, SUFFIXES);
+      if (mapped.filter(seeds::contains).isPresent()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static String parentDir(String path) {

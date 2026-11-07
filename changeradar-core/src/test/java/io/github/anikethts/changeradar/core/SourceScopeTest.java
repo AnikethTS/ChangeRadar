@@ -108,4 +108,26 @@ class SourceScopeTest {
     assertTrue(subset.containsKey("run.sh"));
     assertFalse(subset.containsKey("src/other.ts"));
   }
+
+  @Test
+  void keepsPhpImporterThatUsesComposerPsr4() {
+    Map<String, String> head =
+        Map.of(
+            "src/Pay.php",
+            "<?php\nnamespace App;\nclass Pay { function n() { return 1; } }\n",
+            "src/Caller.php",
+            "<?php\nuse App\\Pay;\nfunction run() { return 1; }\n",
+            "src/Other.php",
+            "<?php\nfunction other() { return 2; }\n",
+            "composer.json",
+            """
+            { "autoload": { "psr-4": { "App\\\\": "src/" } } }
+            """);
+    Map<String, String> subset =
+        SourceScope.subset(List.of(new ChangedFile("src/Pay.php", ChangeType.MODIFY, null)), head);
+    assertTrue(subset.containsKey("src/Pay.php"));
+    assertTrue(subset.containsKey("src/Caller.php"));
+    assertTrue(subset.containsKey("composer.json"));
+    assertFalse(subset.containsKey("src/Other.php"));
+  }
 }
