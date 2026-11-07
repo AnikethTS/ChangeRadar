@@ -31,9 +31,15 @@ final class TestRunFilter {
 
   static TestRunFilter parse(String raw) {
     String id = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
-    if (!id.equals("gradle") && !id.equals("maven") && !id.equals("pytest")) {
+    if (!id.equals("gradle")
+        && !id.equals("maven")
+        && !id.equals("pytest")
+        && !id.equals("phpunit")
+        && !id.equals("jest")) {
       throw new GitAccessException(
-          "Unknown --runner value: " + raw + ". Known runners: gradle, maven, pytest.");
+          "Unknown --runner value: "
+              + raw
+              + ". Known runners: gradle, maven, pytest, phpunit, jest.");
     }
     return new TestRunFilter(id);
   }
@@ -113,6 +119,9 @@ final class TestRunFilter {
     if ("pytest".equals(runner)) {
       return pytestNode(test);
     }
+    if ("phpunit".equals(runner) || "jest".equals(runner)) {
+      return relativePath(test);
+    }
     String name = test.name();
     if (!CLASS_TOKEN.matcher(name).matches()) {
       return null;
@@ -121,8 +130,8 @@ final class TestRunFilter {
   }
 
   private static String pytestNode(TestRecommendation test) {
-    String path = test.path().replace('\\', '/');
-    if (path.startsWith("/") || path.contains("..") || !RELATIVE_PATH.matcher(path).matches()) {
+    String path = relativePath(test);
+    if (path == null) {
       return null;
     }
     if (test.name().equals(test.path()) || test.name().equals(path)) {
@@ -134,11 +143,20 @@ final class TestRunFilter {
     return path + "::" + test.name();
   }
 
+  /** A repo-relative path with no shell metacharacters. PHPUnit and Jest take the file. */
+  private static String relativePath(TestRecommendation test) {
+    String path = test.path().replace('\\', '/');
+    if (path.startsWith("/") || path.contains("..") || !RELATIVE_PATH.matcher(path).matches()) {
+      return null;
+    }
+    return path;
+  }
+
   private String render(List<String> tokens) {
     if ("maven".equals(runner)) {
       return "-Dtest=" + String.join(",", tokens);
     }
-    if ("pytest".equals(runner)) {
+    if ("pytest".equals(runner) || "phpunit".equals(runner) || "jest".equals(runner)) {
       return String.join(" ", tokens);
     }
     StringBuilder args = new StringBuilder();

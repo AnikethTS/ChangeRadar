@@ -5,6 +5,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- `changeradar run --runner phpunit` and `--runner jest` pass DIRECT test
+  files to PHPUnit and Jest. Heuristic tests are not executed. The command
+  is still the one you supply.
+
 ## [0.2.8] - 2026-11-07
 
 Analyzer JAR is the `v0.2.8` release asset. Omit `version` for latest;
