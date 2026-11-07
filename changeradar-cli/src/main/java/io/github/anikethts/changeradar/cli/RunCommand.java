@@ -11,7 +11,8 @@ import picocli.CommandLine.Option;
     name = "run",
     description =
         "Analyze two Git revisions, then run a command you supply in the repository working tree."
-            + " Does not choose Gradle, Maven, or pytest, does not checkout a ref, and does not"
+            + " Does not choose Gradle, Maven, pytest, PHPUnit, or Jest, does not checkout a ref,"
+            + " and does not"
             + " upload source. changeradar analyze never runs a command.")
 public final class RunCommand implements Callable<Integer> {
 
@@ -46,8 +47,9 @@ public final class RunCommand implements Callable<Integer> {
   @Option(
       names = "--runner",
       description =
-          "Limit the command to DIRECT tests: gradle (--tests), maven (-Dtest), or pytest (node"
-              + " ids). Heuristic tests are not run. Omit to run --command unchanged.")
+          "Limit the command to DIRECT tests: gradle (--tests), maven (-Dtest), pytest (node"
+              + " ids), phpunit (file), or jest (file). Heuristic tests are not run. Omit to run"
+              + " --command unchanged.")
   String runner;
 
   @Option(

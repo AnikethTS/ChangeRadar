@@ -10,8 +10,8 @@ brief. Exit code `1` means a blocking policy matched. It does not measure
 how large the blast radius looks. `changeradar run` can also exit `1` when
 the command you supplied exits non-zero. The brief then includes an
 `EXECUTION` limitation. That limitation is the command's result, not proof
-from the diff. `--runner` passes only DIRECT tests to Gradle, Maven, or
-pytest. A `SELECTED_TESTS` limitation names that choice. Heuristic tests
+from the diff. `--runner` passes only DIRECT tests to Gradle, Maven,
+pytest, PHPUnit, or Jest. A `SELECTED_TESTS` limitation names that choice. Heuristic tests
 are not executed. `changeradar mcp` does not run a command.
 
 ## Brief file

@@ -164,7 +164,7 @@ the same place you already review the change.
   version. `changeradar review` serves `report.html` on `127.0.0.1` and can
   show source around a finding. The page stays on this machine.
 - `changeradar run --command …` analyzes, then runs that command in the
-  working tree. `--runner gradle`, `maven`, or `pytest` limits it to DIRECT
+  working tree. `--runner gradle`, `maven`, `pytest`, `phpunit`, or `jest` limits it to DIRECT
   tests. Heuristic tests are not executed. It does not choose a build tool
   or upload source.
 - Lists named policies with `changeradar policies` (alias `list-policies`).

@@ -72,6 +72,34 @@ class TestRunFilterTest {
   }
 
   @Test
+  void phpunitAndJestPassTheTestFile() {
+    List<Limitation> notes = new ArrayList<>();
+    assertEquals(
+        "vendor/bin/phpunit tests/PayTest.php",
+        TestRunFilter.parse("phpunit")
+            .commandFor(
+                "vendor/bin/phpunit",
+                List.of(
+                    new TestRecommendation(
+                        "tests/PayTest.php", "tests/PayTest.php", Confidence.DIRECT, "calls"),
+                    new TestRecommendation(
+                        "tests/GuessTest.php",
+                        "tests/GuessTest.php",
+                        Confidence.HEURISTIC,
+                        "name")),
+                notes));
+    assertTrue(notes.get(0).message().contains("1 recommendations were not DIRECT"));
+    assertEquals(
+        "npx jest src/pay.test.ts",
+        TestRunFilter.parse("jest")
+            .commandFor(
+                "npx jest",
+                List.of(
+                    new TestRecommendation("Pay", "src/pay.test.ts", Confidence.DIRECT, "calls")),
+                new ArrayList<>()));
+  }
+
+  @Test
   void rejectsAnUnknownRunner() {
     GitAccessException failure =
         assertThrows(GitAccessException.class, () -> TestRunFilter.parse("bazel"));
