@@ -56,7 +56,9 @@ Today the tool records:
   fell back to method-name matching (`HEURISTIC`).
 - `TS_IMPORTS` / `PY_IMPORTS` / `PHP_IMPORTS` when callers are matched
   using import/require/`use` specifiers against HEAD files (not tsc,
-  CPython, php-parser, or Composer autoload). TypeScript follows
+  CPython, or php-parser). PHP reads `composer.json` `psr-4` and `psr-0`
+  prefixes (`PHP_COMPOSER_AUTOLOAD`); classmap, files, and vendor
+  packages are not loaded. TypeScript follows
   `export * from`, named `export { … } from`, and nearest
   `tsconfig.json` / `jsconfig.json` `paths` (not `extends`; `export * as`
   namespaces are still missed).

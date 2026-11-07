@@ -306,4 +306,47 @@ class PhpLanguageAnalyzerTest {
             Map.of());
     assertTrue(result.limitations().stream().anyMatch(l -> "PHP_PARSE_FAILED".equals(l.code())));
   }
+
+  @Test
+  void composerPsr4UseIsADirectCaller() {
+    String pay =
+        """
+        <?php
+        namespace App;
+        class Pay {
+          public function n() { return 1; }
+        }
+        """;
+    String caller =
+        """
+        <?php
+        namespace App;
+        use App\\Pay;
+        class Caller {
+          public function run() {
+            return Pay::n();
+          }
+        }
+        """;
+    String composer =
+        """
+        { "autoload": { "psr-4": { "App\\\\": "src/" } } }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/Pay.php", ChangeType.MODIFY, null, List.of(new LineRange(4, 4)))),
+            Map.of("src/Pay.php", pay, "src/Caller.php", caller, "composer.json", composer),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().equals("src/Caller.php")));
+    assertTrue(
+        result.limitations().stream().anyMatch(l -> "PHP_COMPOSER_AUTOLOAD".equals(l.code())));
+  }
 }

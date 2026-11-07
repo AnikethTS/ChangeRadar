@@ -10,6 +10,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - `changeradar run --runner phpunit` and `--runner jest` pass DIRECT test
   files to PHPUnit and Jest. Heuristic tests are not executed. The command
   is still the one you supply.
+- PHP `use` names resolve through `composer.json` `psr-4` and `psr-0`
+  prefixes, including `autoload-dev`. A caller found that way stays in the
+  scoped report. Classmap, files, and vendor packages are not loaded.
 
 ## [0.2.8] - 2026-11-07
 
