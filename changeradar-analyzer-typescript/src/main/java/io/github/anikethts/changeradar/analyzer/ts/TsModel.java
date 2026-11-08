@@ -15,7 +15,11 @@ record ParsedFile(
     Imports imports,
     Map<String, List<String>> supers) {}
 
-record Imports(Map<String, String> bindings, Set<String> modules, Set<String> starExports) {}
+record Imports(
+    Map<String, String> bindings,
+    Set<String> modules,
+    Set<String> starExports,
+    Map<String, String> namespaceExports) {}
 
 record Decl(
     String kind,

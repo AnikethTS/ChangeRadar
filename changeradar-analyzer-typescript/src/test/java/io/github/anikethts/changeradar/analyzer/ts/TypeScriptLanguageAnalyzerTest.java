@@ -215,6 +215,42 @@ class TypeScriptLanguageAnalyzerTest {
   }
 
   @Test
+  void followsExportStarAsNamespaceToTheImplementation() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String barrel = "export * as api from \"./api\";\n";
+    String caller =
+        """
+        import { api } from "./index";
+        export function run() {
+          return api.n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts", api,
+                "src/index.ts", barrel,
+                "src/caller.ts", caller),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.ts")
+                        && finding.summary().contains("api#n")));
+  }
+
+  @Test
   void followsNamedReexportBarrelToTheImplementation() {
     String api =
         """

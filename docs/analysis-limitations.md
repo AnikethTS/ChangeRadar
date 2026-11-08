@@ -59,9 +59,8 @@ Today the tool records:
   CPython, or php-parser). PHP reads `composer.json` `psr-4` and `psr-0`
   prefixes (`PHP_COMPOSER_AUTOLOAD`); classmap, files, and vendor
   packages are not loaded. TypeScript follows
-  `export * from`, named `export { … } from`, and nearest
-  `tsconfig.json` / `jsconfig.json` `paths` (not `extends`; `export * as`
-  namespaces are still missed).
+  `export * from`, `export * as` namespaces, named `export { … } from`, and
+  nearest `tsconfig.json` / `jsconfig.json` `paths` (not `extends`).
 - `TS_TSCONFIG_PATHS` when at least one of those configs declared
   `compilerOptions.paths`.
 - `TS_STRUCTURAL_EDGES` / `PY_STRUCTURAL_EDGES` / `PHP_STRUCTURAL_EDGES`

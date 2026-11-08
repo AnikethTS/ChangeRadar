@@ -59,6 +59,8 @@ final class TsParsing {
           "(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*require\\s*\\(\\s*['\"]([^'\"]+)['\"]");
   static final Pattern EXPORT_STAR =
       Pattern.compile("export\\s+\\*\\s+from\\s+['\"]([^'\"]+)['\"]");
+  static final Pattern EXPORT_STAR_AS =
+      Pattern.compile("export\\s+\\*\\s+as\\s+([A-Za-z_$][\\w$]*)\\s+from\\s+['\"]([^'\"]+)['\"]");
 
   private TsParsing() {}
 
@@ -346,6 +348,7 @@ final class TsParsing {
     Map<String, String> bindings = new LinkedHashMap<>();
     Set<String> modules = new LinkedHashSet<>();
     Set<String> starExports = new LinkedHashSet<>();
+    Map<String, String> namespaceExports = new LinkedHashMap<>();
     Matcher named = IMPORT_NAMED.matcher(source);
     while (named.find()) {
       String spec = named.group(2);
@@ -382,6 +385,11 @@ final class TsParsing {
       starExports.add(exportStar.group(1));
       modules.add(exportStar.group(1));
     }
-    return new Imports(bindings, modules, starExports);
+    Matcher exportStarAs = EXPORT_STAR_AS.matcher(source);
+    while (exportStarAs.find()) {
+      namespaceExports.put(exportStarAs.group(1), exportStarAs.group(2));
+      modules.add(exportStarAs.group(2));
+    }
+    return new Imports(bindings, modules, starExports, namespaceExports);
   }
 }

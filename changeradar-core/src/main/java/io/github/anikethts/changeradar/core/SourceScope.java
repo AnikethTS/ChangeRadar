@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
 /**
  * Limits HEAD sources fed to parsers: changed files, same-directory Java/Kotlin neighbors, files
  * whose import/require/{@code use} specifiers resolve to a changed path (including Composer
- * PSR-4/PSR-0 prefixes), every {@code .sql} file when a SQL file changed, every workflow file when
- * a workflow file changed, and every {@code .sh} file when a shell file changed.
+ * PSR-4/PSR-0 prefixes), files that import a re-export barrel of a kept file, every {@code .sql}
+ * file when a SQL file changed, every workflow file when a workflow file changed, and every {@code
+ * .sh} file when a shell file changed.
  */
 public final class SourceScope {
 
@@ -24,6 +25,8 @@ public final class SourceScope {
   private static final Pattern IMPORT_MODULE = Pattern.compile("(?m)^\\s*import\\s+([\\w.]+)");
   private static final Pattern USE =
       Pattern.compile("(?m)^\\s*use\\s+(?:function\\s+|const\\s+)?([^;]+);");
+  private static final Pattern REEXPORT =
+      Pattern.compile("(?m)^\\s*export\\s+(?:type\\s+)?(?:\\*|\\{[^;]*\\}\\s+from\\s+)");
   private static final List<String> SUFFIXES =
       List.of(
           ".java", ".kt", ".kts", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
@@ -86,6 +89,7 @@ public final class SourceScope {
         keep.add(path);
       }
     }
+    keepImportersOfReexports(keep, headSources, pathMap, autoload);
     Map<String, String> out = new LinkedHashMap<>();
     for (String path : keep) {
       String source = headSources.get(path);
@@ -94,6 +98,44 @@ public final class SourceScope {
       }
     }
     return out;
+  }
+
+  /**
+   * A barrel re-exports another module. Follow up to three such hops so {@code export * as} and
+   * {@code export *} consumers stay in the scoped set. A normal importer of a kept file is not
+   * pulled in.
+   */
+  private static void keepImportersOfReexports(
+      Set<String> keep,
+      Map<String, String> headSources,
+      TsConfigPaths.PathMap pathMap,
+      ComposerAutoload.PrefixMap autoload) {
+    for (int hop = 0; hop < 3; hop++) {
+      Set<String> barrels = new LinkedHashSet<>();
+      for (String path : keep) {
+        String source = headSources.get(path);
+        if (source != null && REEXPORT.matcher(source).find()) {
+          barrels.add(path);
+        }
+      }
+      if (barrels.isEmpty()) {
+        return;
+      }
+      boolean added = false;
+      for (Map.Entry<String, String> entry : headSources.entrySet()) {
+        if (keep.contains(entry.getKey())) {
+          continue;
+        }
+        if (importsSeed(
+            entry.getKey(), entry.getValue(), barrels, headSources.keySet(), pathMap, autoload)) {
+          keep.add(entry.getKey());
+          added = true;
+        }
+      }
+      if (!added) {
+        return;
+      }
+    }
   }
 
   private static boolean importsSeed(
