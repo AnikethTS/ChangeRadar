@@ -345,6 +345,7 @@ final class TsCallers {
           moduleHoldsChangedName(
               file.path(),
               spec,
+              binding,
               symbolName,
               parsedHead,
               changedNamesByPath,
@@ -361,6 +362,7 @@ final class TsCallers {
       if (moduleHoldsChangedName(
               file.path(),
               module,
+              symbolName,
               symbolName,
               parsedHead,
               changedNamesByPath,
@@ -383,6 +385,7 @@ final class TsCallers {
   static Optional<Boolean> moduleHoldsChangedName(
       String fromFile,
       String specifier,
+      String importedName,
       String symbolName,
       Map<String, ParsedFile> parsedHead,
       Map<String, Set<String>> changedNamesByPath,
@@ -408,16 +411,38 @@ final class TsCallers {
     String namedSpec = target.imports().bindings().get(symbolName);
     if (namedSpec != null
         && moduleHoldsChangedName(
-                path, namedSpec, symbolName, parsedHead, changedNamesByPath, visited, pathMap)
+                path,
+                namedSpec,
+                symbolName,
+                symbolName,
+                parsedHead,
+                changedNamesByPath,
+                visited,
+                pathMap)
             .orElse(false)) {
       return Optional.of(true);
     }
     for (String star : target.imports().starExports()) {
       if (moduleHoldsChangedName(
-              path, star, symbolName, parsedHead, changedNamesByPath, visited, pathMap)
+              path, star, symbolName, symbolName, parsedHead, changedNamesByPath, visited, pathMap)
           .orElse(false)) {
         return Optional.of(true);
       }
+    }
+    String namespaceSpec = target.imports().namespaceExports().get(importedName);
+    if (namespaceSpec != null
+        && !importedName.equals(symbolName)
+        && moduleHoldsChangedName(
+                path,
+                namespaceSpec,
+                symbolName,
+                symbolName,
+                parsedHead,
+                changedNamesByPath,
+                visited,
+                pathMap)
+            .orElse(false)) {
+      return Optional.of(true);
     }
     return Optional.of(false);
   }

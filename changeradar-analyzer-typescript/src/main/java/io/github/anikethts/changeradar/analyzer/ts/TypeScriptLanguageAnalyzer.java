@@ -144,8 +144,9 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
           new Limitation(
               "TS_IMPORTS",
               "TypeScript/JavaScript callers are matched using import/require specifiers against"
-                  + " HEAD files, following export * from, named export { … } from re-exports, and"
-                  + " nearest tsconfig.json/jsconfig.json compilerOptions.paths. This is not tsc."
+                  + " HEAD files, following export * from, export * as namespaces, named export {"
+                  + " … } from re-exports, and nearest tsconfig.json/jsconfig.json"
+                  + " compilerOptions.paths. This is not tsc."
                   + " Dynamic import(), eval, extends, and unmapped aliases may be missed or"
                   + " over-reported."));
       limitations.add(

@@ -13,6 +13,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - PHP `use` names resolve through `composer.json` `psr-4` and `psr-0`
   prefixes, including `autoload-dev`. A caller found that way stays in the
   scoped report. Classmap, files, and vendor packages are not loaded.
+- TypeScript `export * as name from` is followed, so `name.symbol()` through
+  that barrel is a direct caller. Scoped analysis also keeps a file that
+  imports a re-export barrel of the change.
 
 ## [0.2.8] - 2026-11-07
 
