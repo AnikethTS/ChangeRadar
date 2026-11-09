@@ -27,6 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
 
@@ -88,6 +89,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # The annotated tag is pushed with this checkout token.
 
       - name: Create annotated tag and release
         env:
@@ -123,9 +125,12 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.inspect.outputs.tag }}
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -138,12 +143,26 @@ jobs:
       - name: Build fat JAR
         run: ./gradlew :changeradar-cli:shadowJar --no-daemon
 
-      - name: Upload release asset
+      - name: Checksum the JAR
+        run: |
+          cp changeradar-cli/build/libs/changeradar.jar changeradar.jar
+          sha256sum changeradar.jar > changeradar.jar.sha256
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: changeradar.jar
+
+      - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.inspect.outputs.tag }}
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
-          test -s changeradar-cli/build/libs/changeradar.jar
+          cp "$ATTESTATION_BUNDLE" changeradar.jar.sigstore.json
           gh release upload "$TAG" \
-            changeradar-cli/build/libs/changeradar.jar \
+            changeradar.jar \
+            changeradar.jar.sha256 \
+            changeradar.jar.sigstore.json \
             --clobber

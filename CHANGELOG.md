@@ -5,6 +5,15 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Pull requests run the Ubuntu JDK 21 check, CLI smoke, secret scan, and
+  workflow lint. The full operating-system matrix runs on `main`, on the
+  nightly schedule, and on a pull request labeled `ci:full`. The `CI` job
+  stays red until that label is present.
+- A published release uploads `changeradar.jar.sha256` and a Sigstore build
+  provenance bundle next to `changeradar.jar`.
+
 ### Added
 
 - `changeradar run --runner phpunit` and `--runner jest` pass DIRECT test
