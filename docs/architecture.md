@@ -11,7 +11,7 @@ the deep analyzers. CI systems invoke the same CLI.
 | CLI (`changeradar-cli`) | Parse arguments, validate refs, choose output formats, map exceptions to exit codes. |
 | Git adapter (`changeradar-git`) | Repository state, base/head resolution, changed files. JGit, hidden behind `GitRepository`. |
 | Language analyzer API (`changeradar-core`) | Parsing and relationship extraction behind `LanguageAnalyzer`. |
-| Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy, removals, and binary signature (params, return, throws, fields). |
+| Java analyzer (`changeradar-analyzer-java`) | JavaParser: changed types/methods, name-based callers, related tests, public API occupancy, removals, and binary signature (params, return, throws, fields). Type resolution uses the HEAD sources already loaded. |
 | Kotlin analyzer (`changeradar-analyzer-kotlin`) | Types and functions, import/same-directory callers, related tests. Not kotlinc. |
 | TypeScript analyzer (`changeradar-analyzer-typescript`) | TS/JS classes, functions, exports, name-based callers, related tests. Not tsc. |
 | Python analyzer (`changeradar-analyzer-python`) | Classes and functions, name-based callers, related tests. Not CPython. |

@@ -17,6 +17,12 @@ follow [Keep a Changelog](https://keepachangelog.com/).
   that barrel is a direct caller. Scoped analysis also keeps a file that
   imports a re-export barrel of the change.
 
+### Changed
+
+- The Java symbol solver reads HEAD sources from memory. Analysis no longer
+  copies every Java file into a temporary directory, and each file is parsed
+  once.
+
 ## [0.2.8] - 2026-11-07
 
 Analyzer JAR is the `v0.2.8` release asset. Omit `version` for latest;
