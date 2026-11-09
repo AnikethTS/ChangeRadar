@@ -22,6 +22,8 @@ It is not a second impact engine.
 - [ ] Base/head refs are explicit; merge-base behavior is written down.
 - [ ] Shallow clones that lack the base commit fail with exit `2`.
 - [ ] Least-privilege defaults (`contents: read` or equivalent).
+- [ ] Checkout does not persist a token (`persist-credentials: false` on
+      GitHub Actions) unless that job has to push.
 - [ ] Forked / untrusted events cannot write comments with a privileged token.
 - [ ] Third-party actions/plugins pinned to immutable versions where the
       platform allows it.

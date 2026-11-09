@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - uses: AnikethTS/ChangeRadar@8795047ab4617ca241d5a69a8bb7c3e2aece1832

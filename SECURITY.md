@@ -19,6 +19,14 @@ Use GitHub's private vulnerability reporting for this repo:
 This opens a private advisory visible only to you and the maintainer —
 nothing is public until a fix is out and you're both ready to disclose it.
 
+## Checks on this repository
+
+Pull requests are scanned with gitleaks, Semgrep (`p/security-audit` and
+`p/java`), zizmor, CodeQL, and Dependency Review. OpenSSF Scorecard runs
+on `main` and weekly. Published JARs are checksummed and attested; see
+[Development](docs/development.md#releasing). These checks do not replace
+a private report for something you find.
+
 ## What's in scope
 
 - Reading repository files and Git objects from a path the user (or CI)

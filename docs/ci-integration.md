@@ -109,6 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - uses: AnikethTS/ChangeRadar@8795047ab4617ca241d5a69a8bb7c3e2aece1832
         with:
@@ -117,26 +118,10 @@ jobs:
           # version: v0.2.8
 ```
 
-This repository builds the JAR, runs tests, and passes JaCoCo XML plus
-JUnit XML into [`.github/workflows/impact.yml`](../.github/workflows/impact.yml).
-Publishing a GitHub Release triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-which uploads `changeradar.jar`.
-
-This repository's [CI workflow](../.github/workflows/ci.yml) still runs
-`./gradlew check` and a CLI smoke job on current Ubuntu, macOS, and Windows
-images (JDK 21 and 25) and on the previous hosted images `ubuntu-24.04`,
-`ubuntu-22.04`, `windows-2022`, and `macos-15` (JDK 21). GitHub-hosted
-runners have no Windows 10 label; `windows-2022` is the prior Server image.
-Jobs use `bash` on every OS so `./gradlew` and `java -jar changeradar.jar`
-behave the same. Smoke validates `report.json` against the report schema.
-A `CI` gate job fails unless every required job succeeded. Protect main
-requires the stable names `CI`, `Check`, `CLI smoke`, `actionlint`,
-`Gradle Wrapper`, CodeQL `Analyze (java)`, Dependency Review, and
-`Impact report`.
-
 Requirements:
 
-- Checkout with enough history that `$BASE_SHA` exists. `fetch-depth: 0` is
+- Checkout with `persist-credentials: false` and enough history that
+  `$BASE_SHA` exists. `fetch-depth: 0` is
   the simple, correct default. Shallow clones that omit the base commit
   must fail with exit `2`, not a silent empty report.
 - Pass `github.event.pull_request.base.sha` and
@@ -222,6 +207,34 @@ on the artifact unless you intentionally want Code Scanning.
 
 GitLab CI, Jenkins, and generic shell examples wait until this contract is
 stable and tested.
+
+## This repository
+
+How the fast plan, the `ci:full` label, and the release assets fit
+together is written in [Development](development.md#ci).
+
+- [`.github/workflows/impact.yml`](../.github/workflows/impact.yml) builds
+  the JAR in this repo, runs tests, and passes JaCoCo XML plus JUnit XML
+  into the Action. It does not download the published release.
+- [Publish release](../.github/workflows/publish-release.yml) and
+  [Release JAR](../.github/workflows/release.yml) upload `changeradar.jar`,
+  `changeradar.jar.sha256`, and `changeradar.jar.sigstore.json`.
+- Example checkouts set `persist-credentials: false`. Analysis needs the
+  files and the Git history (`fetch-depth: 0`).
+
+Verify a downloaded JAR:
+
+```bash
+mkdir -p /tmp/changeradar
+gh release download v0.2.8 --pattern 'changeradar.jar*' --dir /tmp/changeradar
+cd /tmp/changeradar
+sha256sum -c changeradar.jar.sha256
+gh attestation verify changeradar.jar -o AnikethTS
+```
+
+The checksum file names `changeradar.jar`, so both files have to sit in
+the current directory. The attestation confirms GitHub Actions built that
+exact file for this repository.
 
 ## JSON schema
 

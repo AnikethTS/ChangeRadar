@@ -227,7 +227,21 @@ ChangeRadar SARIF to Code Scanning. Java repos may compile in the workflow
 and pass `classpath:` of those jars so typed callers can be `DIRECT`.
 After your own test job, pass `coverage:` (JaCoCo/LCOV) and `junit:`
 (JUnit XML); ChangeRadar does not run those tests.
-Details: [CI integration](docs/ci-integration.md).
+A published release includes `changeradar.jar.sha256` and a Sigstore
+provenance bundle (`changeradar.jar.sigstore.json`). Check both before
+you pin `version`:
+
+```bash
+mkdir -p /tmp/changeradar && cd /tmp/changeradar
+gh release download v0.2.8 --pattern 'changeradar.jar*'
+sha256sum -c changeradar.jar.sha256
+gh attestation verify changeradar.jar -o AnikethTS
+```
+
+This repository's own pull requests run Ubuntu JDK 21 tests immediately.
+The full operating-system matrix runs after the `ci:full` label is added.
+Details: [CI integration](docs/ci-integration.md) and
+[Development](docs/development.md#ci).
 
 ## Docs
 
@@ -236,7 +250,7 @@ Details: [CI integration](docs/ci-integration.md).
 - [CI integration](docs/ci-integration.md) — exit codes, artifacts, GitHub Actions
 - [Analysis limitations](docs/analysis-limitations.md) — what static analysis cannot claim
 - [Policy configuration](docs/policy-configuration.md) — `--policy`, fail-open vs fail-closed
-- [Development](docs/development.md) — tests, modules, formatting
+- [Development](docs/development.md) — tests, CI, and how a release is cut
 - [Adding a language analyzer](docs/adding-a-language-analyzer.md)
 - [Adding a CI provider](docs/adding-a-ci-provider.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to send a PR

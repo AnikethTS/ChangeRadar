@@ -38,9 +38,13 @@ git config core.hooksPath .githooks
   codes in `changeradar-cli`, shared model in `changeradar-core`.
 - Prefer fixture repositories under `fixtures/` (or `@TempDir` Git repos in
   tests) over mocking JGit unless the mock is the thing under test.
-- Run `./gradlew check` locally before opening a PR. CI runs the same
-  checks on current and previous GitHub-hosted Ubuntu, macOS, and Windows
-  images (JDK 21 on all of them; JDK 25 on `*-latest`).
+- Run `./gradlew check` locally before opening a PR. CI runs that check
+  and a CLI smoke on Ubuntu with JDK 21 as soon as the pull request
+  opens. The same checks on current and previous GitHub-hosted Ubuntu,
+  macOS, and Windows images (JDK 21 on all of them; JDK 25 on
+  `*-latest`) run after you add the **`ci:full`** label. The `CI` job
+  stays red until that label is present. See
+  [Development — CI](docs/development.md#ci).
 - Write your commit messages and PR description around *why*, not just
   *what* — the diff already shows what changed.
 
