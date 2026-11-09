@@ -21,19 +21,15 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import io.github.anikethts.changeradar.core.Limitation;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,15 +49,34 @@ final class JavaParsing {
       String source,
       Map<String, ParsedFile> into,
       List<Limitation> limitations) {
+    parse(parser, path, source, into, limitations, null);
+  }
+
+  static void parse(
+      JavaParser parser,
+      String path,
+      String source,
+      Map<String, ParsedFile> into,
+      List<Limitation> limitations,
+      InMemoryJavaTypeSolver sources) {
     try {
-      ParseResult<CompilationUnit> parsed = parser.parse(source);
-      if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
-        limitations.add(
-            new Limitation(
-                "JAVA_PARSE_FAILED", "Could not parse " + path + ": " + parsed.getProblems()));
-        return;
+      CompilationUnit cu;
+      if (sources != null) {
+        cu = sources.unit(path, source);
+        if (cu == null) {
+          limitations.add(new Limitation("JAVA_PARSE_FAILED", "Could not parse " + path + "."));
+          return;
+        }
+      } else {
+        ParseResult<CompilationUnit> parsed = parser.parse(source);
+        if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
+          limitations.add(
+              new Limitation(
+                  "JAVA_PARSE_FAILED", "Could not parse " + path + ": " + parsed.getProblems()));
+          return;
+        }
+        cu = parsed.getResult().get();
       }
-      CompilationUnit cu = parsed.getResult().get();
       String pkg =
           cu.getPackageDeclaration().map(declaration -> declaration.getNameAsString()).orElse("");
       List<Decl> decls = new ArrayList<>();
@@ -110,60 +125,22 @@ final class JavaParsing {
     return parsed.get(path);
   }
 
-  static JavaParser parserWithSolver(
-      Path solverRoot, Map<String, String> headJavaFiles, List<Path> classpath) {
-    ParserConfiguration language =
-        new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
+  record SolvedParser(JavaParser parser, InMemoryJavaTypeSolver sources) {}
+
+  /** Type-resolves HEAD sources already held in memory. Does not copy them to a temp directory. */
+  static SolvedParser parserWithSolver(Map<String, String> headJavaFiles, List<Path> classpath) {
+    InMemoryJavaTypeSolver sources = new InMemoryJavaTypeSolver(headJavaFiles);
     CombinedTypeSolver types = new CombinedTypeSolver();
     types.add(new ReflectionTypeSolver(true));
     addClasspath(types, classpath);
-    for (String root : sourceRoots(headJavaFiles)) {
-      Path dir = root.isEmpty() ? solverRoot : solverRoot.resolve(root);
-      if (Files.isDirectory(dir)) {
-        types.add(new JavaParserTypeSolver(dir, language));
-      }
-    }
-    ParserConfiguration configured =
-        new ParserConfiguration()
-            .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
-            .setSymbolResolver(new JavaSymbolSolver(types));
-    return new JavaParser(configured);
-  }
-
-  static Path materializeSources(Map<String, String> headJavaFiles) throws IOException {
-    Path tmp = Files.createTempDirectory("changeradar-java-");
-    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
-      Path dest = tmp.resolve(entry.getKey()).normalize();
-      if (!dest.startsWith(tmp)) {
-        throw new IOException("Refusing to write outside the solver workspace: " + entry.getKey());
-      }
-      Path parent = dest.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      Files.writeString(dest, entry.getValue());
-    }
-    tmp.toFile().deleteOnExit();
-    return tmp;
-  }
-
-  static void deleteRecursively(Path root) {
-    if (root == null || !Files.exists(root)) {
-      return;
-    }
-    try (var walk = Files.walk(root)) {
-      walk.sorted(Comparator.reverseOrder())
-          .forEach(
-              path -> {
-                try {
-                  Files.deleteIfExists(path);
-                } catch (IOException ignored) {
-                  path.toFile().deleteOnExit();
-                }
-              });
-    } catch (IOException ignored) {
-      root.toFile().deleteOnExit();
-    }
+    types.add(sources);
+    JavaParser parser =
+        new JavaParser(
+            new ParserConfiguration()
+                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
+                .setSymbolResolver(new JavaSymbolSolver(types)));
+    sources.use(parser);
+    return new SolvedParser(parser, sources);
   }
 
   static String inferSourceRoot(String path, String source) {
@@ -268,13 +245,5 @@ final class JavaParsing {
         // Unreadable jars stay off the solver path; those sites remain HEURISTIC.
       }
     }
-  }
-
-  private static Set<String> sourceRoots(Map<String, String> headJavaFiles) {
-    Set<String> roots = new LinkedHashSet<>();
-    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
-      roots.add(inferSourceRoot(entry.getKey(), entry.getValue()));
-    }
-    return roots;
   }
 }

@@ -14,7 +14,6 @@ import io.github.anikethts.changeradar.core.LanguageAnalyzer;
 import io.github.anikethts.changeradar.core.Limitation;
 import io.github.anikethts.changeradar.core.LineRange;
 import io.github.anikethts.changeradar.core.TestRecommendation;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -29,7 +28,8 @@ import java.util.Set;
  * the JRE are resolved with JavaParser's symbol solver (DIRECT). Resolved callers of those callers
  * are INDIRECT, capped by depth and count. Unresolved calls fall back to name matching (HEURISTIC)
  * and are not chained. Overrides, field reads, annotation uses, and inject-style fields are extra
- * structural findings. Compiled Maven/Gradle dependencies are not on the type path.
+ * structural findings. Compiled Maven/Gradle dependencies are not on the type path. HEAD sources
+ * stay in memory; the solver does not copy them to a temporary directory.
  */
 public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
 
@@ -68,12 +68,14 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
     List<ChangedSymbol> changedSymbols = new ArrayList<>();
     List<String> formatOnly = new ArrayList<>();
     Map<String, ParsedFile> parsedHead = new LinkedHashMap<>();
-    Path solverRoot = null;
     JavaParser headParser = JavaParsing.PARSER;
+    InMemoryJavaTypeSolver sources = null;
     if (!headJavaFiles.isEmpty()) {
       try {
-        solverRoot = JavaParsing.materializeSources(headJavaFiles);
-        headParser = JavaParsing.parserWithSolver(solverRoot, headJavaFiles, options.classpath());
+        JavaParsing.SolvedParser solved =
+            JavaParsing.parserWithSolver(headJavaFiles, options.classpath());
+        headParser = solved.parser();
+        sources = solved.sources();
         if (!options.classpath().isEmpty()) {
           limitations.add(
               new Limitation(
@@ -110,130 +112,126 @@ public final class JavaLanguageAnalyzer implements LanguageAnalyzer {
                 "Java overrides, field access, annotation uses, and inject-style fields"
                     + " (@Autowired/@Inject/@Resource) are resolved against HEAD sources and the"
                     + " JRE only. Spring/Jakarta containers are not simulated."));
-      } catch (IOException e) {
+      } catch (RuntimeException e) {
         limitations.add(
             new Limitation(
                 "JAVA_SYMBOL_SOLVER",
                 "Could not set up the Java symbol solver ("
                     + e.getMessage()
                     + "); callers fall back to name matching."));
+        headParser = JavaParsing.PARSER;
+        sources = null;
       }
     }
 
-    try {
-      for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
-        JavaParsing.parse(headParser, entry.getKey(), entry.getValue(), parsedHead, limitations);
-      }
+    for (Map.Entry<String, String> entry : headJavaFiles.entrySet()) {
+      JavaParsing.parse(
+          headParser, entry.getKey(), entry.getValue(), parsedHead, limitations, sources);
+    }
 
-      for (ChangedFile changed : changedFiles) {
-        if (!changed.isJavaSource()) {
-          continue;
-        }
-        if (changed.changeType() == ChangeType.DELETE) {
-          ParsedFile baseFile = JavaParsing.parseBase(changed.path(), baseJavaFiles, limitations);
-          if (baseFile != null) {
-            for (Decl decl : baseFile.decls()) {
-              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
-            }
+    for (ChangedFile changed : changedFiles) {
+      if (!changed.isJavaSource()) {
+        continue;
+      }
+      if (changed.changeType() == ChangeType.DELETE) {
+        ParsedFile baseFile = JavaParsing.parseBase(changed.path(), baseJavaFiles, limitations);
+        if (baseFile != null) {
+          for (Decl decl : baseFile.decls()) {
+            changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
           }
-          continue;
         }
-        ParsedFile file = parsedHead.get(changed.path());
-        if (file == null) {
-          continue;
-        }
-        ParsedFile baseFile = null;
+        continue;
+      }
+      ParsedFile file = parsedHead.get(changed.path());
+      if (file == null) {
+        continue;
+      }
+      ParsedFile baseFile = null;
+      if (changed.changeType() == ChangeType.MODIFY || changed.changeType() == ChangeType.RENAME) {
+        String basePath = changed.previousPath() != null ? changed.previousPath() : changed.path();
         if (changed.changeType() == ChangeType.MODIFY
-            || changed.changeType() == ChangeType.RENAME) {
-          String basePath =
-              changed.previousPath() != null ? changed.previousPath() : changed.path();
-          if (changed.changeType() == ChangeType.MODIFY
-              && JavaSupport.sameIgnoringTrivia(
-                  baseJavaFiles.get(basePath), headJavaFiles.get(changed.path()))) {
-            formatOnly.add(changed.path());
-            continue;
-          }
-          baseFile = JavaParsing.parseBase(basePath, baseJavaFiles, limitations);
+            && JavaSupport.sameIgnoringTrivia(
+                baseJavaFiles.get(basePath), headJavaFiles.get(changed.path()))) {
+          formatOnly.add(changed.path());
+          continue;
         }
-        Set<String> baseKeys = new LinkedHashSet<>();
-        if (baseFile != null) {
-          for (Decl decl : baseFile.decls()) {
-            baseKeys.add(decl.identity());
-          }
+        baseFile = JavaParsing.parseBase(basePath, baseJavaFiles, limitations);
+      }
+      Set<String> baseKeys = new LinkedHashSet<>();
+      if (baseFile != null) {
+        for (Decl decl : baseFile.decls()) {
+          baseKeys.add(decl.identity());
         }
-        List<LineRange> hunks = changed.headLineRanges();
-        boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
-        Set<String> headKeys = new LinkedHashSet<>();
-        for (Decl decl : file.decls()) {
-          headKeys.add(decl.identity());
-          if (wholeFile || JavaSupport.overlaps(hunks, decl.startLine(), decl.endLine())) {
-            ChangeType type;
-            if (changed.changeType() == ChangeType.ADD) {
-              type = ChangeType.ADD;
-            } else if (baseFile != null && !baseKeys.contains(decl.identity())) {
-              type = ChangeType.ADD;
-            } else {
-              type = ChangeType.MODIFY;
-            }
-            changedSymbols.add(decl.toSymbol(type));
+      }
+      List<LineRange> hunks = changed.headLineRanges();
+      boolean wholeFile = hunks.isEmpty() || changed.changeType() == ChangeType.ADD;
+      Set<String> headKeys = new LinkedHashSet<>();
+      for (Decl decl : file.decls()) {
+        headKeys.add(decl.identity());
+        if (wholeFile || JavaSupport.overlaps(hunks, decl.startLine(), decl.endLine())) {
+          ChangeType type;
+          if (changed.changeType() == ChangeType.ADD) {
+            type = ChangeType.ADD;
+          } else if (baseFile != null && !baseKeys.contains(decl.identity())) {
+            type = ChangeType.ADD;
+          } else {
+            type = ChangeType.MODIFY;
           }
+          changedSymbols.add(decl.toSymbol(type));
         }
-        if (baseFile != null) {
-          for (Decl decl : baseFile.decls()) {
-            if (!headKeys.contains(decl.identity())) {
-              changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
-            }
+      }
+      if (baseFile != null) {
+        for (Decl decl : baseFile.decls()) {
+          if (!headKeys.contains(decl.identity())) {
+            changedSymbols.add(decl.toSymbol(ChangeType.DELETE));
           }
         }
       }
-
-      if (!formatOnly.isEmpty()) {
-        limitations.add(FormatOnly.limitation(formatOnly));
-      }
-
-      changedSymbols.sort(
-          Comparator.comparing((ChangedSymbol s) -> s.location().path())
-              .thenComparing(s -> s.location().startLine())
-              .thenComparing(ChangedSymbol::id));
-
-      CallerScan callers = JavaCallers.findCallers(parsedHead, changedSymbols);
-      if (callers.chainCapped()) {
-        limitations.add(
-            new Limitation(
-                "JAVA_CALL_CHAIN_CAP",
-                "Indirect Java callers were capped at "
-                    + CallChains.MAX_INDIRECT
-                    + "; later hops in the graph are omitted."));
-      }
-      List<ImpactFinding> findings = new ArrayList<>(callers.findings());
-      findings.addAll(JavaRecommendations.publicApiFindings(changedSymbols));
-      findings.sort(
-          Comparator.comparing((ImpactFinding f) -> f.location().path())
-              .thenComparing(f -> f.location().startLine())
-              .thenComparing(ImpactFinding::summary));
-
-      List<TestRecommendation> tests =
-          JavaRecommendations.recommendTests(parsedHead, changedSymbols, findings);
-      tests.sort(
-          Comparator.comparing(TestRecommendation::path).thenComparing(TestRecommendation::name));
-
-      if (findings.stream()
-          .anyMatch(
-              finding ->
-                  "CALLER".equals(finding.type())
-                      && finding.confidence() == Confidence.HEURISTIC)) {
-        limitations.add(
-            new Limitation(
-                "NAME_BASED_DISPATCH",
-                "Some Java call sites could not be type-resolved (missing dependency types,"
-                    + " reflection, or incomplete HEAD sources) and were matched by method name"
-                    + " only. Those matches are labeled HEURISTIC."));
-      }
-
-      return new AnalysisResult(changedSymbols, findings, tests, limitations);
-    } finally {
-      JavaParsing.deleteRecursively(solverRoot);
     }
+
+    if (!formatOnly.isEmpty()) {
+      limitations.add(FormatOnly.limitation(formatOnly));
+    }
+
+    changedSymbols.sort(
+        Comparator.comparing((ChangedSymbol s) -> s.location().path())
+            .thenComparing(s -> s.location().startLine())
+            .thenComparing(ChangedSymbol::id));
+
+    CallerScan callers = JavaCallers.findCallers(parsedHead, changedSymbols);
+    if (callers.chainCapped()) {
+      limitations.add(
+          new Limitation(
+              "JAVA_CALL_CHAIN_CAP",
+              "Indirect Java callers were capped at "
+                  + CallChains.MAX_INDIRECT
+                  + "; later hops in the graph are omitted."));
+    }
+    List<ImpactFinding> findings = new ArrayList<>(callers.findings());
+    findings.addAll(JavaRecommendations.publicApiFindings(changedSymbols));
+    findings.sort(
+        Comparator.comparing((ImpactFinding f) -> f.location().path())
+            .thenComparing(f -> f.location().startLine())
+            .thenComparing(ImpactFinding::summary));
+
+    List<TestRecommendation> tests =
+        JavaRecommendations.recommendTests(parsedHead, changedSymbols, findings);
+    tests.sort(
+        Comparator.comparing(TestRecommendation::path).thenComparing(TestRecommendation::name));
+
+    if (findings.stream()
+        .anyMatch(
+            finding ->
+                "CALLER".equals(finding.type()) && finding.confidence() == Confidence.HEURISTIC)) {
+      limitations.add(
+          new Limitation(
+              "NAME_BASED_DISPATCH",
+              "Some Java call sites could not be type-resolved (missing dependency types,"
+                  + " reflection, or incomplete HEAD sources) and were matched by method name"
+                  + " only. Those matches are labeled HEURISTIC."));
+    }
+
+    return new AnalysisResult(changedSymbols, findings, tests, limitations);
   }
 
   static String inferSourceRoot(String path, String source) {
