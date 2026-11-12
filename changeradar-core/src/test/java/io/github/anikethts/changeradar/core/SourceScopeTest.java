@@ -56,6 +56,37 @@ class SourceScopeTest {
   }
 
   @Test
+  void keepsImporterThatInheritsTsconfigPaths() {
+    Map<String, String> head =
+        Map.of(
+            "src/api.ts",
+            "export function n() { return 1; }\n",
+            "packages/web/caller.ts",
+            "import { n } from \"@app/api\";\n",
+            "packages/web/other.ts",
+            "export function other() { return 2; }\n",
+            "tsconfig.base.json",
+            """
+            {
+              "compilerOptions": {
+                "baseUrl": ".",
+                "paths": { "@app/*": ["src/*"] }
+              }
+            }
+            """,
+            "packages/web/tsconfig.json",
+            """
+            { "extends": "../../tsconfig.base.json" }
+            """);
+    Map<String, String> subset =
+        SourceScope.subset(List.of(new ChangedFile("src/api.ts", ChangeType.MODIFY, null)), head);
+    assertTrue(subset.containsKey("packages/web/caller.ts"));
+    assertTrue(subset.containsKey("packages/web/tsconfig.json"));
+    assertTrue(subset.containsKey("tsconfig.base.json"));
+    assertFalse(subset.containsKey("packages/web/other.ts"));
+  }
+
+  @Test
   void keepsOtherSqlFilesWhenASqlFileChanged() {
     Map<String, String> head =
         Map.of(

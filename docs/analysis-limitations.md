@@ -60,7 +60,8 @@ Today the tool records:
   prefixes (`PHP_COMPOSER_AUTOLOAD`); classmap, files, and vendor
   packages are not loaded. TypeScript follows
   `export * from`, `export * as` namespaces, named `export { … } from`, and
-  nearest `tsconfig.json` / `jsconfig.json` `paths` (not `extends`).
+  nearest `tsconfig.json` / `jsconfig.json` `paths`, including relative
+  `extends`. Package names and project references are not loaded.
 - `TS_TSCONFIG_PATHS` when at least one of those configs declared
   `compilerOptions.paths`.
 - `TS_STRUCTURAL_EDGES` / `PY_STRUCTURAL_EDGES` / `PHP_STRUCTURAL_EDGES`

@@ -25,6 +25,9 @@ follow [Keep a Changelog](https://keepachangelog.com/).
 - TypeScript `export * as name from` is followed, so `name.symbol()` through
   that barrel is a direct caller. Scoped analysis also keeps a file that
   imports a re-export barrel of the change.
+- A package `tsconfig.json` that `extends` a relative base config inherits
+  that file's `paths`. Package-name extends and project references are not
+  loaded. A child `baseUrl` does not rebase inherited path targets.
 
 ### Changed
 
