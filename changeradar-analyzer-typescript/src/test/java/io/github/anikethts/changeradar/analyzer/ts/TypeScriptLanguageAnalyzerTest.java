@@ -366,6 +366,54 @@ class TypeScriptLanguageAnalyzerTest {
   }
 
   @Test
+  void followsPathsInheritedThroughExtends() {
+    String api =
+        """
+        export function n(): number {
+          return 1;
+        }
+        """;
+    String caller =
+        """
+        import { n } from "@app/api";
+        export function run() {
+          return n();
+        }
+        """;
+    AnalysisResult result =
+        analyzer.analyze(
+            List.of(
+                new ChangedFile(
+                    "src/api.ts", ChangeType.MODIFY, null, List.of(new LineRange(1, 3)))),
+            Map.of(
+                "src/api.ts",
+                api,
+                "packages/web/caller.ts",
+                caller,
+                "tsconfig.base.json",
+                """
+                {
+                  "compilerOptions": {
+                    "baseUrl": ".",
+                    "paths": { "@app/*": ["src/*"] }
+                  }
+                }
+                """,
+                "packages/web/tsconfig.json",
+                """
+                { "extends": "../../tsconfig.base.json" }
+                """),
+            Map.of());
+    assertTrue(
+        result.findings().stream()
+            .anyMatch(
+                finding ->
+                    "CALLER".equals(finding.type())
+                        && finding.confidence() == Confidence.DIRECT
+                        && finding.location().path().contains("caller.ts")));
+  }
+
+  @Test
   void whitespaceAndCommentOnlyIsFormatOnly() {
     String base = "export function n(): number { return 1; }\n";
     String head = "export function n(): number {  /* pad */ return 1; }\n";

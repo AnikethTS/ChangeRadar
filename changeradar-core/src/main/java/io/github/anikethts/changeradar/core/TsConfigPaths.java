@@ -7,14 +7,17 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Nearest {@code tsconfig.json} / {@code jsconfig.json} {@code compilerOptions.paths} and {@code
- * baseUrl}. This is not tsc: {@code extends}, project references, and multi-star patterns are
- * ignored.
+ * baseUrl}, including relative {@code extends}. This is not tsc: package names, project references,
+ * and multi-star patterns are ignored. A child {@code baseUrl} does not rebase inherited path
+ * targets.
  */
 public final class TsConfigPaths {
 
@@ -37,28 +40,33 @@ public final class TsConfigPaths {
   }
 
   public static PathMap index(Map<String, String> headFiles) {
-    Map<String, Config> configs = new LinkedHashMap<>();
+    Map<String, Raw> raws = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : headFiles.entrySet()) {
       if (!isConfigPath(entry.getKey())) {
         continue;
       }
-      parse(entry.getKey(), entry.getValue())
-          .ifPresent(config -> configs.put(entry.getKey(), config));
+      parse(entry.getKey(), entry.getValue()).ifPresent(raw -> raws.put(entry.getKey(), raw));
+    }
+    Map<String, Config> configs = new LinkedHashMap<>();
+    for (Raw raw : raws.values()) {
+      configs.put(raw.path(), resolve(raw, raws, new LinkedHashSet<>()));
     }
     return new PathMap(configs);
   }
 
-  static Optional<Config> parse(String path, String source) {
+  static Optional<Raw> parse(String path, String source) {
     if (source == null || source.isBlank()) {
       return Optional.empty();
     }
     try {
       JsonNode root = MAPPER.readTree(source);
       JsonNode opts = root.path("compilerOptions");
-      String baseUrl = opts.path("baseUrl").asText(".");
+      boolean declaredBase = opts.hasNonNull("baseUrl") && opts.get("baseUrl").isTextual();
+      String baseUrl = declaredBase ? opts.get("baseUrl").asText() : ".";
       JsonNode paths = opts.get("paths");
+      boolean declaredPaths = paths != null && paths.isObject();
       List<Mapping> mappings = new ArrayList<>();
-      if (paths != null && paths.isObject()) {
+      if (declaredPaths) {
         paths
             .properties()
             .forEach(
@@ -79,11 +87,124 @@ public final class TsConfigPaths {
                   mappings.add(new Mapping(pattern, List.copyOf(targets)));
                 });
       }
-      mappings.sort(Comparator.comparingInt((Mapping m) -> m.pattern.length()).reversed());
-      return Optional.of(new Config(path, baseUrl, List.copyOf(mappings)));
+      return Optional.of(
+          new Raw(
+              path, declaredBase, baseUrl, declaredPaths, List.copyOf(mappings), extendsOf(root)));
     } catch (Exception ignored) {
       return Optional.empty();
     }
+  }
+
+  private static List<String> extendsOf(JsonNode root) {
+    JsonNode value = root.get("extends");
+    if (value == null || value.isNull()) {
+      return List.of();
+    }
+    List<String> specs = new ArrayList<>();
+    if (value.isTextual()) {
+      specs.add(value.asText());
+    } else if (value.isArray()) {
+      value.forEach(
+          node -> {
+            if (node.isTextual()) {
+              specs.add(node.asText());
+            }
+          });
+    }
+    return List.copyOf(specs);
+  }
+
+  private static Config resolve(Raw raw, Map<String, Raw> raws, Set<String> stack) {
+    if (!stack.add(raw.path())) {
+      return own(raw, null);
+    }
+    Config parent = null;
+    for (String spec : raw.extendsSpecs()) {
+      String path = resolveExtends(raw.path(), spec, raws.keySet());
+      Raw base = path == null ? null : raws.get(path);
+      if (base == null) {
+        continue;
+      }
+      Config resolved = resolve(base, raws, stack);
+      parent = parent == null ? resolved : overlay(parent, resolved);
+    }
+    stack.remove(raw.path());
+    return own(raw, parent);
+  }
+
+  /** Later config wins. Inherited path targets stay where the file that declared them put them. */
+  private static Config overlay(Config base, Config top) {
+    String resolvedBase = top.declaredBase() ? top.resolvedBase() : base.resolvedBase();
+    List<Mapping> mappings = top.declaredPaths() ? top.mappings() : base.mappings();
+    return new Config(
+        top.path(),
+        resolvedBase,
+        mappings,
+        top.declaredBase() || base.declaredBase(),
+        top.declaredPaths());
+  }
+
+  private static Config own(Raw raw, Config parent) {
+    String resolvedBase =
+        raw.declaredBase()
+            ? Config.join(configDir(raw.path()), raw.baseUrl())
+            : parent != null && parent.declaredBase()
+                ? parent.resolvedBase()
+                : Config.join(configDir(raw.path()), ".");
+    List<Mapping> mappings;
+    if (raw.declaredPaths()) {
+      String anchor = raw.declaredBase() || parent == null ? resolvedBase : parent.resolvedBase();
+      mappings = anchor(raw.mappings(), anchor);
+    } else if (parent != null) {
+      mappings = parent.mappings();
+    } else {
+      mappings = List.of();
+    }
+    return new Config(
+        raw.path(),
+        resolvedBase,
+        mappings,
+        raw.declaredBase() || (parent != null && parent.declaredBase()),
+        raw.declaredPaths());
+  }
+
+  private static String resolveExtends(String from, String spec, Set<String> known) {
+    if (spec == null || spec.isBlank()) {
+      return null;
+    }
+    String unix = spec.trim().replace('\\', '/');
+    if (unix.contains("://") || unix.startsWith("@") || !unix.startsWith(".")) {
+      return null;
+    }
+    String dir = configDir(from);
+    String joined = SourcePaths.normalize(dir.isEmpty() ? unix : dir + "/" + unix);
+    if (known.contains(joined)) {
+      return joined;
+    }
+    if (!joined.endsWith(".json") && known.contains(joined + ".json")) {
+      return joined + ".json";
+    }
+    return null;
+  }
+
+  private static List<Mapping> anchor(List<Mapping> mappings, String base) {
+    List<Mapping> anchored = new ArrayList<>();
+    for (Mapping mapping : mappings) {
+      List<String> targets = new ArrayList<>();
+      for (String target : mapping.targets()) {
+        targets.add(Config.join(base, target.replace('\\', '/')));
+      }
+      anchored.add(new Mapping(mapping.pattern(), List.copyOf(targets)));
+    }
+    anchored.sort(
+        Comparator.comparingInt((Mapping mapping) -> mapping.pattern().length()).reversed());
+    return List.copyOf(anchored);
+  }
+
+  private static String configDir(String path) {
+    String unix = path.replace('\\', '/');
+    int slash = unix.lastIndexOf('/');
+    return slash < 0 ? "" : unix.substring(0, slash);
   }
 
   public record PathMap(Map<String, Config> configs) {
@@ -127,7 +248,12 @@ public final class TsConfigPaths {
     }
   }
 
-  record Config(String path, String baseUrl, List<Mapping> mappings) {
+  record Config(
+      String path,
+      String resolvedBase,
+      List<Mapping> mappings,
+      boolean declaredBase,
+      boolean declaredPaths) {
     Config {
       mappings = List.copyOf(mappings);
     }
@@ -137,7 +263,6 @@ public final class TsConfigPaths {
         return List.of();
       }
       String spec = specifier.replace('\\', '/');
-      String root = join(configDir(), baseUrl == null || baseUrl.isBlank() ? "." : baseUrl);
       for (Mapping mapping : mappings) {
         Optional<String> rest = mapping.match(spec);
         if (rest.isEmpty()) {
@@ -145,10 +270,11 @@ public final class TsConfigPaths {
         }
         List<String> stems = new ArrayList<>();
         for (String target : mapping.targets()) {
-          stems.add(join(root, fill(target.replace('\\', '/'), rest.get())));
+          stems.add(fill(target.replace('\\', '/'), rest.get()));
         }
         return stems;
       }
+      String root = resolvedBase == null || resolvedBase.isBlank() ? "." : resolvedBase;
       return List.of(join(root, spec));
     }
 
@@ -179,18 +305,25 @@ public final class TsConfigPaths {
       return SourcePaths.normalize(out.toString());
     }
 
-    private String configDir() {
-      String unix = path.replace('\\', '/');
-      int slash = unix.lastIndexOf('/');
-      return slash < 0 ? "" : unix.substring(0, slash);
-    }
-
     private static String fill(String target, String rest) {
       int star = target.indexOf('*');
       if (star < 0) {
         return rest.isEmpty() ? target : target + "/" + rest;
       }
       return target.substring(0, star) + rest + target.substring(star + 1);
+    }
+  }
+
+  record Raw(
+      String path,
+      boolean declaredBase,
+      String baseUrl,
+      boolean declaredPaths,
+      List<Mapping> mappings,
+      List<String> extendsSpecs) {
+    Raw {
+      mappings = List.copyOf(mappings);
+      extendsSpecs = List.copyOf(extendsSpecs);
     }
   }
 

@@ -147,8 +147,8 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
                   + " HEAD files, following export * from, export * as namespaces, named export {"
                   + " … } from re-exports, and nearest tsconfig.json/jsconfig.json"
                   + " compilerOptions.paths. This is not tsc."
-                  + " Dynamic import(), eval, extends, and unmapped aliases may be missed or"
-                  + " over-reported."));
+                  + " Dynamic import(), eval, package extends, and unmapped aliases may be missed"
+                  + " or over-reported."));
       limitations.add(
           new Limitation(
               "TS_STRUCTURAL_EDGES",
@@ -158,9 +158,10 @@ public final class TypeScriptLanguageAnalyzer implements LanguageAnalyzer {
         limitations.add(
             new Limitation(
                 "TS_TSCONFIG_PATHS",
-                "Path aliases came from nearest tsconfig.json/jsconfig.json compilerOptions.paths"
-                    + " and baseUrl. extends, project references, and mappings with more than one"
-                    + " * are ignored."));
+                "Path aliases came from the nearest tsconfig.json/jsconfig.json, including"
+                    + " relative extends. Package names, project references, and mappings with"
+                    + " more than one * are ignored. A child baseUrl does not rebase inherited"
+                    + " paths."));
       }
     }
     if (findings.stream()
